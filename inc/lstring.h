@@ -429,11 +429,11 @@ DECLMATH( tanh );
 	char
 #	ifdef GREEK
 #	   ifdef MSDOS
-        *clower="abcdefghijklmnopqrstuvwxyz<98><99><9a><9b><9c><9d><9e><9f> ¡¢£¤¥¦§¨©«¬­®¯àªáâãåæçéäè",
-        *cUPPER="ABCDEFGHIJKLMNOPQRSTUVWXYZ<80><81><82><83><84><85><86><87><88><89><8a><8b><8c><8d><8e><8f><90><91><92><93><94><95><96><97><91>êëìíîïð<88><93>",
+		*clower="abcdefghijklmnopqrstuvwxyz ¡¢£¤¥¦§¨©«¬­®¯àªáâãåæçéäè",
+		*cUPPER="ABCDEFGHIJKLMNOPQRSTUVWXYZêëìíîïð",
 #	   else
-        *clower="abcdefghijklmnopqrstuvwxyzáâãäåæçèéêëìíîïðñóôõö÷øùÜÝÞßúÀüýûàþò",
-        *cUPPER="ABCDEFGHIJKLMNOPQRSTUVWXYZÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÓÔÕÖ×ØÙ¶¸¹ºÚÚ¼¾ÛÛ¿Ó",
+		*clower="abcdefghijklmnopqrstuvwxyzáâãäåæçèéêëìíîïðñóôõö÷øùÜÝÞßúÀüýûàþò",
+		*cUPPER="ABCDEFGHIJKLMNOPQRSTUVWXYZÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÓÔÕÖ×ØÙ¶¸¹ºÚÚ¼¾ÛÛ¿Ó",
 #	   endif
 #	else
 		*clower="abcdefghijklmnopqrstuvwxyz",
