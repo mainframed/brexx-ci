@@ -1,0 +1,44 @@
+RXWAIT   TITLE 'WRAP CALL TO IKJ441 FROM C'                             00000100
+         PRINT GEN                                                      00000200
+* --------------------------------------------------------------------- 00000300
+*   WAIT FOR HUNDREDS OF A SECOND, CALLED FROM C (FOR BREXX)            00000400
+*   AUTHOR  : PETER JACOB (PEJ)                                         00000500
+*   CREATED : 02.11.2018  PEJ                                           00000600
+*   JCC PROLOGUE : JUERGEN WINKELMANN, ETH ZUERICH.                     00000700
+* --------------------------------------------------------------------- 00000800
+RXWAIT   MRXSTART A2PLIST=YES                                           00000901
+* --------------------------------------------------------------------  00001000
+*   RXWAIT CODE: WAIT IN HUNDREDS OF A SECOND                           00001100
+* --------------------------------------------------------------------  00001200
+         USING WTCB,RB       ENABLE ADDRESSIBILTY OF C INPUT AREA       00001300
+         L     RA,WTRWKADR   LOAD ADDRESS OF WORKAREA IN INPUT AREA     00001400
+         USING WAITWRK,RA    ENABLE ADDRESSIBILTY OF WORKAREA           00001500
+         L     R1,WTSECADR   LOAD ADDRESS OF WAIT                       00001600
+         MVC   WAITS,0(R1)   LOAD AMOUNT OF HH SECONDS                  00001700
+         STIMER WAIT,BINTVL=WAITS                                       00001800
+*        L     R1,WTRRCADR   LOAD ADDRESS OF RETURN CODE                00001900
+*        MVC   0(4,R1),=A(0) LOAD ADDRESS OF WAIT                       00002000
+* --------------------------------------------------------------------  00002100
+*   EXIT PROGRAM                                                        00002200
+* --------------------------------------------------------------------  00002300
+EXIT     MRXEXIT                                                        00002400
+         LTORG                                                          00002500
+* --------------------------------------------------------------------  00002600
+*    INCOMING STORAGE DEFINITION (FROM C PROGRAM)                       00002700
+* --------------------------------------------------------------------  00002800
+*                                                                       00002900
+WTCB     DSECT               CB ADDRESSING THE C PROGRAM WORK AREA      00003000
+WTSECADR DS    A             WAIT IN HUNDREDS OF A SECOND               00003100
+WTRRCADR DS    A             WAIT RETURN CODE                           00003200
+WTRWKADR DS    A             ADDRESS OF  WORKAREA ALLOCATED IN CPROGRAM 00003300
+WTCBEND  DS    0A                                                       00003400
+*                                                                       00003500
+WAITWRK  DSECT               WORKAREA BY C PROGRAM (ADR IN WTRWKADR)    00003600
+WAITS    DS    A                                                        00003700
+EOWORK   EQU   WAITWRK+255   WORKAREA CONSISTS OF 255 BYTES             00003800
+* --------------------------------------------------------------------  00003900
+*    REGISTER DEFINITIONS                                               00004000
+* --------------------------------------------------------------------  00004100
+*                                                                       00004200
+         COPY  MRXREGS                                                  00004300
+         END   RXWAIT                                                   00004400

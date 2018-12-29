@@ -1,0 +1,57 @@
+RXPTIME  TITLE 'RETURN TIME IN HUNDREDS OF A SECOND'                    00000100
+* --------------------------------------------------------------------- 00000200
+*   RETURN CURRENT TIME, CALLED FROM C (FOR BREXX)                      00000300
+*     FORMAT HH:MM:SS:HS  HS IS HUNDREDS OF A SECOND                    00000400
+*   AUTHOR  : PETER JACOB (PEJ)                                         00000500
+*   CREATED : 03.11.2018  PEJ                                           00000600
+*   JCC PROLOGUE : JUERGEN WINKELMANN, ETH ZUERICH.                     00000700
+* --------------------------------------------------------------------- 00000800
+         PRINT GEN                                                      00000900
+* --------------------------------------------------------------------  00001000
+*   RXPTIME CODE: RETURN CURRENT TIME IN HH:MM:SS:HS                    00001100
+* --------------------------------------------------------------------  00001200
+RXPTIME  MRXSTART A2PLIST=YES                                           00001301
+         USING PTIMPARM,RB   ENABLE ADDRESSIBILTY OF C INPUT AREA       00001400
+RXPTIMGO L     RA,WPTWKADR   LOAD WORK AREA OF INPUT PARM               00001500
+         USING PTIMECB,RA    ENABLE ADDRESSIBILTY OF C INPUT AREA       00001600
+         TIME  DEC           CURRENT TIME IN DECIMAL                    00001700
+         ST    R0,FTIME      SAVE TIME                                  00001800
+         MVI   RSIGN,X'0F'   SET + SIGN                                 00001900
+         UNPK  UNPKFLD,RTIME UNPACK FIELD                               00002000
+         L     RE,WPTMADR    LOAD ADDRESS OF OUTPUT FIELD               00002100
+         MVC   0(2,RE),UNPKFLD+7  SAVE HOURS                            00002200
+         MVI   2(RE),C':'         ADD SEPARATOR ':'                     00002300
+         MVC   3(2,RE),UNPKFLD+9  SAVE MINUTES                          00002400
+         MVI   5(RE),C':'         ADD SEPARATOR ':'                     00002500
+         MVC   6(2,RE),UNPKFLD+11 SAVE SECONDS                          00002600
+         MVI   8(RE),C'.'         ADD SEPARATOR '.'                     00002700
+         MVC   9(2,RE),UNPKFLD+13 SAVE HUNDREDS OF A SECOND             00002800
+         L     R1,WPTLADR         LOAD ADDRESS OF LENGTH                00002900
+         LA    R2,11              LENGTH IS 11                          00003000
+         ST    R2,0(R1)           SAVE IT                               00003100
+* --------------------------------------------------------------------  00003200
+*   EXIT PROGRAM                                                        00003300
+* --------------------------------------------------------------------  00003400
+EXIT     MRXEXIT                                                        00003500
+         LTORG                                                          00003600
+* --------------------------------------------------------------------  00003700
+*    INCOMING STORAGE DEFINITION (FROM C PROGRAM)                       00003800
+* --------------------------------------------------------------------  00003900
+*                                                                       00004000
+* INPUT PARM DSECT, PROVIDED AS INPUT PARAMETER BY THE C PROGRAM        00004100
+PTIMPARM DSECT               INPUT PARM DSECT                           00004200
+WPTMADR  DS    A             ADDRESS RESULT RETURNED FROM PGM           00004300
+WPTLADR  DS    A             ADDRESS OF RETURNED LENGTH                 00004400
+WPTRCADR DS    A             ADDRESS OF  RC                             00004500
+WPTWKADR DS    A             ADDRESS OF  WORKAREA ALLOCATED IN CPROGRAM 00004600
+*                                                                       00004700
+PTIMECB  DSECT               INPUT PARM DSECT                           00004800
+UNPKFLD  DS    CL16          UNPK FIELD                                 00004900
+RTIME    DS    0CL5         +RAW DATE/TIME FROM TIME MACRO              00005000
+FTIME    DS    F            +- DECIMAL VALUE                            00005100
+RSIGN    DC    X'0F'        +- SIGN OF DECIMAL RESULT OF TIME           00005200
+* --------------------------------------------------------------------  00005300
+*    REGISTER DEFINITIONS                                               00005400
+* --------------------------------------------------------------------  00005500
+         COPY  MRXREGS                                                  00005600
+         END   RXPTIME                                                  00005700

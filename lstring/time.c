@@ -49,6 +49,9 @@
  * struct timeval is
  */
 #	include <time.h>
+#   if defined(__MVS__) && defined(JCC)
+#       include "rxmvsext.h"
+#   endif
 #	if !defined(__CMS__) && !defined(__MVS__)
 #		include <sys/time.h>
 #		include <unistd.h>
@@ -137,10 +140,15 @@ Ltime( const PLstr timestr, char option )
 #	elif defined(__CMS__) // (defined(__MVS__) && !defined(JCC))
 		unsigned int vmnow[2];
 		struct tm * tv;
-#	elif defined(JCC)
+#	elif defined(__MVS__) && defined(JCC)
 		struct timeval vmtime;
 		struct timezone vmzone;
 		struct tm * tv;
+        RX_PTIME_PARAMS_PTR  params;
+        char                *wptmadr;
+        unsigned            *wptladr;
+        unsigned            *wptccadr;
+        unsigned            *wptwkadr;
 #	else
 		struct timeval tv;
 		struct timezone tz;
@@ -227,8 +235,33 @@ Ltime( const PLstr timestr, char option )
 			sprintf(LSTR(*timestr), "%02d:%02d:%02d.%03ld",
 				tmdata->tm_hour, tmdata->tm_min,
 				tmdata->tm_sec, tb.millitm) ;
-#elif defined(__CMS__) || defined(__MVS__)
+#elif defined(__CMS__)
 			/* need to provide a replacement here for CMS & MVS */
+#elif defined(__MVS__) && defined(JCC)
+			params   = malloc(sizeof(RX_PTIME_PARAMS));
+            wptmadr  = (char     *) malloc(12);
+            wptladr  = (unsigned *) malloc(4);
+            wptccadr = (unsigned *) malloc(4);
+            wptwkadr = (unsigned *) malloc(256);
+
+            memset(wptmadr,0,12);
+
+            params->wptmadr  = (unsigned *) wptmadr;
+            params->wptladr  = (unsigned *) wptladr;
+            params->wptccadr = (unsigned *) wptccadr;
+            params->wptwkadr = (unsigned *) wptwkadr;
+
+            call_rxptime(params);
+
+            sprintf(LSTR(*timestr), "%s",
+            wptmadr) ;
+
+            free(wptmadr);
+            free(wptladr);
+            free(wptccadr);
+            free(wptwkadr);
+            free(params);
+
 #else
 			gettimeofday(&tv,&tz);
 			sprintf(LSTR(*timestr), "%02d:%02d:%02d.%06ld",

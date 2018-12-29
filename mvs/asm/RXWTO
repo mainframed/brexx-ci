@@ -1,0 +1,55 @@
+RXWTO    TITLE 'SEND MESSAGE TO MVS CONSOLE'                            00000100
+* --------------------------------------------------------------------- 00000200
+*   SEND MESSAGE TO OPERATOR'S CONSOLE, CALLED FROM C (FOR BREXX)       00000300
+*   AUTHOR  : PETER JACOB (PEJ)                                         00000400
+*   CREATED : 03.11.2018  PEJ                                           00000500
+*   JCC PROLOGUE : JUERGEN WINKELMANN, ETH ZUERICH.                     00000600
+* --------------------------------------------------------------------- 00000700
+         PRINT GEN                                                      00000800
+* --------------------------------------------------------------------  00000900
+*   RXWTO CODE: SEND MESSAGE TO CONSOLE                                 00001000
+* --------------------------------------------------------------------  00001100
+RXWTO    MRXSTART A2PLIST=YES                                           00001201
+         USING WTOPARM,RB    ENABLE ADDRESSIBILTY OF C INPUT AREA       00001300
+RXWTOGO  L     RA,WMSWKADR   LOAD WORK AREA OF INPUT PARM               00001400
+         USING WTOCB,RA      ENABLE ADDRESSIBILTY OF C INPUT AREA       00001500
+* ... PICK UP AND VERIFY LENGTH PARAMETER                               00001600
+         L     RF,WMSLADR    LOAD LENGTH ADDRESS                        00001700
+         L     RF,0(RF)      ... AND REAL LENGTH                        00001800
+         CH    RF,=AL2(80)   MUST NOT EXCEED 120 CHARS                  00001902
+         BNH   LENOK                                                    00002000
+         LA    RF,80         TOO HIGH, LOAD MAX LENGTH                  00002102
+LENOK    LR    R3,RF         CALCULATE LENGTH OF ENTIRE CB              00002200
+         LA    R3,4(R3)      ... +2 LENGTH +2 BYTES FILLER              00002300
+         STH   R3,WTOMSGLN   SAVE ENTIRE LENGTH IN CB                   00002400
+* ... PICK UP MESSAGE AND MOVE IT INTO WTO CB (ACCORDING ITS LENGTH)    00002500
+         L     R5,WMSGADR    LOAD MESSAGE ADDRESS                       00002600
+         EXMVC WTOMSG,0(R5),LEN=0(RF)  AND SAVE IT IN WTO CB            00002700
+         MVC   WTOFILLR,=AL2(0)  CLEAR NEXT 2 BYTES                     00002800
+         WTO   MF=(E,WTOCB)  SEND MESSAGE TO CONSOLE                    00002900
+* --------------------------------------------------------------------  00003000
+*   EXIT PROGRAM                                                        00003100
+* --------------------------------------------------------------------  00003200
+EXIT     MRXEXIT                                                        00003300
+         LTORG                                                          00003400
+* --------------------------------------------------------------------  00003500
+*    INCOMING STORAGE DEFINITION (FROM C PROGRAM)                       00003600
+* --------------------------------------------------------------------  00003700
+*                                                                       00003800
+* INPUT PARM DSECT, PROVIDED AS INPUT PARAMETER BY THE C PROGRAM        00003900
+WTOPARM  DSECT               INPUT PARM DSECT                           00004000
+WMSGADR  DS    A             MESSAGE ADDRESS                            00004100
+WMSLADR  DS    A             MESSAGE LENGHT ADDRESS                     00004200
+WMSRCADR DS    A             ADDRESS OF  RC                             00004300
+WMSWKADR DS    A             ADDRESS OF  WORKAREA ALLOCATED IN CPROGRAM 00004400
+* WTO CONTROL BLOCK (WILL BE PLACED INTO WTO WORK AREA)                 00004500
+WTOCB    DSECT                                                          00004600
+WTOMSGLN DS    AL2                                                      00004700
+WTOFILLR DS    CL2                                                      00004800
+WTOMSG   DS    CL80                                                     00004900
+WTOMSEND DS    0H                                                       00005000
+* --------------------------------------------------------------------  00005100
+*    REGISTER DEFINITIONS                                               00005200
+* --------------------------------------------------------------------  00005300
+         COPY  MRXREGS                                                  00005400
+         END   RXWTO                                                    00005500

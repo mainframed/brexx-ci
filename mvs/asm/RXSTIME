@@ -1,0 +1,42 @@
+RXSTIME  TITLE 'RETURN TIME IN HUNDREDS OF A SECOND'                    00000100
+* --------------------------------------------------------------------- 00000200
+*   RETURN TIME IN HUNDREDS OF A SECOND, CALLED FROM C (FOR BREXX)      00000300
+*     FORMAT INTEGER IN HUNDREDS OF A SECOND SINCE MIDNIGHT             00000400
+*   AUTHOR  : PETER JACOB (PEJ)                                         00000500
+*   CREATED : 03.11.2018  PEJ                                           00000600
+*   JCC PROLOGUE : JUERGEN WINKELMANN, ETH ZUERICH.                     00000700
+* --------------------------------------------------------------------- 00000800
+         PRINT GEN                                                      00000900
+* --------------------------------------------------------------------  00001000
+*   RXSTIME CODE: RETURN TIME SINCE MIDNIGHT IN HUNDREDS OF A SECOND    00001100
+* --------------------------------------------------------------------  00001200
+RXSTIME  MRXSTART A2PLIST=YES                                           00001301
+         USING STIMPARM,RB   ENABLE ADDRESSIBILTY OF C INPUT AREA       00001400
+RXSTIMGO L     RA,WPTWKADR   LOAD WORK AREA OF INPUT PARM               00001500
+         USING STIMECB,RA    ENABLE ADDRESSIBILTY OF C INPUT AREA       00001600
+         TIME  BIN           CURRENT TIME (BINARY                       00001700
+         L     R5,WPTMADR    LOAD ADDRESS OF RETURN INTEGER FIELD       00001800
+         ST    R0,0(R5)      SAVE IN RETURN FIELD                       00001900
+         LA    RF,0          SET RC=0                                   00002000
+* --------------------------------------------------------------------  00002100
+*   EXIT PROGRAM                                                        00002200
+* --------------------------------------------------------------------  00002300
+EXIT     MRXEXIT                                                        00002400
+         LTORG                                                          00002500
+* --------------------------------------------------------------------  00002600
+*    INCOMING STORAGE DEFINITION (FROM C PROGRAM)                       00002700
+* --------------------------------------------------------------------  00002800
+*    INPUT PARM DSECT, PROVIDED AS INPUT PARAMETER BY THE C PROGRAM     00002900
+STIMPARM DSECT               INPUT PARM DSECT                           00003000
+WPTMADR  DS    A             ADDRESS RESULT RETURNED FROM PGM           00003100
+WPTLADR  DS    A             ADDRESS OF RETURNED LENGTH                 00003200
+WPTRCADR DS    A             ADDRESS OF  RC                             00003300
+WPTWKADR DS    A             ADDRESS OF  WORKAREA ALLOCATED IN CPROGRAM 00003400
+*    WORK AREA DSECT, PROVIDED AS WORKARE PARM BY THE C PROGRAM         00003500
+STIMECB  DSECT               INPUT PARM DSECT                           00003600
+RESERVED DS    CL16          UNUSED                                     00003700
+* --------------------------------------------------------------------  00003800
+*    REGISTER DEFINITIONS                                               00003900
+* --------------------------------------------------------------------  00004000
+         COPY  MRXREGS                                                  00004100
+         END   RXSTIME                                                  00004200

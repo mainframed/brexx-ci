@@ -1,0 +1,13 @@
+         MACRO                                                          00000100
+&LABEL   EXMVC &INTO,&FROM,&LEN=                                        00000200
+         B     *+10                                                     00000300
+M&SYSNDX MVC   0(1,R1),0(RE)                                            00000400
+&LABEL   LA    RF,&LEN                                                  00000500
+         LTR   RF,RF                                                    00000600
+         BZ    N&SYSNDX                                                 00000700
+         BCTR  RF,0                                                     00000800
+         LA    R1,&INTO                                                 00000900
+         LA    RE,&FROM                                                 00001000
+         EX    RF,M&SYSNDX                                              00001100
+N&SYSNDX DS    0H                                                       00001200
+         MEND                                                           00001300

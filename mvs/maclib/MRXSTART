@@ -1,0 +1,35 @@
+         MACRO                                                          00000100
+&PGM     MRXSTART &MODE=C,&PGMREG=RC,&A2PLIST='YES'                     00000200
+         GBLC  &MAIN                                                    00000300
+         GBLC  &PGMTYPE                                                 00000400
+&MAIN    SETC  '&PGM'                                                   00000500
+&PGMTYPE SETC  '&MODE'                                                  00000600
+* --------------------------------------------------------------------- 00000700
+         MNOTE '*     PROGRAM &PGM'                                     00000800
+* --------------------------------------------------------------------- 00000900
+&PGM     CSECT ,                START OF PROGRAM                        00001000
+         USING &PGM,RF          INIT PROGRAM ADDRESSABILITY             00001100
+         STM   RE,RC,12(RD)     SAVE REGISTERS                          00001200
+         L     R2,8(,RD)        \                                       00001300
+         LA    RE,96(,R2)        \                                      00001400
+         L     RC,0(,RD)          \                                     00001500
+         CL    RE,4(,RC)           \                                    00001600
+         BL    G&SYSNDX             \                                   00001700
+         L     RA,0(,RC)             \ SAVE AREA CHAINING               00001800
+         BALR  RB,RA                 / AND JCC PROLOGUE                 00001900
+         CNOP  0,4                  /                                   00002000
+         DC    F'96'               /                                    00002100
+G&SYSNDX STM   RC,RE,0(R2)        /                                     00002200
+         LR    RD,R2             /                                      00002300
+         LR    &PGMREG,RF       ESTABLISH MODULE ADDRESSABILITY         00002400
+         DROP  RF               RELEASE INITIAL BASE REGISTER           00002500
+         USING &PGM,RC          SET NEW PROGRAM BASE REGISTER ++++      00002600
+         LR    RB,R1            PARAMETER LIST FROM CALLING PGM         00002700
+         AIF   ('&A2PLIST' NE 'YES').NLOAD                              00002800
+         L     RB,0(RB)         REFER TO PARMLIST                       00002900
+.NLOAD   ANOP                                                           00003000
+         B     S&SYSNDX                                                 00003100
+         DC    C'*** &PGM ***'                                          00003200
+         DC    CL8'&SYSDATE',CL8'&SYSTIME'  DATE/TIME OF ASSEMBLY       00003300
+S&SYSNDX DS    0H                                                       00003400
+         MEND                                                           00003500
