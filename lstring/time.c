@@ -49,9 +49,6 @@
  * struct timeval is
  */
 #	include <time.h>
-#   if defined(__MVS__) && defined(JCC)
-#       include "rxmvsext.h"
-#   endif
 #	if !defined(__CMS__) && !defined(__MVS__)
 #		include <sys/time.h>
 #		include <unistd.h>
@@ -59,6 +56,9 @@
 #endif
 #include "lerror.h"
 #include "lstring.h"
+#if defined(__MVS__) && defined(JCC) || defined(__CROSS__)
+# include "rxmvsext.h"
+#endif
 
 static double elapsed=0.0;
 #if defined(JCC)
