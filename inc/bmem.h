@@ -41,14 +41,14 @@
 
 #include "os.h"
 #include <stdlib.h>
-#if !defined(__CMS__) && !defined(__MVS__)
+#if !defined(__CMS__) && !defined(__MVS__) && !defined(__MACH__)
 #	include <malloc.h>
 #endif
 
 #if defined(__DEBUG__) && !defined(WCE)
-#	define	MALLOC(s,d)	mem_malloc(s,d)
-#	define	REALLOC(p,s)	mem_realloc(p,s)
-#	define	FREE		mem_free
+#	define	MALLOC(s,d)	 mem_malloc(s,d)
+#	define	REALLOC(p,s) mem_realloc(p,s)
+#	define	FREE		 mem_free
 #else
 #	if defined(__BORLANDC__) && (defined(__HUGE__) || defined(__LARGE__))
 #		define	MALLOC(s,d)	farmalloc(s)
@@ -67,8 +67,11 @@ void	__CDECL *mem_malloc(size_t size, char *desc);
 void	__CDECL *mem_realloc(void *ptr, size_t size);
 void	__CDECL mem_free(void *ptr);
 void	__CDECL mem_list(void);
-int	__CDECL mem_chk(void);
+int	    __CDECL mem_chk(void);
 long	__CDECL mem_allocated(void);
+void*   __CDECL mem_first(void);
+void*   __CDECL mem_last(void);
+int     __CDECL mem_count(void);
 #endif
 
 #endif
