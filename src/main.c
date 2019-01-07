@@ -61,7 +61,7 @@
 #endif
 
 /* ------- Includes for any other external library ------- */
-#if defined(__MVS__) && defined(JCC)
+#if defined(__MVS__) && defined(JCC) || defined(__CROSS__)
 extern void __CDECL RxMvsInitialize();
 #endif
 
@@ -147,7 +147,7 @@ main(int ac, char *av[])
 	RxMySQLInitialize();
 	RxSQLiteInitialize();
 #endif
-#if defined(__MVS__) && defined(JCC)
+#if defined(__MVS__) && defined(JCC) || defined(__CROSS__)
     RxMvsInitialize();
 #endif
 #ifdef RXCONIO

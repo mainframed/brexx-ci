@@ -1,25 +1,22 @@
 #ifndef __RXMVSEXT_H
 #define __RXMVSEXT_H
 
-#if defined(__MVS__) && defined(JCC)
-enum MVX_EXT_FUNC {
- f_wait=100000,
- f_wto
-};
+#if defined(__MVS__) && defined(JCC) || defined(__CROSS__)
+
+int __CDECL GetClistVar(PLstr name, PLstr value);
+int __CDECL SetClistVar(PLstr name, PLstr value);
 
 /* ---------------------------------------------------------- */
 /* assembler module RXIKJ441                                  */
 /* ---------------------------------------------------------- */
 typedef struct trx_ikjct441_params {
     unsigned    ecode;
-    unsigned    namelen;
-    char       *nameadr;  // 252 byte
-    unsigned    valuelen;
-    char       *valueadr; // 32767 bytes
+    size_t      namelen;
+    char       *nameadr;
+    size_t      valuelen;
+    char       *valueadr;
     unsigned   *wkadr;
 } RX_IKJCT441_PARAMS, *RX_IKJCT441_PARAMS_PTR;
-
-extern unsigned int call_rxikj441 (RX_IKJCT441_PARAMS_PTR params);
 
 /* ---------------------------------------------------------- */
 /* assembler module RXPTIME                                   */
@@ -31,8 +28,6 @@ typedef struct trx_ptime_params {
     unsigned    *wptwkadr;
 } RX_PTIME_PARAMS, *RX_PTIME_PARAMS_PTR;
 
-extern int call_rxptime (RX_PTIME_PARAMS_PTR params);
-
 /* ---------------------------------------------------------- */
 /* assembler module RXSTIME                                   */
 /* ---------------------------------------------------------- */
@@ -42,8 +37,6 @@ typedef struct t_rx_stime_params {
     unsigned    *wstccadr;
     unsigned    *wstwkadr;
 } RX_STIME_PARAMS, *RX_STIME_PARAMS_PTR;
-
-extern int call_rxstime (RX_STIME_PARAMS_PTR params);
 
 /* ---------------------------------------------------------- */
 /* assembler module RXWTO                                     */
@@ -55,8 +48,6 @@ typedef struct t_rx_wto_params {
     unsigned    *wkadr;
 } RX_WTO_PARAMS, *RX_WTO_PARAMS_PTR;
 
-extern int call_rxwto (RX_WTO_PARAMS_PTR params);
-
 /* ---------------------------------------------------------- */
 /* assembler module RXAIT                                     */
 /* ---------------------------------------------------------- */
@@ -66,8 +57,6 @@ typedef struct t_rx_wait_params {
     unsigned    *wkadr;
 } RX_WAIT_PARAMS, *RX_WAIT_PARAMS_PTR;
 
-extern int call_rxwait (RX_WAIT_PARAMS_PTR params);
-
 /* ---------------------------------------------------------- */
 /* assembler module RXABEND                                   */
 /* ---------------------------------------------------------- */
@@ -75,8 +64,22 @@ typedef struct trx_abend_params {
     int         ucc;
 } RX_ABEND_PARAMS, *RX_ABEND_PARAMS_PTR;
 
-extern unsigned int call_rxabend (RX_ABEND_PARAMS_PTR params);
+#endif
 
+#if defined(__MVS__) && defined(JCC)
+extern unsigned int call_rxikj441 (RX_IKJCT441_PARAMS_PTR params);
+extern int call_rxptime (RX_PTIME_PARAMS_PTR params);
+extern int call_rxstime (RX_STIME_PARAMS_PTR params);
+extern int call_rxwto (RX_WTO_PARAMS_PTR params);
+extern int call_rxwait (RX_WAIT_PARAMS_PTR params);
+extern unsigned int call_rxabend (RX_ABEND_PARAMS_PTR params);
+#elif defined(__CROSS__)
+unsigned int call_rxikj441 (RX_IKJCT441_PARAMS_PTR params);
+int call_rxptime (RX_PTIME_PARAMS_PTR params);
+int call_rxstime (RX_STIME_PARAMS_PTR params);
+int call_rxwto (RX_WTO_PARAMS_PTR params);
+int call_rxwait (RX_WAIT_PARAMS_PTR params);
+unsigned int call_rxabend (RX_ABEND_PARAMS_PTR params);
 #endif
 
 #endif

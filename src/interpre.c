@@ -97,6 +97,10 @@
 #include "compile.h"
 #include "interpre.h"
 
+#if defined(__MVS__) && defined(JCC) || defined(__CROSS__)
+#include "rxmvsext.h"
+#endif
+
 #ifdef WCE
 #	define	MAX_EVENT_COUNT	50
 #endif
@@ -1030,6 +1034,13 @@ outofcmd:
 		case OP_COPY:
 			DEBUGDISPLAY("COPY");
 			Lstrcpy(STACKP(1),STACKTOP);
+
+			/* if we where started under TSO and we are in a TSO environment (ADDRESS TSO) - */
+			/* we have to set the variable value in the environment */
+			if (Lcmp(_proc[_rx_proc].env, "TSO") == 0) {
+				SetClistVar(&(_tmpstr[RxStckTop-1]),STACKTOP);
+			}
+
 			RxStckTop -= 2;
 			goto main_loop;
 
@@ -1113,6 +1124,15 @@ outofcmd:
 			if (inf->id == Rx_id) {
 				leaf = inf->leaf[0];
 				STACKTOP = LEAFVAL(leaf);
+
+                /* if we where started under TSO and we are in a TSO environment (ADDRESS TSO) - */
+                /* we have to try to get the variable value from the environment */
+				if (Lcmp(_proc[_rx_proc].env, "TSO") == 0) {
+					if (GetClistVar(&(litleaf->key), &(_tmpstr[RxStckTop])) == 0) {
+						STACKTOP = &(_tmpstr[RxStckTop]);
+					}
+				}
+
 			} else {
 				leaf = RxVarFind(VarScope, litleaf, &found);
 				if (found)
@@ -1126,9 +1146,18 @@ outofcmd:
 							_proc[_rx_proc].condition & SC_NOVALUE)
 							RxSignalCondition(SC_NOVALUE);
 					} else {
-						if (_proc[_rx_proc].condition & SC_NOVALUE)
-							RxSignalCondition(SC_NOVALUE);
-						STACKTOP = &(litleaf->key);
+						/* if we where started under TSO and we are in a TSO environment (ADDRESS TSO) - */
+						/* we have to try to get the variable value from the environment */
+						if (Lcmp(_proc[_rx_proc].env, "TSO") == 0 &&
+							GetClistVar(&(litleaf->key), &(_tmpstr[RxStckTop])) == 0) {
+							/* use this value */
+							STACKTOP = &(_tmpstr[RxStckTop]);
+						} else {
+							/* signal no value found */
+							if (_proc[_rx_proc].condition & SC_NOVALUE)
+								RxSignalCondition(SC_NOVALUE);
+							STACKTOP = &(litleaf->key);
+						}
 					}
 				}
 			}
@@ -1140,6 +1169,8 @@ outofcmd:
 			INCSTACK;
 			PLEAF(litleaf);	/* Get pointer to variable */
 			DEBUGDISPLAYi("CREATE",&(litleaf->key));
+
+			Lstrcpy(&(_tmpstr[RxStckTop]),&(litleaf->key));
 
 			inf = (IdentInfo*)(litleaf->value);
 			if (inf->id == Rx_id) {
