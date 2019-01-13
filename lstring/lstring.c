@@ -84,6 +84,8 @@
 //#	endif
 #endif
 
+#include "debuginfo.h"
+
 /* ================= Lstring routines ================== */
 
 /* -------------------- Linit ---------------- */
@@ -130,6 +132,8 @@ Lfx( const PLstr s, const size_t len )
 {
     size_t	max;
 
+    UPDATE_DBG_INFO(("Lfx",2,s,len));
+
     if (LISNULL(*s)) {
         LSTR(*s) = (unsigned char *) MALLOC( (max = LNORMALISE(len))+LEXTRA, "Lstr" );
         LLEN(*s) = 0;
@@ -156,6 +160,8 @@ Lfx( const PLstr s, const size_t len )
 void __CDECL
 Licpy( const PLstr to, const long from )
 {
+    UPDATE_DBG_INFO(("Licpy",2,from,to));
+
     LLEN(*to)  = sizeof(long);
     LTYPE(*to) = LINTEGER_TY;
     LINT(*to)  = from;
@@ -165,6 +171,8 @@ Licpy( const PLstr to, const long from )
 void __CDECL
 Lrcpy( const PLstr to, const double from )
 {
+    UPDATE_DBG_INFO(("Lrcpy",2,from,to));
+
     LLEN(*to)  = sizeof(double);
     LTYPE(*to) = LREAL_TY;
     LREAL(*to) = from;
@@ -175,6 +183,8 @@ void __CDECL
 Lscpy( const PLstr to, const char *from )
 {
     size_t	len;
+
+    UPDATE_DBG_INFO(("Lscpy",2,from,to));
 
     if (!from)
         Lfx(to,len=0);
@@ -193,6 +203,8 @@ Lwscpy(const PLstr to, const wchar_t *from )
 {
     size_t	len;
 
+    UPDATE_DBG_INFO(("Lwscpy",2,from,to));
+
     if (!from)
         Lfx(to,len=0);
     else {
@@ -209,6 +221,8 @@ void __CDECL
 Lcat( const PLstr to, const char *from )
 {
     size_t	l;
+
+    UPDATE_DBG_INFO(("Lcat",2,from,to));
 
     if (from==NULL) return;
 
@@ -228,6 +242,8 @@ int __CDECL
 Lcmp( const PLstr a, const char *b )
 {
     int	r,blen;
+
+    UPDATE_DBG_INFO(("Lcmp",2,a,b));
 
     L2STR(a);
 
@@ -249,6 +265,7 @@ Lcmp( const PLstr a, const char *b )
 void __CDECL
 Lstrcpy( const PLstr to, const PLstr from )
 {
+    UPDATE_DBG_INFO(("Lstrcpy",2,from,to));
 
     //TODO MIG may be this is not the best place
     if ( LISNULL(*to) ) {
@@ -283,6 +300,9 @@ void __CDECL
 Lstrcat( const PLstr to, const PLstr from )
 {
     size_t	l;
+
+    UPDATE_DBG_INFO(("Lstrcat",2,from,to));
+
     if (LLEN(*from)==0) return;
 
     if (LLEN(*to)==0) {
@@ -312,6 +332,8 @@ _Lstrcmp( const PLstr a, const PLstr b )
 {
     int	r;
 
+    UPDATE_DBG_INFO(("_Lstrcmp",2,a,b));
+
     if ( (r=MEMCMP( LSTR(*a), LSTR(*b), MIN(LLEN(*a),LLEN(*b))))!=0 )
         return r;
     else {
@@ -336,6 +358,8 @@ Lstrcmp( const PLstr a, const PLstr b )
 {
     int	r;
 
+    UPDATE_DBG_INFO(("Lstrcmp",2,a,b));
+
     L2STR(a);
     L2STR(b);
 
@@ -356,6 +380,8 @@ Lstrcmp( const PLstr a, const PLstr b )
 void __CDECL
 Lstrset( const PLstr to, const size_t length, const char value)
 {
+    UPDATE_DBG_INFO(("Lstrset",3,to,length,value));
+
     Lfx(to,length);
     LTYPE(*to) = LSTRING_TY;
     LLEN(*to) = length;
@@ -367,6 +393,8 @@ Lstrset( const PLstr to, const size_t length, const char value)
 void __CDECL
 _Lsubstr( const PLstr to, const PLstr from, size_t start, size_t length )
 {
+    UPDATE_DBG_INFO(("_Lsubstr",4,from,to,start,length));
+
     L2STR(from);
 
     start--;
@@ -400,6 +428,8 @@ _Lisnum( const PLstr s )
     int	exponent;
     int	expsign;
     int	fractionDigits;
+
+    UPDATE_DBG_INFO(("_Lisum",1,s));
 
     lLastScannedNumber = 0.0;
 
@@ -538,6 +568,8 @@ isnumber:
 void __CDECL
 L2str( const PLstr s )
 {
+    UPDATE_DBG_INFO(("L2str",1,s));
+
     if (LTYPE(*s)==LINTEGER_TY) {
 #if defined(WCE) || defined(__BORLANDC__)
         LTOA(LINT(*s),LSTR(*s),10);
@@ -567,6 +599,8 @@ L2str( const PLstr s )
 void __CDECL
 L2int( const PLstr s )
 {
+    UPDATE_DBG_INFO(("L2int",1,s));
+
     if (LTYPE(*s)==LREAL_TY) {
         if ((double)((long)LREAL(*s)) == LREAL(*s))
             LINT(*s) = (long)LREAL(*s);
@@ -599,6 +633,8 @@ L2int( const PLstr s )
 void __CDECL
 L2real( const PLstr s )
 {
+    UPDATE_DBG_INFO(("L2real",1,s));
+
     if (LTYPE(*s)==LINTEGER_TY)
         LREAL(*s) = (double)LINT(*s);
     else { /* LSTRING_TY */
@@ -619,6 +655,8 @@ L2real( const PLstr s )
 void __CDECL
 _L2num( const PLstr s, const int type )
 {
+    UPDATE_DBG_INFO(("_L2num",2,s,type));
+
     LASCIIZ(*s);
     switch (type) {
         case LINTEGER_TY:
@@ -649,6 +687,8 @@ _L2num( const PLstr s, const int type )
 void __CDECL
 L2num( const PLstr s )
 {
+    UPDATE_DBG_INFO(("L2num",1,s));
+
     switch (_Lisnum(s)) {
         case LINTEGER_TY:
             /*//LINT(*s) = atol( LSTR(*s) ); */
@@ -685,6 +725,8 @@ L2num( const PLstr s )
 long __CDECL
 Lrdint( const PLstr s )
 {
+    UPDATE_DBG_INFO(("Lrdint",1,s));
+
     if (LTYPE(*s)==LINTEGER_TY) return LINT(*s);
 
     if (LTYPE(*s)==LREAL_TY) {
@@ -720,6 +762,8 @@ Lrdint( const PLstr s )
 double __CDECL
 Lrdreal( const PLstr s )
 {
+    UPDATE_DBG_INFO(("Lrdreal",1,s));
+
     if (LTYPE(*s)==LREAL_TY) return LREAL(*s);
 
     if (LTYPE(*s)==LINTEGER_TY)
