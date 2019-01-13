@@ -80,7 +80,7 @@ extern void __CDECL RxConIOInitialize();
 extern int __libc_arch;
 #endif
 
-#include "debuginfo.h"
+#include "dbginfo.h"
 
 #ifdef __DEBUG__
 /* --------- global debug / trace structure -------- */

@@ -84,7 +84,7 @@
 //#	endif
 #endif
 
-#include "debuginfo.h"
+#include "dbginfo.h"
 
 /* ================= Lstring routines ================== */
 
