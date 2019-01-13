@@ -22,7 +22,7 @@
 void __CDECL
 Lmult( const PLstr to, const PLstr A, const PLstr B)
 {
-#if defined(__CMS__) || defined(__MVS__)
+#if defined(__CMS__) || defined(__MVS__) || defined(__CROSS__)
    if (A->len+B->len>LMAXNUMERICSTRING) Lerror(ERR_ARITH_OVERFLOW,0);
 #endif
     L2NUM(A);
