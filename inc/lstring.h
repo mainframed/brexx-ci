@@ -90,7 +90,7 @@
 #	include <stdio.h>
 #endif
 
-#if defined(__CMS__) || defined(__MVS__)
+#if defined(__CMS__) || defined(__MVS__) || defined(__CROSS__)
 #	include "lmvs.h"
 #endif
 

@@ -29,6 +29,8 @@ static void updateDebugInfo (char *message, int num, ...)
     extern P_DebugInfo debugInfo;
 
     /* define temporary variables */
+    int    ii,jj;
+
     va_list args;
 
     va_start(args,num);
@@ -36,12 +38,12 @@ static void updateDebugInfo (char *message, int num, ...)
     debugInfo->message = message;
 
     /* zero out all old values */
-    for (int ii=0; ii < MAX_POINTER_ELEMENTS; ii++) {
+    for (ii=0; ii < MAX_POINTER_ELEMENTS; ii++) {
         debugInfo->pointer[ii] = 0;
     }
 
     /* set new values */
-    for (int jj=0; jj < MIN(num,MAX_POINTER_ELEMENTS); jj++) {
+    for (jj=0; jj < MIN(num,MAX_POINTER_ELEMENTS); jj++) {
         debugInfo->pointer[jj] = va_arg(args,dword);
     }
 
