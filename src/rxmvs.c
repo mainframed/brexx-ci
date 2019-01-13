@@ -95,6 +95,25 @@ void R_abend( const int func )
     free(params);
 }
 
+/* new function */
+void R_dec( const int func )
+{
+    if (ARGN != 1) Lerror(ERR_INCORRECT_CALL,0);
+
+    Ldec(ARG1);
+
+    Lstrcpy(ARGR,ARG1);
+}
+
+void R_inc( const int func )
+{
+    if (ARGN != 1) Lerror(ERR_INCORRECT_CALL,0);
+
+    Linc(ARG1);
+
+    Lstrcpy(ARGR,ARG1);
+}
+
 #ifdef __DEBUG__
 void R_magic( const int func )
 {
@@ -137,9 +156,14 @@ void R_magic( const int func )
 
 void RxMvsInitialize()
 {
+    /* MVS specific functions */
     RxRegFunction("WAIT",   R_wait,   0);
     RxRegFunction("WTO",    R_wto ,   0);
     RxRegFunction("ABEND",  R_abend , 0);
+    /* new functions */
+    RxRegFunction("DEC",    R_dec,    0);
+    RxRegFunction("INC",    R_inc,    0);
+
 #ifdef __DEBUG__
     RxRegFunction("MAGIC",  R_magic,  0);
 #endif
