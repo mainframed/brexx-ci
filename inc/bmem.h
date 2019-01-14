@@ -55,9 +55,9 @@
 #		define	REALLOC(p,s)	farrealloc(p,s)
 #		define	FREE		farfree
 #	else
-#		define	MALLOC(s,d)	malloc(s)
-#		define	REALLOC(p,s)	realloc(p,s)
-#		define	FREE		free
+#		define	MALLOC(s,d)	    malloc_or_die(s,d)
+#		define	REALLOC(p,s)    realloc_or_die(p,s)
+#		define	FREE		    free
 #	endif
 #endif
 
@@ -72,6 +72,9 @@ long	__CDECL mem_allocated(void);
 void*   __CDECL mem_first(void);
 void*   __CDECL mem_last(void);
 int     __CDECL mem_count(void);
+#else
+void	__CDECL *malloc_or_die(size_t size, char *desc);
+void	__CDECL *realloc_or_die(void *ptr, size_t size);
 #endif
 
 #endif

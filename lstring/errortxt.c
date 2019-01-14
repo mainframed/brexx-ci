@@ -348,7 +348,9 @@ ErrorMsg	errortext[] = {
 
 	{ ERRNUM(57,0),	"Cannot open file" },
 	{ ERRNUM(58,0),	"File not found" },
-	{ ERRNUM(59,0),	"File not opened" }
+	{ ERRNUM(59,0),	"File not opened" },
+	{ ERRNUM(99,0),	"Memory allocation failed. \"<errno>\"" },
+	{ ERRNUM(99,1),	"Memory reallocation failed. \"<errno>\"" }
 };
 
 /* ------------------ Lerrortext ------------------- */

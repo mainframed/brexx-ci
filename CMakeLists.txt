@@ -15,6 +15,7 @@ add_executable(brexx
         inc/cefunc.h
         inc/compile.h
         inc/config.h
+        inc/dbginfo.h
         inc/dqueue.h
         inc/interpre.h
         inc/ldefs.h

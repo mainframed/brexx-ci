@@ -79,6 +79,14 @@ extern void __CDECL RxConIOInitialize();
 #ifdef JCC
 extern int __libc_arch;
 #endif
+
+#include "dbginfo.h"
+
+#ifdef __DEBUG__
+/* --------- global debug / trace structure -------- */
+P_DebugInfo debugInfo;
+#endif
+
 /* --------------------- main ---------------------- */
 int __CDECL
 main(int ac, char *av[])
@@ -140,6 +148,12 @@ main(int ac, char *av[])
 #endif
 
 	/* --- Initialise --- */
+#ifdef __DEBUG__
+	debugInfo = malloc(sizeof(DebugInfo));
+	memset(debugInfo,0,sizeof(DebugInfo));
+	debugInfo->magic_eye = MAGIC_EYE;
+#endif
+
 	RxInitialize(av[0]);
 
 	/* --- Register functions of external libraries --- */
@@ -266,6 +280,9 @@ main(int ac, char *av[])
 	if (mem_allocated()!=0) {
 		fprintf(STDERR,"\nMemory left allocated: %ld\n",mem_allocated());
 		mem_list();
+	}
+	if(debugInfo != NULL) {
+		free(debugInfo);
 	}
 #endif
 

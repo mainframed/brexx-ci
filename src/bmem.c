@@ -46,6 +46,8 @@
 
 #include <ctype.h>
 #include <stdio.h>
+#include <errno.h>
+#include <string.h>
 
 #if !defined(__CMS__) && !defined(__MVS__) && !defined(__MACH__)
 #	include <malloc.h>
@@ -58,6 +60,36 @@
 #include "ldefs.h"
 #include "signal.h"
 
+#ifndef __DEBUG__
+
+/* -------------- malloc_or_die ---------------- */
+void *
+malloc_or_die(size_t size, char *desc)
+{
+    void *ptr = malloc(size);
+    if (!ptr)
+    {
+        fprintf ( stderr, "ERROR: memory allocation for %s failed. %s.\n", desc, strerror (errno)) ;
+        raise(SIGSEGV);
+    }
+
+    return ptr ;
+}
+
+/* -------------- realloc_or_die ---------------- */
+void *
+realloc_or_die(void *ptr, size_t size)
+{
+    ptr = realloc(ptr,size);
+    if (!ptr) {
+        fprintf ( stderr, "ERROR: memory reallocation for failed. %s.\n", strerror (errno)) ;
+        raise(SIGSEGV);
+    }
+
+    return ptr;
+}
+
+#else
 #define MAGIC1	0xDECAFFEE
 #define MAGIC2	0xDECAFFFF
 
@@ -92,6 +124,11 @@ mem_malloc(size_t size, char *desc)
 #if defined(__BORLANDC__)&&(defined(__HUGE__)||defined(__LARGE__))
     mem = (Memory *)farmalloc(sizeof(Memory)+size);
 #else
+    if(size == 0) {
+        fprintf ( stderr, "ERROR: zero sized memory requested for %s \n", desc) ;
+        raise(SIGSEGV);
+    }
+
     mem = (Memory *)malloc(sizeof(Memory)+size);
 #endif
     if (mem) {
@@ -112,9 +149,8 @@ mem_malloc(size_t size, char *desc)
 
         return (void *)(mem->data);
     } else {
-        fprintf(STDERR,"mem_alloc: Not enough memory to allocate object %s size=%zu\n",
-                desc,size);
-        return NULL;
+        fprintf ( stderr, "ERROR: memory allocation for %s failed: %s\n", desc, strerror ( errno )) ;
+        raise(SIGSEGV);
     }
 } /* mem_malloc */
 
@@ -141,6 +177,11 @@ mem_realloc(void *ptr, size_t size)
         raise(SIGSEGV);
     }
 
+    if(size == 0) {
+        fprintf ( stderr, "ERROR: zero sized memory requested for reallocation of %s\n", mem->desc) ;
+        raise(SIGSEGV);
+    }
+
     total_mem -= mem->size;
     head = (mem==mem_head);
 
@@ -153,7 +194,7 @@ mem_realloc(void *ptr, size_t size)
     if (mem==NULL) {
         fprintf(STDERR,"mem_realloc: Not enough memory to allocate object %s size=%zu\n",
                 mem->desc,size);
-        return NULL;
+        raise(SIGSEGV);
     }
 
     if (head) mem_head = mem;
@@ -327,3 +368,5 @@ mem_count(void)
     }
     return count;
 } /* mem_count */
+
+#endif
