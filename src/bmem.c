@@ -42,22 +42,23 @@
 
 #ifdef WCE
 #	error "bmem.c: should not be included in the CE version"
+
 #endif
 
-#include <ctype.h>
+#include "lerror.h"
+#include "lstring.h"
+#include "rexx.h"
+
+#include <stdlib.h>
 #include <stdio.h>
-#include <errno.h>
 #include <string.h>
+#include <errno.h>
+#include <ctype.h>
 
 #if !defined(__CMS__) && !defined(__MVS__) && !defined(__MACH__)
 #	include <malloc.h>
 #endif
 
-#include <stdlib.h>
-
-#include "os.h"
-#include "bmem.h"
-#include "ldefs.h"
 #include "signal.h"
 
 #ifndef __DEBUG__
@@ -67,9 +68,18 @@ void *
 malloc_or_die(size_t size, char *desc)
 {
     void *ptr = malloc(size);
-    if (!ptr)
-    {
-        fprintf ( stderr, "ERROR: memory allocation for %s failed. %s.\n", desc, strerror (errno)) ;
+    if (!ptr) {
+        Lstr lerrno;
+
+        LINITSTR(lerrno)
+        Lfx(&lerrno,31);
+
+        Lscpy(&lerrno,strerror(errno));
+
+        Lerror(ERR_MALLOC_FAILED,0);
+        fprintf(stderr, "errno: %s\n",strerror(errno));
+
+        LFREESTR(lerrno);
         raise(SIGSEGV);
     }
 
@@ -82,7 +92,17 @@ realloc_or_die(void *ptr, size_t size)
 {
     ptr = realloc(ptr,size);
     if (!ptr) {
-        fprintf ( stderr, "ERROR: memory reallocation for failed. %s.\n", strerror (errno)) ;
+        Lstr lerrno;
+
+        LINITSTR(lerrno)
+        Lfx(&lerrno,31);
+
+        Lscpy(&lerrno,strerror(errno));
+
+        Lerror(ERR_REALLOC_FAILED,0);
+        fprintf(stderr, "errno: %s\n",strerror(errno));
+
+        LFREESTR(lerrno);
         raise(SIGSEGV);
     }
 
