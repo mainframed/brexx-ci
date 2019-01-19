@@ -83,10 +83,11 @@
 //#define STATIC 0
 
 /* ------------ some defines ------------------ */
-#define PACKAGE         "brexx"
-#define VERSION         "2.1.9"
+#define PACKAGE         "brexx370"
+#define VERSION         "1.0.0A"
 #define	VERSIONSTR	PACKAGE" "VERSION" "__DATE__
 #define	AUTHOR		"Vasilis.Vlachoudis@cern.ch"
+#define MAINTAINER  "pej, mig"
 #define REGAPPKEY	TEXT("Software\\Marmita\\BRexx")
 #define	SCIENTIFIC	0
 #define ENGINEERING	1

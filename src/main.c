@@ -119,7 +119,8 @@ main(int ac, char *av[])
                 puts("\t\t\'linein\' contains each line from stdin.\n");
         puts(VERSIONSTR);
         puts("Author: "AUTHOR);
-        puts("Please report bugs, errors or comments to the above address.\n");
+        puts("Maintainer: "MAINTAINER);
+        puts("Please report bugs, errors or comments at https://github.com/mgrossmann/brexx370\n");
 #else
 #ifdef JCC
         puts("\nsyntax: rexx [-[trace]|-F|-a|-i|-m] <filename> <args>...\n");
@@ -139,7 +140,8 @@ main(int ac, char *av[])
 #endif
         puts(VERSIONSTR);
         puts("Author: "AUTHOR);
-        puts("Please report bugs, errors or comments to the above address.\n");
+        puts("Maintainer: "MAINTAINER);
+        puts("Please report bugs, errors or comments at https://github.com/mgrossmann/brexx370\n");
 #endif
         return 0;
     }
