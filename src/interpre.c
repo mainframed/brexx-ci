@@ -1170,7 +1170,11 @@ outofcmd:
 			PLEAF(litleaf);	/* Get pointer to variable */
 			DEBUGDISPLAYi("CREATE",&(litleaf->key));
 
-			Lstrcpy(&(_tmpstr[RxStckTop]),&(litleaf->key));
+			/* if we where started under TSO and we are in a TSO environment (ADDRESS TSO) - */
+			/* we have to save the variable name for the next operation */
+			if (Lcmp(_proc[_rx_proc].env, "TSO") == 0) {
+				Lstrcpy(&(_tmpstr[RxStckTop]),&(litleaf->key));
+			}
 
 			inf = (IdentInfo*)(litleaf->value);
 			if (inf->id == Rx_id) {
@@ -1391,8 +1395,16 @@ outofcmd:
 				/* create new stack and jmp to LABEL pos*/
 		case OP_CALL:
 			DEBUGDISPLAY0nl("CALL");
-			if (I_CallFunction())
+			if (I_CallFunction()) {
+
+				/* if we where started under TSO and we are in a TSO environment (ADDRESS TSO) - */
+				/* we have to set the variable value in the environment */
+				if (Lcmp(_proc[_rx_proc].env, "TSO") == 0) {
+					SetClistVar(&(_tmpstr[RxStckTop]),STACKTOP);
+				}
+
 				goto chk4trace;
+			}
 			goto main_loop;
 
 				/* RETURN			*/
