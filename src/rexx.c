@@ -294,6 +294,7 @@ _LoadRexxLibrary(RxFile *rxf)
         ip = (size_t)((byte huge *)Rxcip - (byte huge *)Rxcodestart);
         MEMCPY(old_trap,_error_trap,sizeof(_error_trap));
         RxFileType(rxf);
+        rxf->filename = "-BREXXX370-";
         RxInitCompile(rxf,NULL);
         RxCompile();
 
@@ -438,7 +439,7 @@ RxRun( char *filename, PLstr programstr,
     pr->interactive_trace = FALSE;
     if (tracestr && LLEN(*tracestr)) TraceSet(tracestr);
 
-    rxFileList->filename = "FOOOO";
+    rxFileList->filename = "-BREXXX370-";
     /* ======= Compile file ====== */
     RxInitCompile(rxFileList,NULL);
     RxCompile();
@@ -509,9 +510,9 @@ int __get_ddndsnmemb (int handle, char * ddn,
                       unsigned char * flags) {
     int rc = 0;
 
-    strcpy(ddn, "CROSSDD");
-    strcpy(dsn, "HLQ.SOME.DATA");
-    strcpy(member, "MEMBER");
+    strcpy(ddn, "");
+    strcpy(dsn, "");
+    strcpy(member, "");
 
     return rc;
 }
