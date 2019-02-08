@@ -1,78 +1,4 @@
-/*
- * $Id: read.c,v 1.14 2011/06/29 08:33:09 bnv Exp $
- * $Log: read.c,v $
- * Revision 1.14  2011/06/29 08:33:09  bnv
- * char to unsigned
- *
- * Revision 1.13  2009/06/02 09:40:53  bnv
- * MVS/CMS corrections
- *
- * Revision 1.12  2008/07/15 07:40:54  bnv
- * #include changed from <> to ""
- *
- * Revision 1.11  2008/07/14 13:08:16  bnv
- * MVS,CMS support
- *
- * Revision 1.10  2004/07/22 13:00:17  bnv
- * Corrected: Reading from STDIN with readline when operating on a device
- *
- * Revision 1.9  2004/03/26 22:52:26  bnv
- * Added FIFO support
- *
- * Revision 1.8  2003/02/26 16:29:24  bnv
- * Changed: READLINE definitions
- *
- * Revision 1.7  2002/06/11 12:37:15  bnv
- * Added: CDECL
- *
- * Revision 1.6  2002/06/06 08:21:55  bnv
- * Changed: Directive for READLINE
- *
- * Revision 1.5  2001/07/20 14:28:37  bnv
- * Corrected: When pipeing the readline was echoing the line
- *
- * Revision 1.5  2001/07/19 16:33:43  bnv
- * Corrected the readline when a file was redirected
- *
- * Revision 1.4  2001/06/25 18:49:48  bnv
- * Header changed to Id
- *
- * Revision 1.3  2000/04/07 07:11:01  bnv
- * Corrected: When trying to read a complete file from STDIN, it was reporting
- * size=1, where it should be negative (unknown)
- *
- * Revision 1.2  1999/11/26 12:52:25  bnv
- * Added: Windows CE support
- *
- * Revision 1.1  1998/07/02 17:18:00  bnv
- * Initial Version
- *
- */
-
 #include "lstring.h"
-
-#ifdef HAVE_READLINE
-#	include <sys/stat.h>
-//#	if defined(HAVE_READLINE_READLINE_H)
-#	include <readline/readline.h>
-//#	elif defined(HAVE_READLINE_H)
-//#		include <readline.h>
-//#	else
-//		extern char *readline ();
-//#	endif
-//#endif
-
-//#ifdef HAVE_READLINE_HISTORY
-//#	if defined(HAVE_READLINE_HISTORY_H)
-#	include <readline/history.h>
-//#	elif defined(HAVE_HISTORY_H)
-//#		include <history.h>
-//#	else
-//		extern void add_history ();
-//		extern int write_history ();
-//		extern int read_history ();
-//#	endif
-#endif
 
 /* ---------------- Lread ------------------- */
 void __CDECL
@@ -94,22 +20,6 @@ Lread( FILEP f, const PLstr line, long size )
 		}
 	} else
 	if (size==0) {			/* Read a single line */
-#ifdef HAVE_READLINE
-		if (f==STDIN) {
-			struct stat buf;
-			fstat(0,&buf);
-			if (S_ISCHR(buf.st_mode) || S_ISBLK(buf.st_mode)) {
-				char *str = readline(NULL);
-#ifdef HAVE_READLINE
-				if (str && *str)
-					add_history(str);
-#endif
-				Lscpy(line,str);
-				free(str);
-				return;
-			}
-		}
-#endif
 		Lfx(line,LREADINCSIZE);
 		l = 0;
 		while ((ci=FGETC(f))!='\n') {

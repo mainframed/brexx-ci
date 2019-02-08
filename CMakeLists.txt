@@ -117,7 +117,7 @@ add_executable(brexx
         src/error.c
         src/expr.c
         src/interpre.c
-        src/main.c
+        src/brexx.c
         src/nextsymb.c
         src/rexx.c
         src/rexxfunc.c

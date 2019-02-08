@@ -1,83 +1,19 @@
-/*
- * $Id: main.c,v 1.16 2011/06/29 08:32:25 bnv Exp $
- * $Log: main.c,v $
- * Revision 1.16  2011/06/29 08:32:25  bnv
- * Added interactive run
- *
- * Revision 1.15  2011/05/17 06:53:10  bnv
- * Added SQLite
- *
- * Revision 1.14  2009/06/30 13:51:40  bnv
- * Added -a option to break arg into words
- *
- * Revision 1.13  2008/07/15 14:57:55  bnv
- * mvs corrections
- *
- * Revision 1.12  2008/07/15 07:40:25  bnv
- * #include changed from <> to ""
- *
- * Revision 1.11  2006/01/26 10:25:35  bnv
- * Changed: conio
- *
- * Revision 1.10  2003/10/30 13:16:28  bnv
- * Variable name change
- *
- * Revision 1.9  2002/08/22 12:27:09  bnv
- * Added: Unix initialisation commands
- *
- * Revision 1.8  2002/07/03 13:15:08  bnv
- * Changed: Version define
- *
- * Revision 1.7  2002/06/11 12:37:38  bnv
- * Added: CDECL
- *
- * Revision 1.6  2002/06/06 08:24:02  bnv
- * Corrected: READLINE support when using redirected input
- *
- * Revision 1.5  2001/06/25 18:51:48  bnv
- * Header -> Id
- *
- * Revision 1.4  1999/11/26 13:13:47  bnv
- * Added: A filter option.
- *
- * Revision 1.3  1999/05/26 16:48:06  bnv
- * Gene corrections in RXCONIO
- *
- * Revision 1.2  1999/02/10 15:43:16  bnv
- * Additions from Generoso Martello
- *
- * Revision 1.1  1998/07/02 17:34:50  bnv
- * Initial revision
- *
- */
 #include <stdio.h>
 #include <string.h>
 
 #include "lstring.h"
 #include "rexx.h"
 #include "rxdefs.h"
-#if !defined(__CMS__) && !defined(__MVS__)
-#	include <sys/stat.h>
-#endif
 
 /* ------- Includes for any other external library ------- */
-#if defined(__MVS__) && defined(JCC) || defined(__CROSS__)
+#if defined(__MVS__) || defined(__CROSS__)
 extern void __CDECL RxMvsInitialize();
 #endif
 
-#ifdef RXCONIO
-extern void __CDECL RxConIOInitialize();
-#endif
-
-#ifdef RXMYSQLSTATIC
-#	include "rxmysql.c"
-#endif
-#ifdef RXSQLITESTATIC
-#	include "rxsqlite.c"
-#endif
-
-#ifdef JCC
+#ifndef __CROSS__
 extern int __libc_arch;
+#else
+int __libc_arch = 0;
 #endif
 
 #include "dbginfo.h"
@@ -94,10 +30,6 @@ main(int ac, char *av[])
 	Lstr	args[MAXARGS], tracestr, file;
 	int	ia,ir,iaa;
 	bool	input, loop_over_stdin, parse_args, interactive;
-#ifdef HAVE_READLINE
-	Lstr	line;
-	LINITSTR(line);
-#endif
 
 	input           = FALSE;
 	loop_over_stdin = FALSE;
@@ -109,40 +41,19 @@ main(int ac, char *av[])
 	LINITSTR(file);
 
     if (ac<2) {
-#if !defined(__MVS__)
-        puts("\nsyntax: rexx [-[trace]|-F|-a|-i] <filename> <args>...\n");
-        puts("options:");
-        puts("\t-\tto use stdin as input file");
-        puts("\t-a\tbreak words into multiple arguments");
-        puts("\t-i\tenter interactive mode");
-        puts("\t-F\tloop over standard input");
-                puts("\t\t\'linein\' contains each line from stdin.\n");
-        puts(VERSIONSTR);
-        puts("Author: "AUTHOR);
-        puts("Maintainer: "MAINTAINER);
-        puts("Please report bugs, errors or comments at https://github.com/mgrossmann/brexx370\n");
-#else
-#ifdef JCC
         puts("\nsyntax: rexx [-[trace]|-F|-a|-i|-m] <filename> <args>...\n");
-#else
-        puts("\nsyntax: rexx [-[trace]|-F|-a|-i] <filename> <args>...\n");
-#endif
         puts("options:");
         puts("  -   to use stdin as input file");
         puts("  -a  break words into multiple arguments");
         puts("  -i  enter interactive mode");
         puts("  -F  loop over standard input");
-#ifdef JCC
         puts("      \'linein\' contains each line from stdin");
         puts("  -m  machine architecture: 0=S/370, 1=Hercules s37x, 2=S/390, 3=z/Arch.\n");
-#else
-        puts("      \'linein\' contains each line from stdin.\n");
-#endif
         puts(VERSIONSTR);
         puts("Author: "AUTHOR);
         puts("Maintainer: "MAINTAINER);
         puts("Please report bugs, errors or comments at https://github.com/mgrossmann/brexx370\n");
-#endif
+
         return 0;
     }
 #ifdef __DEBUG__
@@ -159,15 +70,8 @@ main(int ac, char *av[])
 	RxInitialize(av[0]);
 
 	/* --- Register functions of external libraries --- */
-#ifdef STATIC
-	RxMySQLInitialize();
-	RxSQLiteInitialize();
-#endif
-#if defined(__MVS__) && defined(JCC) || defined(__CROSS__)
+#if defined(__MVS__) || defined(__CROSS__)
     RxMvsInitialize();
-#endif
-#ifdef RXCONIO
-	RxConIOInitialize();
 #endif
 
 	/* --- scan arguments --- */
@@ -184,7 +88,7 @@ main(int ac, char *av[])
 		else
 		if (av[ia][1]=='i')
 			interactive = TRUE;
-#ifdef JCC
+#ifndef __CROSS__
 		else
 		if (av[ia][1]=='m')
 			__libc_arch = atoi(av[ia]+2);
@@ -231,23 +135,7 @@ main(int ac, char *av[])
 				"halt:");
 		else
 		if (ia>=ac) {
-#ifndef HAVE_READLINE
 			Lread(STDIN,&file,LREADFILE);
-#else
-			struct stat buf;
-			fstat(0,&buf);
-			if (S_ISCHR(buf.st_mode)) {
-				printf("End with \";\" on a line by itself.\n");
-				while (1) {
-					Lread(STDIN,&line,LREADLINE);
-					if (!Lcmp(&line,";"))
-						break;
-					Lstrcat(&file,&line);
-					Lcat(&file,"\n");
-				}
-			} else
-				Lread(STDIN,&file,LREADFILE);
-#endif
 		} else {
 			/* Copy a small header */
 			if (loop_over_stdin)
@@ -270,13 +158,6 @@ main(int ac, char *av[])
 	for (ia=0; ia<MAXARGS; ia++) LFREESTR(args[ia]);
 	LFREESTR(tracestr);
 	LFREESTR(file);
-#ifdef HAVE_READLINE
-	LFREESTR(line);
-#endif
-#ifdef STATIC
-	RxMySQLFinalize();
-	RxSQLiteFinalize();
-#endif
 
 #ifdef __DEBUG__
 	if (mem_allocated()!=0) {
