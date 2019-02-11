@@ -1019,6 +1019,20 @@ outofcmd:
 			RxStckTop -= *(Rxcip++);
 			goto main_loop;
 
+                /* UPD_CLIST_VAR */
+	    case OP_UPD_CLIST_VAR:
+	        DEBUGDISPLAY("UPD_CLIST_VAR");
+
+	        /* if we where started under TSO and we are in a TSO environment (ADDRESS TSO) - */
+			/* we have to set the variable value in the environment */
+			if (Lcmp(_proc[_rx_proc].env, "TSO") == 0) {
+				SetClistVar((PLstr)*Rxcip++,STACKTOP);
+			} else {
+				*Rxcip++;
+			}
+
+	        goto main_loop;
+
 				/* DUP b[rel]			*/
 				/* duplicate RELative stck item	*/
 		case OP_DUP:
@@ -1035,6 +1049,7 @@ outofcmd:
 			DEBUGDISPLAY("COPY");
 			Lstrcpy(STACKP(1),STACKTOP);
 
+			/* TODO: must be moved to compile level, too. Using OP_UPD_CLIST_VAR. */
 			/* if we where started under TSO and we are in a TSO environment (ADDRESS TSO) - */
 			/* we have to set the variable value in the environment */
 			if (Lcmp(_proc[_rx_proc].env, "TSO") == 0) {
@@ -1396,13 +1411,6 @@ outofcmd:
 		case OP_CALL:
 			DEBUGDISPLAY0nl("CALL");
 			if (I_CallFunction()) {
-
-				/* if we where started under TSO and we are in a TSO environment (ADDRESS TSO) - */
-				/* we have to set the variable value in the environment */
-				if (Lcmp(_proc[_rx_proc].env, "TSO") == 0) {
-					SetClistVar(&(_tmpstr[RxStckTop]),STACKTOP);
-				}
-
 				goto chk4trace;
 			}
 			goto main_loop;

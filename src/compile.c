@@ -1760,7 +1760,9 @@ C_assign(void)
 		_CodeAddPtr(var);	/*	the variable	*/
 	_mustbe(eq_sy,ERR_INVALID_EXPRESSION,0);
 	if (C_expr(exp_assign)) {
-		_CodeAddByte(OP_POP);
+		_CodeAddByte(OP_UPD_CLIST_VAR);
+		_CodeAddPtr(var);	/*	the variable	*/
+        _CodeAddByte(OP_POP);
 			_CodeAddByte(1);
 	}
 	if (stem) {
