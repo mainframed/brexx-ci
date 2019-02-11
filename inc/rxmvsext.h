@@ -1,15 +1,14 @@
 #ifndef __RXMVSEXT_H
 #define __RXMVSEXT_H
 
-#if defined(__MVS__) && defined(JCC) || defined(__CROSS__)
-
 int __CDECL GetClistVar(PLstr name, PLstr value);
 int __CDECL SetClistVar(PLstr name, PLstr value);
 
 /* ---------------------------------------------------------- */
 /* assembler module RXIKJ441                                  */
 /* ---------------------------------------------------------- */
-typedef struct trx_ikjct441_params {
+typedef struct trx_ikjct441_params
+{
     unsigned    ecode;
     size_t      namelen;
     char       *nameadr;
@@ -21,7 +20,8 @@ typedef struct trx_ikjct441_params {
 /* ---------------------------------------------------------- */
 /* assembler module RXPTIME                                   */
 /* ---------------------------------------------------------- */
-typedef struct trx_ptime_params {
+typedef struct trx_ptime_params
+{
     unsigned    *wptmadr;
     unsigned    *wptladr;
     unsigned    *wptccadr;
@@ -31,7 +31,8 @@ typedef struct trx_ptime_params {
 /* ---------------------------------------------------------- */
 /* assembler module RXSTIME                                   */
 /* ---------------------------------------------------------- */
-typedef struct t_rx_stime_params {
+typedef struct t_rx_stime_params
+{
     unsigned    *wstmadr;
     unsigned    *wstladr;
     unsigned    *wstccadr;
@@ -41,7 +42,8 @@ typedef struct t_rx_stime_params {
 /* ---------------------------------------------------------- */
 /* assembler module RXWTO                                     */
 /* ---------------------------------------------------------- */
-typedef struct t_rx_wto_params {
+typedef struct t_rx_wto_params
+{
     char        *msgadr;
     unsigned    *msgladr;
     unsigned    *ccadr;
@@ -51,7 +53,8 @@ typedef struct t_rx_wto_params {
 /* ---------------------------------------------------------- */
 /* assembler module RXAIT                                     */
 /* ---------------------------------------------------------- */
-typedef struct t_rx_wait_params {
+typedef struct t_rx_wait_params
+{
     unsigned    *timeadr;
     unsigned    *ccadr;
     unsigned    *wkadr;
@@ -60,26 +63,39 @@ typedef struct t_rx_wait_params {
 /* ---------------------------------------------------------- */
 /* assembler module RXABEND                                   */
 /* ---------------------------------------------------------- */
-typedef struct trx_abend_params {
+typedef struct trx_abend_params
+{
     int         ucc;
 } RX_ABEND_PARAMS, *RX_ABEND_PARAMS_PTR;
 
+#ifdef __CROSS__
+typedef struct trx_ikj441_dummy_dict
+{
+    char *key;
+    char *value;
+    struct trx_ikj441_dummy_dict *next;
+} RX_IKJ441_DUMMY_DICT, *RX_IKJ441_DUMMY_DICT_PTR;
+
+typedef struct trx_ikj441_dummy_dict_head
+{
+    RX_IKJ441_DUMMY_DICT *first;
+} RX_IKJ441_DUMMY_DICT_HEAD;
 #endif
 
-#if defined(__MVS__) && defined(JCC)
-extern unsigned int call_rxikj441 (RX_IKJCT441_PARAMS_PTR params);
-extern int call_rxptime (RX_PTIME_PARAMS_PTR params);
-extern int call_rxstime (RX_STIME_PARAMS_PTR params);
-extern int call_rxwto (RX_WTO_PARAMS_PTR params);
-extern int call_rxwait (RX_WAIT_PARAMS_PTR params);
-extern unsigned int call_rxabend (RX_ABEND_PARAMS_PTR params);
-#elif defined(__CROSS__)
+#ifdef __CROSS__
 unsigned int call_rxikj441 (RX_IKJCT441_PARAMS_PTR params);
 int call_rxptime (RX_PTIME_PARAMS_PTR params);
 int call_rxstime (RX_STIME_PARAMS_PTR params);
 int call_rxwto (RX_WTO_PARAMS_PTR params);
 int call_rxwait (RX_WAIT_PARAMS_PTR params);
 unsigned int call_rxabend (RX_ABEND_PARAMS_PTR params);
+#else
+extern unsigned int call_rxikj441 (RX_IKJCT441_PARAMS_PTR params);
+extern int call_rxptime (RX_PTIME_PARAMS_PTR params);
+extern int call_rxstime (RX_STIME_PARAMS_PTR params);
+extern int call_rxwto (RX_WTO_PARAMS_PTR params);
+extern int call_rxwait (RX_WAIT_PARAMS_PTR params);
+extern unsigned int call_rxabend (RX_ABEND_PARAMS_PTR params);
 #endif
 
 #endif
