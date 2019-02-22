@@ -1,0 +1,401 @@
+RXINIT   TITLE 'RXINT'                                                  00000100
+         PRINT NOGEN                                                    00000200
+*                                                                       00000302
+* ********************************************************************* 00000402
+* *** DUMMY SECTIONS ************************************************** 00000502
+* ********************************************************************* 00000602
+*                                                                       00000702
+         CVT     DSECT=Y          COMMON VECTOR TABLE                   00000809
+         IHAPSA  DSECT=YES        PREFIXED SAVE AREA                    00000902
+         IHAASCB DSECT=YES        ADDRESS SPACE CONTOL BLOCK            00001002
+         IHAASXB DSECT=YES        ADDRESS SPACE EXTENSION BLOCK         00001102
+         IKJEFLWA ,               LOGON WORK AREA                       00001202
+         IKJECT   ,               ENVIRONMENT CONTROL TABLE             00001302
+         IKJPSCB  ,               PROTECTED STEP CONTROL BLOCK          00001402
+         IEFTIOT1 ,               TASK INPUT OUTPUT TABLE               00001502
+         IEFZB4D0 ,               DYNALLOC PARAMETER LIST               00001602
+         IEFZB4D2 ,               DYNALLOC TEXT UNIT KEYS               00001702
+*                                                                       00001802
+*        I/O SERVICE ROUTINE WORK AREA                                  00001902
+IOSRL    DSECT                    ECTIOWA -> IOSRL                      00002002
+IOSTELM  DS    A                  TOP STACK ELEMENT POINTER             00002102
+IOSBELM  DS    A                  BOTTOM ELEMENT POINTER                00002202
+IOSTLEN  DS    H                  STACK SIZE                            00002302
+IOSNELM  DS    H                  NUMBER OF ELEMENTS                    00002402
+IOSUNUSD DS    F                  SPARE                                 00002502
+*                                                                       00002602
+*        INPUT STACK ELEMENT                                            00002702
+INSTACK  DSECT                    IOSTELM -> TOP ELEMENT                00002802
+INSCODE  DS    X                  INPUT STACK OPTIONS                   00002902
+INSTERM  EQU   X'80'              TERMINAL INPUT STACK ENTRY            00003002
+*        EQU   X'40'              .                                     00003102
+INSINDD  EQU   X'20'              INPUT FROM DD VIA DCB                 00003202
+INSOTDD  EQU   X'10'              OUTPUT TO DD VIA DCB                  00003302
+INSEXEC  EQU   X'08'              EXEC COMMAND STACK ENTRY              00003402
+INSPROM  EQU   X'04'              PROMPT ALLOWED                        00003502
+INSPROC  EQU   X'02'              PROCEDURE FLAG                        00003602
+INSLIST  EQU   X'01'              LIST LINES BEFORE EXEC                00003702
+INSADLSD DS    AL3                POINTER TO LSD                        00003802
+*                                                                       00003902
+* ********************************************************************* 00004002
+* *** PROCEDURE RXINIT * MAIN ENTRY POINT ***************************** 00004102
+* ********************************************************************* 00004202
+*                                                                       00004302
+RXINIT   $PROLOG LV=256                                                 00004406
+*                                                                       00004500
+         LA    R5,72(,R13)        POINT BEHIND SAVE AREA                00004602
+         USING USER,R5            ENSURE ADDRESSABILITY                 00004702
+*                                                                       00004803
+         MVI   USER,X'0'          CLEAR MEMORY                          00004903
+         MVC   USER+1(USRLEN-1),USER                                    00005003
+         MVC   USREYE,=CL4'USER'  ADD EYE CATCHER                       00005104
+*                                                                       00005209
+         LA    R6,0               POINT TO THE CURRENT PSA              00005309
+         USING PSA,R6             ENSURE ADDRESSABILITY                 00005409
+*                                                                       00005509
+         L     R1,FLCCVT          POINT TO THE CVT                      00005609
+         ST    R1,USRPCVT         STORE ADDRESS IN USER AREA            00005709
+*                                                                       00005809
+         DROP  R6                 PSA NOT NEEDED ANYMORE                00005909
+*                                                                       00006003
+* --------------------------------------------------------------------  00006103
+*  CHECK ISPF ENVIRONMENT - OLD STYLE WITHOUT BLDL                      00006204
+* --------------------------------------------------------------------  00006303
+*                                                                       00006403
+         LR    R1,R5                                                    00006504
+         CALL  CHKISPF                                                  00006605
+*        LOAD  EP=ISPQRY,ERRET=NOTFOUND                                 00006704
+*        LR    R15,R0                                                   00006804
+*        CALL (15)                                                      00006904
+*        IF (LTR,R15,R15,Z)                                             00007004
+*          OI  FLAGS2,FL2ISPF                                           00007104
+*        ENDIF                                                          00007204
+* NOTFOUND DS    0H                                                     00007304
+*                                                                       00007403
+* --------------------------------------------------------------------  00007503
+*  CHECK TSO ENVIRONMENT                                                00007603
+* --------------------------------------------------------------------  00007703
+*                                                                       00007803
+         LA    R6,EXTADDR                                               00007905
+         EXTRACT (R6),FIELDS=(TIOT,TSO,PSB),MF=(E,EXTRACT)              00008005
+         LM    R1,R3,EXTADDR  R1   R2  R3                               00008105
+         ST    R1,USRPTIOT        SAVE POINTER TO TIOT                  00008203
+*                                                                       00008303
+*        FOREGROUND                                                     00008403
+         IF (TM,0(R2),X'80',O)    TEST HIGH-ORDER BIT                   00008503
+           OI  FLAGS2,FL2TSOFG      MARK FOREGROUND TSO AS FOUND        00008603
+         ENDIF                                                          00008703
+*                                                                       00008803
+*        BACKGROUND                                                     00008903
+         IF (LTR,R3,R3,NZ)        TEST IF ADDRESS OF PSCB IS PRESENT    00009003
+           OI  FLAGS2,FL2TSOBG      MARK BACKGROUND TSO AS FOUND        00009103
+         ENDIF                                                          00009203
+*                                                                       00009303
+* --------------------------------------------------------------------  00009403
+*  CHECK EXEC ENVIRONMENT                                               00009503
+* --------------------------------------------------------------------  00009603
+*                                                                       00009703
+         IF (TM,FLAGS2,FL2TSOFG,O),OR,                                 *00009803
+               (TM,FLAGS2,FL2TSOBG,O)                                   00009903
+*                                                                       00010003
+           LA  R6,0               POINT TO THE CURRENT PSA              00010103
+           USING PSA,R6           ENSURE ADDRESSAIBLITY                 00010203
+*                                                                       00010303
+           L   R1,PSAAOLD         POINT TO THE CURRENT ASCB             00010403
+           L   R2,ASCBASXB-ASCB(,R1) AND THEN TO THE ASXB               00010503
+           L   R1,ASXBLWA-ASXB(,R2)  AND THEN TO THE LWA                00010603
+           L   R2,LWAPECT-LWA(,R1) POINT TO THE CURRENT ECT             00010703
+           L   R1,ECTIOWA-ECT(,R2)   AND THEN TO THE IOSRL              00010803
+           L   R2,IOSTELM-IOSRL(,R1) AND THEN TO THE IOSTELM            00010903
+           LA  R1,INSCODE-INSTACK(,R2) FINALLY TO THE STACK OPTIONS     00011003
+                                                                        00011103
+           IF (TM,0(R1),INSEXEC,O) TEST STACK OPTIONS                   00011203
+             OI  FLAGS2,FL2EXEC      MARKS AS EXEC                      00011303
+           ENDIF                                                        00011403
+*                                                                       00011503
+           DROP  R6               PSA NOT NEEDED ANYMORE                00011603
+         ENDIF                                                          00011703
+*                                                                       00011803
+* --------------------------------------------------------------------  00011903
+*  CHECK NEEDED ALLOCATIONS                                             00012003
+* --------------------------------------------------------------------  00012103
+*                                                                       00012200
+         L     R6,USRPTIOT        GET POINTER TO TIOT                   00012303
+         USING TIOT1,R6                                                 00012403
+*                                                                       00012503
+LOOP     DS    0H                                                       00012600
+*                                                                       00012703
+*        STDIN                                                          00012803
+         IF (CLC,TIOEDDNM,EQ,=CL8'STDIN')                               00012900
+           OI  FLAGS1,FL1IN       MARK STDIN  AS FOUND                  00013003
+*                                                                       00013103
+*        STDOUT                                                         00013203
+         ELSEIF (CLC,TIOEDDNM,EQ,=CL8'STDOUT')                          00013300
+           OI  FLAGS1,FL1OUT      MARK STDOUT AS FOUND                  00013403
+*                                                                       00013503
+*        STDERR                                                         00013603
+         ELSEIF (CLC,TIOEDDNM,EQ,=CL8'STDERR')                          00013700
+           OI  FLAGS1,FL1ERR      MARK STDERR AS FOUND                  00013803
+*                                                                       00013903
+*        RXLIB                                                          00014003
+         ELSEIF (CLC,TIOEDDNM,EQ,=CL8'RXLIB')                           00014100
+           OI  FLAGS1,FL1RXL      MARK RXLIB  AS FOUND                  00014203
+         ENDIF                                                          00014300
+*                                                                       00014400
+         IF (CLI,TIOELNGH,NE,X'00')                                     00014500
+           SR  R1,R1                CLEAR R1                            00014600
+           IC  R1,TIOELNGH          SAVE LENGTH VALUE IN R1             00014700
+           LA  R6,0(R1,R6)          PREPARE NEXT ITERATION              00014803
+           B   LOOP                                                     00014900
+         ENDIF                                                          00015000
+*                                                                       00015100
+         DROP  R6                   TIOT IS NOT LONGER NEEDED           00015203
+*                                                                       00015300
+* --------------------------------------------------------------------  00015400
+*  DEBUG OUTPUT FOR TSO ENVIRONMENT                                     00015500
+* --------------------------------------------------------------------  00015600
+*                                                                       00015700
+         IF (TM,FLAGS2,FL2TSOFG,O)                                      00015800
+           TPUT =CL32'TSO FOREGROUND ENVIRONMENT FOUND',32              00015900
+         ELSEIF (TM,FLAGS2,FL2TSOBG,O)                                  00016000
+           WTO 'TSO BACKGROUND ENVIRONMENT FOUND',ROUTCDE=11            00016100
+         ELSE                                                           00016200
+           WTO 'TSO ENVIRONMENT NOT FOUND',ROUTCDE=11                   00016300
+         ENDIF                                                          00016400
+*                                                                       00016500
+* --------------------------------------------------------------------  00016600
+*  DEBUG OUTPUT FOR ISPF ENVIRONMENT                                    00016700
+* --------------------------------------------------------------------  00016800
+*                                                                       00016900
+         IF (TM,FLAGS2,FL2ISPF,O)                                       00017000
+           IF (TM,FLAGS2,FL2TSOFG,O)                                    00017100
+             TPUT =CL22'ISPF ENVIRONMENT FOUND',22                      00017200
+           ELSE                                                         00017300
+             WTO 'ISPF ENVIRONMENT FOUND',ROUTCDE=11                    00017400
+           ENDIF                                                        00017500
+         ELSE                                                           00017600
+           IF (TM,FLAGS2,FL2TSOFG,O)                                    00017700
+             TPUT =CL26'ISPF ENVIRONMENT NOT FOUND',26                  00017800
+           ELSE                                                         00017900
+             WTO 'ISPF ENVIRONMENT NOT FOUND',ROUTCDE=11                00018000
+           ENDIF                                                        00018100
+         ENDIF                                                          00018200
+*                                                                       00018300
+* --------------------------------------------------------------------  00018400
+*  DEBUG OUTPUT FOR EXEC ENVIRONMENT                                    00018500
+* --------------------------------------------------------------------  00018600
+*                                                                       00018700
+         IF (TM,FLAGS2,FL2EXEC,O)                                       00018800
+           IF (TM,FLAGS2,FL2TSOFG,O)                                    00018900
+             TPUT =CL22'EXEC ENVIRONMENT FOUND',22                      00019000
+           ELSE                                                         00019100
+             WTO 'EXEC ENVIRONMENT FOUND',ROUTCDE=11                    00019200
+           ENDIF                                                        00019300
+         ELSE                                                           00019400
+           IF (TM,FLAGS2,FL2TSOFG,O)                                    00019500
+             TPUT =CL26'EXEC ENVIRONMENT NOT FOUND',26                  00019600
+           ELSE                                                         00019700
+             WTO 'EXEC ENVIRONMENT NOT FOUND',ROUTCDE=11                00019800
+           ENDIF                                                        00019900
+         ENDIF                                                          00020000
+*                                                                       00020100
+* --------------------------------------------------------------------  00020200
+*  HANDLE THE MISSING ALLOCATIONS                                       00020300
+* --------------------------------------------------------------------  00020400
+*                                                                       00020500
+         IF (TM,FLAGS2,FL2TSOFG,O)     ONLY FOR TSOFG                   00020600
+           IF (TM,FLAGS1,FL1IN,O)                                       00020700
+             TPUT =CL19'STDIN  IS ALLOCATED',19                         00020800
+           ELSE                                                         00020900
+             TPUT =CL24'STDIN  WILL BE ALLOCATED',24                    00021000
+             LA   R1,=CL8'STDIN   '                                     00021100
+             CALL ALLOC                                                 00021200
+           ENDIF                                                        00021300
+                                                                        00021400
+           IF (TM,FLAGS1,FL1OUT,O)                                      00021500
+             TPUT =CL19'STDOUT IS ALLOCATED',19                         00021600
+           ELSE                                                         00021700
+             TPUT =CL24'STDOUT WILL BE ALLOCATED',24                    00021800
+             LA   R1,=CL8'STDOUT  '                                     00021900
+             CALL ALLOC                                                 00022000
+           ENDIF                                                        00022100
+                                                                        00022200
+           IF (TM,FLAGS1,FL1ERR,O)                                      00022300
+             TPUT =CL19'STDERR IS ALLOCATED',19                         00022400
+           ELSE                                                         00022500
+             TPUT =CL24'STDERR WILL BE ALLOCATED',24                    00022600
+             LA   R1,=CL8'STDERR  '                                     00022700
+             CALL ALLOC                                                 00022800
+           ENDIF                                                        00022900
+         ENDIF                                                          00023000
+*                                                                       00023100
+         IF (TM,FLAGS1,FL1RXL,O)                                        00023200
+           TPUT =CL19'RXLIB  IS ALLOCATED',19                           00023300
+         ENDIF                                                          00023400
+*                                                                       00023500
+RXEND    $EPILOG                                                        00023609
+         LTORG                                                          00023700
+*                                                                       00023800
+EXTADDR  DS    3F                                                       00023905
+EXTRACT  EXTRACT MF=L             EXTRACT PARAMETER LIST                00024005
+*                                                                       00024105
+         EJECT                                                          00024200
+*                                                                       00024300
+* ********************************************************************  00024400
+* *** PROCEDURE CHKISPF * CHECK PRESENCE OF ISPF ENVIRONMENT *********  00024500
+* ********************************************************************  00024600
+*                                                                       00024700
+CHKISPF  $PROLOG                                                        00024805
+*                                                                       00024900
+* --------------------------------------------------------------------  00025000
+* SEE IF THE PROGRAM IS LOCATED IN JOBLIB/STEPLIB OR IN THE LINKLIST.   00025100
+* --------------------------------------------------------------------  00025200
+*                                                                       00025300
+         LR    R5,R1                                                    00025404
+         USING USER,R5                                                  00025504
+*                                                                       00025609
+* SEE IF THE PROGRAM IS LOCATED IN JOBLIB/STEPLIB OR IN THE LINKLIST.   00025709
+*                                                                       00025809
+         MVC   USRBLDLN,ISPTPNAM  MOVE IN PROGRAM NAME FOR BLDL         00025909
+         MVC   USRBLDLF,=H'1'     SET # ENTRIES TO SEARCH               00026004
+         MVC   USRBLDLL,=H'50'    SET P-LIST LENGTH                     00026104
+         BLDL  0,USRBLDL          ATTEMPT TO LOCATE THE PROGRAM         00026204
+         IF (LTR,R15,R15,Z)                                             00026304
+           B   LOAD               FOUND PROGRAM                         00026409
+*                                                                       00026509
+* NEXT INVOKE IEAVVMSR TO SEARCH LPA. THIS ROUTINE DESTROYS             00026609
+* R3, R6, R8, R9, AND RETURNS TO EITHER R15+0 OR R15+4.                 00026709
+*                                                                       00026809
+         ELSE                                                           00026909
+           STM R0,R15,USRSA       SAVE ALL THE REGISTERS                00027009
+           LM  R0,R1,ISPTPNAM     R0-R1 HAVE PROGRAM NAME               00027109
+           L   R3,USRPCVT         R3 @ CVT                              00027209
+           L   R15,CVTLPDSR-CVT(R0,R3) R15 @ IEAVVMSR EPA               00027309
+           BALR R14,R15           SEARCH LPA FOR PROGRAM                00027409
+           B   PRELOAD            FOUND PROGRAM IN LPA                  00027509
+           LM  R0,R15,USRSA       NOT FOUND - RESTORE ALL REGS          00027609
+           B   CHKEND             CONTINUE                              00027709
+         ENDIF                                                          00027804
+*                                                                       00027900
+* THE PROGRAM WAS FOUND IN LPA.                                         00028009
+*                                                                       00028109
+PRELOAD  LM    R0,R15,USRSA       FOUND IN LPA - RESTORE ALL REGS       00028209
+*                                                                       00028309
+LOAD     LOAD  EP=ISPQRY                                                00028409
+         LR    R15,R0                                                   00028509
+         CALL  (15)                                                     00028609
+         IF (LTR,R15,R15,Z)                                             00028709
+           OI  FLAGS2,FL2ISPF                                           00028809
+         ENDIF                                                          00028909
+*                                                                       00029009
+CHKEND   $EPILOG                                                        00029109
+         LTORG                                                          00029200
+*                                                                       00029309
+ISPTPNAM DC    CL8'ISPQRY'                                              00029410
+*                                                                       00029500
+* ********************************************************************  00029600
+* *** PROCEDURE ALLOC * ALLOCATE A GIVEN DDN *************************  00029700
+* ********************************************************************  00029800
+*                                                                       00029900
+ALLOC    $PROLOG LV=50                                                  00030000
+*                                                                       00030100
+         LR    R10,R1                                                   00030200
+         LA    R9,72(,R13)        POINT BEHIND SAVE AREA                00030300
+         USING S99RBP,R9                                                00030400
+         LA    R4,S99RBPTR+4                                            00030500
+         USING S99RB,R4                                                 00030600
+         ST    R4,S99RBPTR                                              00030700
+         OI    S99RBPTR,S99RBPND                                        00030800
+         XC    S99RB(S99RBLEN),S99RB                                    00030902
+         MVI   S99RBLN,S99RBLEN                                         00031002
+         MVI   S99VERB,S99VRBAL                                         00031100
+         LA    R5,S99RB+S99RBLEN                                        00031202
+         USING S99TUPL,R5                                               00031300
+         ST    R5,S99TXTPP                                              00031400
+         MVC   DDNAME+6(8),0(R10)                                       00031500
+         LA    R6,DDNAME                                                00031600
+         ST    R6,S99TUPTR                                              00031700
+         LA    R5,S99TUPL+4                                             00031800
+         LA    R6,TERMINAL                                              00031900
+         ST    R6,S99TUPTR                                              00032000
+         LA    R5,S99TUPL+4                                             00032100
+         LA    R6,STATUS                                                00032200
+         ST    R6,S99TUPTR                                              00032300
+         OI    S99TUPTR,S99TUPLN                                        00032400
+         LR    R1,R9                                                    00032500
+*                                                                       00032600
+         DYNALLOC                                                       00032700
+*                                                                       00032800
+         $EPILOG                                                        00032900
+         LTORG                                                          00033000
+*                                                                       00033100
+S99RBLEN EQU   (S99RBEND-S99RB)                                         00033202
+DDNAME   DS    0H                  DDNAME TU                            00033301
+         DC    AL2(DALDDNAM)       KEY = DDNAME                         00033401
+         DC    X'0001'             HOW MANY VAL FIELDS                  00033501
+         DC    X'0008'             LEN OF VALUE FIELD                   00033601
+         DC    CL8'        '       VAL FIELD, THE DD NAME               00033701
+*                                                                       00033800
+TERMINAL DS    0H                  TERMINAL TU                          00033901
+         DC    AL2(DALTERM)        KEY = TERMINAL                       00034001
+         DC    X'0000'             LEN OF VALUE FIELD                   00034101
+*                                                                       00034200
+SYSOUT   DS    0H                  SYSOUT TU                            00034301
+         DC    AL2(DALSYSOU)       KEY = SYSOUT                         00034401
+         DC    XL2'0001'           HOW MANY VAL FIELDS                  00034501
+         DC    XL2'0001'           LEN OF VALUE FIELD                   00034601
+         DC    CL1'*'              VAL FIELD, SYSOUT=*                  00034701
+*                                                                       00034800
+STATUS   DS    0H                  STATUS TU                            00034901
+         DC    AL2(DALSTATS)       KEY = STATUS                         00035001
+         DC    X'0001'             HOW MANY VAL FIELDS                  00035101
+         DC    X'0001'             LEN OF VALUE FIELD                   00035201
+         DC    X'08'               VAL FIELD, DISP=SHR                  00035301
+*                                                                       00035400
+* --------------------------------------------------------------------  00035500
+* DUMMY SECTION                                                         00035600
+* --------------------------------------------------------------------  00035700
+*                                                                       00035800
+USER     DSECT                                                          00035902
+USREYE   DS    0CL4               THE EYE CATCHER                       00036009
+         DC    CL4'USER'                                                00036109
+USRPTIOT DS    F                                                        00036209
+USRPCVT  DS    F                                                        00036309
+USRSA    DS    16F                SPECIAL SAVE AREA                     00036404
+USRBLDL  DS    0CL80              BLDL PARAMETER LIST                   00036504
+USRBLDLF DS    H                  # BLDL ENTRIES TO SEARCH              00036604
+USRBLDLL DS    H                  LENGTH OF BLDL PARAMTER LIST          00036704
+USRBLDLN DS    CL8                PROGRAM NAME TO SEARCH                00036804
+USRBLDLD DS    CL68               BLDL RETURN DATA AREA                 00036904
+FLAGS    DS    0F                                                       00037004
+FLAGS1   DC    X'00'                                                    00037104
+FL18     EQU   X'80' 1... ....  UNSED                                   00037204
+FL17     EQU   X'40' .1.. ....  UNSED                                   00037304
+FL16     EQU   X'20' ..1. ....  UNSED                                   00037404
+FL15     EQU   X'10' ...1 ....  UNSED                                   00037504
+FL1RXL   EQU   X'08' .... 1...  RXLIB  ALLOCATION FOUND                 00037604
+FL1ERR   EQU   X'04' .... .1..  STDERR ALLOCATION FOUND                 00037704
+FL1OUT   EQU   X'02' .... ..1.  STDOUT ALLOCATION FOUND                 00037804
+FL1IN    EQU   X'01' .... ...1  STDIN  ALLOCATION FOUND                 00037904
+FLAGS2   DC    X'00'                                                    00038004
+FL28     EQU   X'80' 1... ....  UNSED                                   00038104
+FL27     EQU   X'40' .1.. ....  UNSED                                   00038204
+FL26     EQU   X'20' ..1. ....  UNSED                                   00038304
+FL25     EQU   X'10' ...1 ....  UNSED                                   00038404
+FL2ISPF  EQU   X'08' .... 1...  ISPF ENVIRONMENT FOUND                  00038504
+FL2EXEC  EQU   X'04' .... .1..  EXEC ENVIRONMENT FOUND                  00038604
+FL2TSOBG EQU   X'02' .... ..1.  TSO BACKGROUND ENVIRONMENT FOUND        00038704
+FL2TSOFG EQU   X'01' .... ...1  TSO FOREGROUND ENVIRONMENT FOUND        00038804
+FLAGS3   DC    X'00'                                                    00038904
+FL38     EQU   X'80' 1... ....  UNSED                                   00039004
+FL37     EQU   X'40' .1.. ....  UNSED                                   00039104
+FL36     EQU   X'20' ..1. ....  UNSED                                   00039204
+FL35     EQU   X'10' ...1 ....  UNSED                                   00039304
+FL34     EQU   X'08' .... 1...  UNSED                                   00039404
+FL33     EQU   X'04' .... .1..  UNSED                                   00039504
+FL32     EQU   X'02' .... ..1.  UNSED                                   00039604
+FL31     EQU   X'01' .... ...1  UNSED                                   00039704
+FLAGS4   DC    X'00'                                                    00039804
+USRLEN   EQU *-USER                                                     00039902
+*                                                                       00040002
+         END   RXINIT                                                   00040100
