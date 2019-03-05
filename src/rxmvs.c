@@ -163,6 +163,25 @@ void R_magic(int func)
 
 void RxMvsInitialize()
 {
+    RX_INIT_PARAMS_PTR params;
+
+    int      cc     = 0;
+    void     *wk;
+
+    params = malloc(sizeof(RX_INIT_PARAMS));
+    wk     = malloc(512);
+
+    memset(wk,42,80);
+
+    params->wkadr        = (unsigned *)wk;
+
+    call_rxinit(params);
+
+    free(wk);
+    free(params);
+
+
+
     /* MVS specific functions */
     RxRegFunction("WAIT",   R_wait,   0);
     RxRegFunction("WTO",    R_wto ,   0);
@@ -309,6 +328,11 @@ int checkVariableBlacklist(PLstr name)
 
 /* dummy implementations for cross development */
 #ifdef __CROSS__
+int call_rxinit(RX_INIT_PARAMS_PTR params)
+{
+
+}
+
 unsigned int call_rxikj441 (RX_IKJCT441_PARAMS_PTR params)
 {
     char *value = NULL;

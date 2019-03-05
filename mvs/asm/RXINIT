@@ -1,65 +1,11 @@
-*
-* RXINIT BY MIKE GROSSMANN - PART OF BREXX/370
-*
-***********************************************************************
-* THE PURPOSE OF RXINIT IS TO CHECK AND INITIALIZE THE RUNTIME        *
-* ENVIRONMENT FOR BREXX/370. THIS ROUTINE HAS TWO DIFFERENT ENTRY     *
-* POINTS:                                                             *
-*                                                                     *
-* RXINITS:                                                            *
-*     THIS IS THE ENTRY POINT TO START RXINIT STANDALONE              *
-*                                                                     *
-* RXINIT:                                                             *
-*     THIS IS THE MAIN ENTRY POINT CALLED BY BREXX/370                *
-*                                                                     *
-***********************************************************************
-         EJECT
+RXINIT  TITLE 'INITIALIZE  AND CHECK THE BREXX/370 ENVIRONMENT'
 * ---------------------------------------------------------------------
-* DUMMY SECTIONS
+*   INITIALIZE  AND CHECK THE BREXX/370 ENVIRONMENT
+*   AUTHOR     : MIKE GROSSMANN (MIG)
+*   CREATED    : 22.02.2019  MIG
+*   C PROLOGUE : JUERGEN WINKELMANN, ETH ZUERICH.
 * ---------------------------------------------------------------------
-         PRINT   NOGEN
-         CVT     DSECT=Y          COMMON VECTOR TABLE
-         IHAPSA  DSECT=YES        PREFIXED SAVE AREA
-         IHAASCB DSECT=YES        ADDRESS SPACE CONTOL BLOCK
-         IHAASXB DSECT=YES        ADDRESS SPACE EXTENSION BLOCK
-         IKJEFLWA ,               LOGON WORK AREA
-         IKJECT   ,               ENVIRONMENT CONTROL TABLE
-         IKJPSCB  ,               PROTECTED STEP CONTROL BLOCK
-         IEFTIOT1 ,               TASK INPUT OUTPUT TABLE
-         IEFZB4D0 ,               DYNALLOC PARAMETER LIST
-         IEFZB4D2 ,               DYNALLOC TEXT UNIT KEYS
-* --- I/O SERVICE ROUTINE WORK AREA
-IOSRL    DSECT                    ECTIOWA -> IOSRL
-IOSTELM  DS    A                  TOP STACK ELEMENT POINTER
-IOSBELM  DS    A                  BOTTOM ELEMENT POINTER
-IOSTLEN  DS    H                  STACK SIZE
-IOSNELM  DS    H                  NUMBER OF ELEMENTS
-IOSUNUSD DS    F                  SPARE
-* --- INPUT STACK ELEMENT
-INSTACK  DSECT                    IOSTELM -> TOP ELEMENT
-INSCODE  DS    X                  INPUT STACK OPTIONS
-INSTERM  EQU   X'80'              TERMINAL INPUT STACK ENTRY
-*        EQU   X'40'              .
-INSINDD  EQU   X'20'              INPUT FROM DD VIA DCB
-INSOTDD  EQU   X'10'              OUTPUT TO DD VIA DCB
-INSEXEC  EQU   X'08'              EXEC COMMAND STACK ENTRY
-INSPROM  EQU   X'04'              PROMPT ALLOWED
-INSPROC  EQU   X'02'              PROCEDURE FLAG
-INSLIST  EQU   X'01'              LIST LINES BEFORE EXEC
-INSADLSD DS    AL3                POINTER TO LSD
-         EJECT
-* =====================================================================
-* RXINITS
-*
-*     STANDALONE ENTRY POINT
-* =====================================================================
-RXINITS  CSECT
-RXINITS  $PROLOG LV=256
-*
-*        USING *,R12           PROVIDING ADDRESSABILITY
-         LA    R5,72(,R13)     POINT TO THE ALLOCATED MEMORY
-         B     MAIN            SKIP BREXX/370 ENTRY CODING
-*
+         PRINT   GEN
 * =====================================================================
 * RXINIT
 *
@@ -76,14 +22,12 @@ RXINITS  $PROLOG LV=256
 *              R12   BASE REGISTER
 *
 * =====================================================================
-         ENTRY RXINIT
-         DC    C'RXINIT'
-RXINIT   DS    0H
+RXINIT   MRXSTART A2PLIST=YES  START OF PROGRAM
 *
-*        BREXX/370 ENTRY CODING HERE
-*
-MAIN     EQU   *
-         LR    R6,R7
+         USING PARAMS,RB
+         L     R5,WORKPTR      GET PTR TO MEMORY FOR USER AREA
+         USING USER,R5
+         DROP  RB
 *
          CALL  PREPARE         PREPARE USERAREA
 *
@@ -91,42 +35,26 @@ MAIN     EQU   *
          CALL  CHKTSO          CHECK TSO  ENVIRONMENT
          CALL  CHKEXEC         CHECK EXEC ENVIRONMENT
          CALL  CHKALLOC        CHECK NEEDED ALLOCATIONS
-*
-         CALL TRACE            TRACE DEBUG MESSAGE
-*
 * ---------------------------------------------------------------------
 * HANDLE THE MISSING ALLOCATIONS
 * ---------------------------------------------------------------------
          USING USER,R5
 *
-         IF (TM,FLAGS2,FL2TSOFG,O)     ONLY FOR TSOFG
-           IF (TM,FLAGS1,FL1IN,O)
-             TPUT =CL19'STDIN  IS ALLOCATED',19
-           ELSE
-             TPUT =CL24'STDIN  WILL BE ALLOCATED',24
+         IF (TM,FLAGS2,FL2TSOFG,O) ONLY FOR TSOFG
+           IF (TM,FLAGS1,FL1IN,NO)
              CALL ALLOCATE,(=CL8'STDIN'),MF=(E,USRCALL)
            ENDIF
 
-           IF (TM,FLAGS1,FL1OUT,O)
-             TPUT =CL19'STDOUT IS ALLOCATED',19
-           ELSE
-             TPUT =CL24'STDOUT WILL BE ALLOCATED',24
+           IF (TM,FLAGS1,FL1OUT,NO)
              CALL ALLOCATE,(=CL8'STDOUT'),MF=(E,USRCALL)
            ENDIF
 
-           IF (TM,FLAGS1,FL1ERR,O)
-             TPUT =CL19'STDERR IS ALLOCATED',19
-           ELSE
-             TPUT =CL24'STDERR WILL BE ALLOCATED',24
+           IF (TM,FLAGS1,FL1ERR,NO)
              CALL ALLOCATE,(=CL8'STDERR'),MF=(E,USRCALL)
            ENDIF
          ENDIF
 *
-         IF (TM,FLAGS1,FL1RXL,O)
-           TPUT =CL19'RXLIB  IS ALLOCATED',19
-         ENDIF
-*
-RXEND    $EPILOG
+         MRXEXIT
          LTORG
 *
          EJECT
@@ -141,17 +69,40 @@ RXEND    $EPILOG
 *     OUTPUT:
 *
 *     REGISTER USAGE:
-*              R5    USERREA
+*              R5    USER AREA
 *              R12   BASE REGISTER
+*              R13   SAVE AREA
 *
 * =====================================================================
          USING USER,R5
-PREPARE  $PROLOG
+PREPARE  CSECT ,
 *
-         MVI   USER,X'0'       CLEAR MEMORY
-         MVC   USER+1(USRLEN-1),USER   EVTL MVCL WENN VORHANDEN
+* ---------------------------------------------------------------------
+* ENTRY CODING - PART 1 - SAVE CALLER'S REGISTERS
+* ---------------------------------------------------------------------
+         SAVE  (14,12),,PREPARE  SAVE CALLER'S REGISTERS
+         BALR  R12,R0          ESTABLISH ADDRESSABILITY
+         USING *,R12           SET BASE REGISTER
+* ---------------------------------------------------------------------
+* ENTRY CODING - PART 2 - PREPARE USER AREA
+* ---------------------------------------------------------------------
+         LA    14,USER
+         LA    15,USRLEN
+         L     1,=AL1(X'00',0,0,0)
+         MVCL  14,0
          MVC   USREYE,=CL4'USER' ADD EYE CATCHER
 *
+* ---------------------------------------------------------------------
+* ENTRY CODING - PART 3 - CAHINING SAVE AREAS
+* ---------------------------------------------------------------------
+         LA    R11,USRSA       GET SAVE AREA POINTER
+         ST    R13,4(R11)      STORE BACKWARD POINTER
+         ST    R11,8(R13)      STORE FORWARD POINTER
+*
+         LR    R13,R11         GET SAVE AREA ADDRESS ..
+* ---------------------------------------------------------------------
+* FETCH NECESSARY POINTERS
+* ---------------------------------------------------------------------
          LA    R2,0            POINT TO THE CURRENT PSA
          USING PSA,R2          ENSURE ADDRESSABILITY
 *
@@ -159,8 +110,13 @@ PREPARE  $PROLOG
          ST    R3,USRPCVT      STORE ADDRESS IN USER AREA
 *
          DROP  R2              PSA NOT NEEDED ANYMORE
-*
-         $EPILOG
+* ---------------------------------------------------------------------
+* EXIT CODING
+* ---------------------------------------------------------------------
+         L     R13,4(,R13)     PICK UP CALLER'S SAVE AREA
+         L     R14,12(,R13)    GET RETURN ADDRESS
+         RETURN (0,12)
+* ---
          LTORG
 *
          EJECT
@@ -180,8 +136,19 @@ PREPARE  $PROLOG
 *
 * =====================================================================
          USING USER,R5
-CHKISPF  $PROLOG
+CHKISPF  CSECT ,
 *
+* --- ENTRY CODING
+         SAVE  (14,12),,CHKISPF  SAVE CALLER'S REGISTERS
+         BALR  R12,R0          ESTABLISH ADDRESSABILITY
+         USING *,R12           SET BASE REGISTER
+*
+         LA    R11,USRSA       GET SAVE AREA POINTER
+         ST    R13,4(R11)      STORE BACKWARD POINTER
+         ST    R11,8(R13)      STORE FORWARD POINTER
+*
+         LR    R13,R11         GET SAVE AREA ADDRESS ..
+* ---
          LA    R4,0            RETURN CODE / MODULE FOUND
 * ---------------------------------------------------------------------
 * SEE IF THE PROGRAM IS LOCATED IN JOBLIB/STEPLIB OR IN THE LINKLIST.
@@ -213,8 +180,11 @@ CHKISPF  $PROLOG
              OI  FLAGS2,FL2ISPF
            ENDIF
          ENDIF
-*
-         $EPILOG
+* --- EXIT CODING
+         L     R13,4(,R13)     PICK UP CALLER'S SAVE AREA
+         L     R14,12(,R13)    GET RETURN ADDRESS
+         RETURN (0,12)
+* ---
          LTORG
 ISPTPNAM DC    CL8'ISPQRY'
          EJECT
@@ -232,8 +202,19 @@ ISPTPNAM DC    CL8'ISPQRY'
 *
 * =====================================================================
          USING USER,R5
-CHKTSO   $PROLOG
+CHKTSO   CSECT ,
 *
+* --- ENTRY CODING
+         SAVE  (14,12),,CHKTSO SAVE CALLER'S REGISTERS
+         BALR  R12,R0          ESTABLISH ADDRESSABILITY
+         USING *,R12           SET BASE REGISTER
+*
+         LA    R11,USRSA       GET SAVE AREA POINTER
+         ST    R13,4(R11)      STORE BACKWARD POINTER
+         ST    R11,8(R13)      STORE FORWARD POINTER
+*
+         LR    R13,R11         GET SAVE AREA ADDRESS ..
+* ---
 * ---------------------------------------------------------------------
 * USING THE EXTRACT MACRO TO GET CONTROL BLOCKS FROM TCB
 * ---------------------------------------------------------------------
@@ -248,8 +229,11 @@ CHKTSO   $PROLOG
          IF (LTR,R3,R3,NZ)     TEST IF ADDRESS OF PSCB IS PRESENT
            OI  FLAGS2,FL2TSOBG   MARK BACKGROUND TSO AS FOUND
          ENDIF
-*
-TSOEND   $EPILOG
+* --- EXIT CODING
+         L     R13,4(,R13)     PICK UP CALLER'S SAVE AREA
+         L     R14,12(,R13)    GET RETURN ADDRESS
+         RETURN (0,12)
+* ---
          LTORG
 *
          EJECT
@@ -269,8 +253,19 @@ TSOEND   $EPILOG
 *
 * =====================================================================
          USING USER,R5
-CHKEXEC  $PROLOG
+CHKEXEC  CSECT ,
 *
+* --- ENTRY CODING
+         SAVE  (14,12),,CHKEXEC  SAVE CALLER'S REGISTERS
+         BALR  R12,R0          ESTABLISH ADDRESSABILITY
+         USING *,R12           SET BASE REGISTER
+*
+         LA    R11,USRSA       GET SAVE AREA POINTER
+         ST    R13,4(R11)      STORE BACKWARD POINTER
+         ST    R11,8(R13)      STORE FORWARD POINTER
+*
+         LR    R13,R11         GET SAVE AREA ADDRESS ..
+* ---
          IF (TM,FLAGS2,FL2TSOFG,O),OR,                                 *
                (TM,FLAGS2,FL2TSOBG,O)
 *
@@ -291,8 +286,11 @@ CHKEXEC  $PROLOG
 *
            DROP  R6            PSA NOT NEEDED ANYMORE
          ENDIF
-*
-EXECEND  $EPILOG
+* --- EXIT CODING
+         L     R13,4(,R13)     PICK UP CALLER'S SAVE AREA
+         L     R14,12(,R13)    GET RETURN ADDRESS
+         RETURN (0,12)
+* ---
          LTORG
 *
          EJECT
@@ -312,8 +310,19 @@ EXECEND  $EPILOG
 *
 * =====================================================================
          USING USER,R5
-CHKALLOC $PROLOG
+CHKALLOC CSECT ,
 *
+* --- ENTRY CODING
+         SAVE  (14,12),,CHKALLOC SAVE CALLER'S REGISTERS
+         BALR  R12,R0          ESTABLISH ADDRESSABILITY
+         USING *,R12           SET BASE REGISTER
+*
+         LA    R11,USRSA       GET SAVE AREA POINTER
+         ST    R13,4(R11)      STORE BACKWARD POINTER
+         ST    R11,8(R13)      STORE FORWARD POINTER
+*
+         LR    R13,R11         GET SAVE AREA ADDRESS ..
+* ---
          L     R6,USRPTIOT     GET POINTER TO TIOT
          USING TIOT1,R6
 *
@@ -339,8 +348,11 @@ CHKALLOC $PROLOG
          ENDDO
 *
          DROP  R6              TIOT IS NOT LONGER NEEDED
-*
-ALLOCEND $EPILOG
+* --- EXIT CODING
+         L     R13,4(,R13)     PICK UP CALLER'S SAVE AREA
+         L     R14,12(,R13)    GET RETURN ADDRESS
+         RETURN (0,12)
+* ---
          LTORG
 *
          EJECT
@@ -361,8 +373,19 @@ ALLOCEND $EPILOG
 *
 * =====================================================================
          USING USER,R5
-ALLOCATE $PROLOG
+ALLOCATE CSECT ,
 *
+* --- ENTRY CODING
+         SAVE  (14,12),,ALLOCATE SAVE CALLER'S REGISTERS
+         BALR  R12,R0          ESTABLISH ADDRESSABILITY
+         USING *,R12           SET BASE REGISTER
+*
+         LA    R11,USRSA       GET SAVE AREA POINTER
+         ST    R13,4(R11)      STORE BACKWARD POINTER
+         ST    R11,8(R13)      STORE FORWARD POINTER
+*
+         LR    R13,R11         GET SAVE AREA ADDRESS ..
+* ---
          L     R10,0(,R1)
          LA    R10,0(,R10)
          XC    UARBP(UALEN),UARBP CLEAR
@@ -410,87 +433,31 @@ ALLOCATE $PROLOG
 *
          LA    R1,UARBP
          DYNALLOC
-*
-         $EPILOG
+* --- EXIT CODING
+         L     R13,4(,R13)     PICK UP CALLER'S SAVE AREA
+         L     R14,12(,R13)    GET RETURN ADDRESS
+         RETURN (0,12)
+* ---
          LTORG
 *
-S99RBLEN EQU   (S99RBEND-S99RB)
 MADDNAMU DC    AL2(DALDDNAM),X'0001',X'0008'    DDNAME
 MATERMU  DC    AL2(DALTERM),X'0000'             TERMINAL
 MAPERMU  DC    AL2(DALPERMA),X'0000'            PERMANENT
 MASTATSU DC    AL2(DALSTATS),X'0001',X'0001'    STATUS
          EJECT
 * =====================================================================
-* TRACE
-*
-*     TRACE OUT DEBUG MESSAGES
-*
-*     INPUT:
-*              R5    USERAREA
-*
-*     OUTPUT:
-*
-*     REGISTER USAGE:
-*              R5    USERREA
-*              R12   BASE REGISTER
-*
+* PARAMETER AREA
 * =====================================================================
-         USING USER,R5
-TRACE    $PROLOG
-*
-* ---------------------------------------------------------------------
-*  DEBUG OUTPUT FOR TSO ENVIRONMENT
-* ---------------------------------------------------------------------
-         IF (TM,FLAGS2,FL2TSOFG,O)
-           TPUT =CL32'TSO FOREGROUND ENVIRONMENT FOUND',32
-         ELSEIF (TM,FLAGS2,FL2TSOBG,O)
-           WTO 'TSO BACKGROUND ENVIRONMENT FOUND',ROUTCDE=11
-         ELSE
-           WTO 'TSO ENVIRONMENT NOT FOUND',ROUTCDE=11
-         ENDIF
-* ---------------------------------------------------------------------
-*  DEBUG OUTPUT FOR ISPF ENVIRONMENT
-* ---------------------------------------------------------------------
-         IF (TM,FLAGS2,FL2ISPF,O)
-           IF (TM,FLAGS2,FL2TSOFG,O)
-             TPUT =CL22'ISPF ENVIRONMENT FOUND',22
-           ELSE
-             WTO 'ISPF ENVIRONMENT FOUND',ROUTCDE=11
-           ENDIF
-         ELSE
-           IF (TM,FLAGS2,FL2TSOFG,O)
-             TPUT =CL26'ISPF ENVIRONMENT NOT FOUND',26
-           ELSE
-             WTO 'ISPF ENVIRONMENT NOT FOUND',ROUTCDE=11
-           ENDIF
-         ENDIF
-* ---------------------------------------------------------------------
-*  DEBUG OUTPUT FOR EXEC ENVIRONMENT
-* ---------------------------------------------------------------------
-         IF (TM,FLAGS2,FL2EXEC,O)
-           IF (TM,FLAGS2,FL2TSOFG,O)
-             TPUT =CL22'EXEC ENVIRONMENT FOUND',22
-           ELSE
-             WTO 'EXEC ENVIRONMENT FOUND',ROUTCDE=11
-           ENDIF
-         ELSE
-           IF (TM,FLAGS2,FL2TSOFG,O)
-             TPUT =CL26'EXEC ENVIRONMENT NOT FOUND',26
-           ELSE
-             WTO 'EXEC ENVIRONMENT NOT FOUND',ROUTCDE=11
-           ENDIF
-         ENDIF
-*
-         $EPILOG
-         LTORG
-*
-         EJECT
+PARAMS   DSECT
+RXCTXPTR DS    A
+WORKPTR  DS    A
 * =====================================================================
-* USERAREA DUMMY SECTION
+* USER AREA DUMMY SECTION
 * =====================================================================
 USER     DSECT
 USREYE   DS    0CL4            THE EYE CATCHER
          DC    CL4'USER'
+USRSA    DS    18F             SAVE AREA
 * --- ADDRESS FIELDS
 USRPTIOT DS    F               PTR TO TIOT
 USRPCVT  DS    F               PTR TO CVT
@@ -552,5 +519,41 @@ UASTATSL EQU   *-UASTATSU
 UASTATS  DS    X'08'           SHR
 UALEN    EQU *-UARBP
 USRLEN   EQU *-USER
-*
-         END   RXINITS
+         EJECT
+* ---------------------------------------------------------------------
+* OTHER DUMMY SECTIONS
+* ---------------------------------------------------------------------
+         CVT     DSECT=Y          COMMON VECTOR TABLE
+         IHAPSA  DSECT=YES        PREFIXED SAVE AREA
+         IHAASCB DSECT=YES        ADDRESS SPACE CONTOL BLOCK
+         IHAASXB DSECT=YES        ADDRESS SPACE EXTENSION BLOCK
+         IKJEFLWA ,               LOGON WORK AREA
+         IKJECT   ,               ENVIRONMENT CONTROL TABLE
+         IKJPSCB  ,               PROTECTED STEP CONTROL BLOCK
+         IEFTIOT1 ,               TASK INPUT OUTPUT TABLE
+         IEFZB4D0 ,               DYNALLOC PARAMETER LIST
+         IEFZB4D2 ,               DYNALLOC TEXT UNIT KEYS
+* --- MISSING LENGTH EQUATE
+S99RBLEN EQU   (S99RBEND-S99RB)
+* --- I/O SERVICE ROUTINE WORK AREA
+IOSRL    DSECT                    ECTIOWA -> IOSRL
+IOSTELM  DS    A                  TOP STACK ELEMENT POINTER
+IOSBELM  DS    A                  BOTTOM ELEMENT POINTER
+IOSTLEN  DS    H                  STACK SIZE
+IOSNELM  DS    H                  NUMBER OF ELEMENTS
+IOSUNUSD DS    F                  SPARE
+* --- INPUT STACK ELEMENT
+INSTACK  DSECT                    IOSTELM -> TOP ELEMENT
+INSCODE  DS    X                  INPUT STACK OPTIONS
+INSTERM  EQU   X'80'              TERMINAL INPUT STACK ENTRY
+*        EQU   X'40'              .
+INSINDD  EQU   X'20'              INPUT FROM DD VIA DCB
+INSOTDD  EQU   X'10'              OUTPUT TO DD VIA DCB
+INSEXEC  EQU   X'08'              EXEC COMMAND STACK ENTRY
+INSPROM  EQU   X'04'              PROMPT ALLOWED
+INSPROC  EQU   X'02'              PROCEDURE FLAG
+INSLIST  EQU   X'01'              LIST LINES BEFORE EXEC
+INSADLSD DS    AL3                POINTER TO LSD
+         EJECT
+         COPY  MRXREGS
+         END   RXINIT

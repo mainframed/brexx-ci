@@ -7,6 +7,15 @@ int __CDECL SetClistVar(PLstr name, PLstr value);
 /* ---------------------------------------------------------- */
 /* assembler module RXIKJ441                                  */
 /* ---------------------------------------------------------- */
+typedef struct trx_init_params
+{
+    unsigned   *rxctxadr;
+    unsigned   *wkadr;
+} RX_INIT_PARAMS, *RX_INIT_PARAMS_PTR;
+
+/* ---------------------------------------------------------- */
+/* assembler module RXIKJ441                                  */
+/* ---------------------------------------------------------- */
 typedef struct trx_ikjct441_params
 {
     unsigned    ecode;
@@ -83,6 +92,7 @@ typedef struct trx_ikj441_dummy_dict_head
 #endif
 
 #ifdef __CROSS__
+int call_rxinit(RX_INIT_PARAMS_PTR params);
 unsigned int call_rxikj441 (RX_IKJCT441_PARAMS_PTR params);
 int call_rxptime (RX_PTIME_PARAMS_PTR params);
 int call_rxstime (RX_STIME_PARAMS_PTR params);
@@ -90,6 +100,7 @@ int call_rxwto (RX_WTO_PARAMS_PTR params);
 int call_rxwait (RX_WAIT_PARAMS_PTR params);
 unsigned int call_rxabend (RX_ABEND_PARAMS_PTR params);
 #else
+extern int call_rxinit(RX_INIT_PARAMS_PTR params);
 extern unsigned int call_rxikj441 (RX_IKJCT441_PARAMS_PTR params);
 extern int call_rxptime (RX_PTIME_PARAMS_PTR params);
 extern int call_rxstime (RX_STIME_PARAMS_PTR params);
