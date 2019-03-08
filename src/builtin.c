@@ -737,42 +737,27 @@ R_storage( )
 {
 	void	*ptr=NULL;
 	long	adr;
-#if defined(__BORLANDC__) && !defined(__WIN32__) && !defined(WCE)
-	unsigned	seg,ofs;
-#endif
+
 	size_t	length = 1;
 
 	if (ARGN>3)
 		Lerror(ERR_INCORRECT_CALL,0);
 	if (ARGN==0) {
-#ifndef WCE
-#	if defined(__BORLANDC__) && !defined(__WIN32__)
-		Licpy(ARGR,farcoreleft()); /* return the free memory left */
-#	else
-#		if __CMS__
+
+#if __CMS__
 		CMSSTORE(ARGR);
-#		else
-		Licpy(ARGR,0);
-#		endif
-#	endif
 #else
-		STORE_INFORMATION si;
-		GetStoreInformation(&si);
-		Licpy(ARGR,si.dwFreeSize);
+		Licpy(ARGR,0);
 #endif
 		return;
 	}
 	if (exist(1)) {      /* Argument is decimal and not hex */
-		adr = Lrdint(ARG1);
+		Lx2d(ARGR,ARG1,0);    /* using ARGR as temp field for conversion */
+		adr = Lrdint(ARGR);
 		if (adr < 0)
 			Lerror(ERR_INCORRECT_CALL,0);
-#if defined(__BORLANDC__) && !defined(__WIN32__) && !defined(WCE)
-		seg = (unsigned)((adr >> 4) & 0xFFFF);
-		ofs = (unsigned)(adr & 0x000F);
-		ptr = MK_FP(seg,ofs);
-#else
+
 		ptr = (void *)adr;
-#endif
 	} else
 		Lerror(ERR_INCORRECT_CALL,0);
 
