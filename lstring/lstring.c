@@ -480,6 +480,7 @@ _Lisnum( const PLstr s )
         lLastScannedNumber = lLastScannedNumber*10.0 + (*ch-'0');
         ch++;
         F = TRUE;
+        while (ISSPACE(*ch)) ch++;
         while (IN_RANGE('0',*ch,'9')) {
             lLastScannedNumber = lLastScannedNumber*10.0 + (*ch-'0');
             ch++;
