@@ -326,7 +326,7 @@ I_StoreOption( const PLstr value, const int opt )
 		case environment_opt:
 			if (LLEN(*value) > 250)
 				Lerror(ERR_ENVIRON_TOO_LONG,1,value);
-			if (_proc[_rx_proc].env == _proc[_rx_proc-1].env)
+			if (_rx_proc > 0 && _proc[_rx_proc].env == _proc[_rx_proc-1].env)
 				LPMALLOC(_proc[_rx_proc].env);
 			Lstrcpy(_proc[_rx_proc].env,value);
 			break;
@@ -745,7 +745,7 @@ RxInitInterStr()
 {
 	RxProc *pr;
 
-	_rx_proc++;				/* increase program items       */
+	_rx_proc++; 				/* increase program items       */
 	if (_rx_proc==_proc_size) RxProcResize();
 	pr = _proc+_rx_proc;
 
@@ -1023,9 +1023,9 @@ outofcmd:
 	    case OP_UPD_CLIST_VAR:
 	        DEBUGDISPLAY("UPD_CLIST_VAR");
 
-	        /* if we where started under TSO and we are in a TSO environment (ADDRESS TSO) - */
+	        /* if we where started under TSO and we are in a EXEC environment - */
 			/* we have to set the variable value in the environment */
-			if (Lcmp(_proc[_rx_proc].env, "TSO") == 0) {
+			if (isTSOFG() && isEXEC() && 1>2) {
 				SetClistVar((PLstr)*Rxcip++,STACKTOP);
 			} else {
 				*Rxcip++;
@@ -1050,9 +1050,9 @@ outofcmd:
 			Lstrcpy(STACKP(1),STACKTOP);
 
 			/* TODO: must be moved to compile level, too. Using OP_UPD_CLIST_VAR. */
-			/* if we where started under TSO and we are in a TSO environment (ADDRESS TSO) - */
+			/* if we where started under TSO and we are in a EXEC environment - */
 			/* we have to set the variable value in the environment */
-			if (Lcmp(_proc[_rx_proc].env, "TSO") == 0) {
+			if (isTSOFG() && isEXEC() && 1>2) {
 				SetClistVar(&(_tmpstr[RxStckTop-1]),STACKTOP);
 			}
 
@@ -1140,9 +1140,9 @@ outofcmd:
 				leaf = inf->leaf[0];
 				STACKTOP = LEAFVAL(leaf);
 
-                /* if we where started under TSO and we are in a TSO environment (ADDRESS TSO) - */
+                /* if we where started under TSO and we are in a EXEC environment - */
                 /* we have to try to get the variable value from the environment */
-				if (Lcmp(_proc[_rx_proc].env, "TSO") == 0) {
+				if (isTSOFG() && isEXEC()) {
 					if (GetClistVar(&(litleaf->key), &(_tmpstr[RxStckTop])) == 0) {
 						STACKTOP = &(_tmpstr[RxStckTop]);
 					}
@@ -1161,21 +1161,24 @@ outofcmd:
 							_proc[_rx_proc].condition & SC_NOVALUE)
 							RxSignalCondition(SC_NOVALUE);
 					} else {
-						/* if we where started under TSO and we are in a TSO environment (ADDRESS TSO) - */
+						/* if we where started under TSO and we are in a EXEC environment - */
 						/* we have to try to get the variable value from the environment */
-						if (Lcmp(_proc[_rx_proc].env, "TSO") == 0 &&
-							GetClistVar(&(litleaf->key), &(_tmpstr[RxStckTop])) == 0) {
-							/* use this value */
-							STACKTOP = &(_tmpstr[RxStckTop]);
+						if ((isTSOFG() && isEXEC()) &&
+								(GetClistVar(&(litleaf->key), &(_tmpstr[RxStckTop])) == 0)) {
+								/* use this value */
+								STACKTOP = &(_tmpstr[RxStckTop]);
 						} else {
 							/* signal no value found */
 							if (_proc[_rx_proc].condition & SC_NOVALUE)
+								RxSignalCondition(SC_NOVALUE);
+							STACKTOP = &(litleaf->key);if (_proc[_rx_proc].condition & SC_NOVALUE)
 								RxSignalCondition(SC_NOVALUE);
 							STACKTOP = &(litleaf->key);
 						}
 					}
 				}
 			}
+
 			goto chk4trace;
 
 				/* STORE p[leaf]			*/
@@ -1187,7 +1190,7 @@ outofcmd:
 
 			/* if we where started under TSO and we are in a TSO environment (ADDRESS TSO) - */
 			/* we have to save the variable name for the next operation */
-			if (Lcmp(_proc[_rx_proc].env, "TSO") == 0) {
+			if (isTSOFG() && isEXEC()) {
 				Lstrcpy(&(_tmpstr[RxStckTop]),&(litleaf->key));
 			}
 
@@ -1540,8 +1543,10 @@ outofcmd:
 			else
 				DataEnd = BreakStart;
 
-			if (DataEnd!=DataStart)
-				_Lsubstr(RxStck[RxStckTop--],ToParse,DataStart,DataEnd-DataStart);
+			if (DataEnd!=DataStart) {
+                _Lsubstr(RxStck[RxStckTop--], ToParse, DataStart, DataEnd - DataStart);
+                SetClistVar(&(_tmpstr[RxStckTop + 1]), STACKTOP);
+            }
 			else {
 				LZEROSTR(*(STACKTOP));
 				RxStckTop--;

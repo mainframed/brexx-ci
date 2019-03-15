@@ -90,20 +90,20 @@ RxInitialize( char *prorgram_name )
     BINTREEINIT(_labels);	/* initialise labels	*/
     BINTREEINIT(rxLitterals);	/* initialise litterals	*/
 
-        Lscpy(&str,"HALT");	haltStr   = _Add2Lits( &str, FALSE );
+        Lscpy(&str,"HALT");	    haltStr     = _Add2Lits( &str, FALSE );
 
-        Lscpy(&str,"1");	oneStr    = _Add2Lits( &str, FALSE );
-        Lscpy(&str,"");		nullStr   = _Add2Lits( &str, FALSE );
-        Lscpy(&str,"0");	zeroStr   = _Add2Lits( &str, FALSE );
-        Lscpy(&str,"ERROR");	errorStr  = _Add2Lits( &str, FALSE );
+        Lscpy(&str,"1");	    oneStr      = _Add2Lits( &str, FALSE );
+        Lscpy(&str,"");		    nullStr     = _Add2Lits( &str, FALSE );
+        Lscpy(&str,"0");	    zeroStr     = _Add2Lits( &str, FALSE );
+        Lscpy(&str,"ERROR");	errorStr    = _Add2Lits( &str, FALSE );
 
-        Lscpy(&str,"RESULT");	resultStr = _Add2Lits( &str, FALSE );
-        Lscpy(&str,"NOVALUE");	noValueStr= _Add2Lits( &str, FALSE );
-        Lscpy(&str,"NOTREADY");	notReadyStr= _Add2Lits( &str, FALSE );
-        Lscpy(&str,"SIGL");	siglStr   = _Add2Lits( &str, FALSE );
-        Lscpy(&str,"RC");	RCStr     = _Add2Lits( &str, FALSE );
-        Lscpy(&str,"SYNTAX");	syntaxStr = _Add2Lits( &str, FALSE );
-        Lscpy(&str,"SYSTEM");	systemStr = _Add2Lits( &str, FALSE );
+        Lscpy(&str,"RESULT");	resultStr   = _Add2Lits( &str, FALSE );
+        Lscpy(&str,"NOVALUE");	noValueStr  = _Add2Lits( &str, FALSE );
+        Lscpy(&str,"NOTREADY");	notReadyStr = _Add2Lits( &str, FALSE );
+        Lscpy(&str,"SIGL");	    siglStr     = _Add2Lits( &str, FALSE );
+        Lscpy(&str,"RC");	    RCStr       = _Add2Lits( &str, FALSE );
+        Lscpy(&str,"SYNTAX");	syntaxStr   = _Add2Lits( &str, FALSE );
+        Lscpy(&str,"SYSTEM");	systemStr   = _Add2Lits( &str, FALSE );
 
     LFREESTR(str);
 } /* RxInitialize */
@@ -294,7 +294,14 @@ _LoadRexxLibrary(RxFile *rxf)
         ip = (size_t)((byte huge *)Rxcip - (byte huge *)Rxcodestart);
         MEMCPY(old_trap,_error_trap,sizeof(_error_trap));
         RxFileType(rxf);
-        rxf->filename = "-BREXXX370-";
+
+        /* rxf->filename = "-BREXXX370-"; */
+        if (*rxf->member != '\0') {
+            rxf->filename = rxf->member;
+        } else {
+            rxf->filename = "-BREXX/370-";
+        }
+
         RxInitCompile(rxf,NULL);
         RxCompile();
 
@@ -439,7 +446,13 @@ RxRun( char *filename, PLstr programstr,
     pr->interactive_trace = FALSE;
     if (tracestr && LLEN(*tracestr)) TraceSet(tracestr);
 
-    rxFileList->filename = "-BREXXX370-";
+    /* rxFileList->filename = "-BREXXX370-"; */
+    if (*rxFileList->member != '\0') {
+        rxFileList->filename = rxFileList->member;
+    } else {
+        rxFileList->filename = "-BREXX/370-";
+    }
+
     /* ======= Compile file ====== */
     RxInitCompile(rxFileList,NULL);
     RxCompile();
@@ -481,7 +494,6 @@ run_exit:
     RxScopeFree(pr->scope);
     FREE(pr->scope);
     _rx_proc--;
-
     return rxReturnCode;
 } /* RxRun */
 

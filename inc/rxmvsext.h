@@ -1,8 +1,51 @@
 #ifndef __RXMVSEXT_H
 #define __RXMVSEXT_H
 
+/* TODO: should be moved to rxmvs.h */
+int __CDECL isTSO();
+int __CDECL isTSOFG();
+int __CDECL isTSOBG();
+int __CDECL isEXEC();
+int __CDECL isIPSF();
+
 int __CDECL GetClistVar(PLstr name, PLstr value);
 int __CDECL SetClistVar(PLstr name, PLstr value);
+
+/* ---------------------------------------------------------- */
+/* environment context RXENVCTX                               */
+/* ---------------------------------------------------------- */
+typedef  struct trx_env_ctx
+{
+    /* **************************/
+    /* SYSVARS                  */
+    /* **************************/
+
+    /* User Information */
+    char    SYSPREF[9];
+    char    SYSUID[9];
+    /* Terminal Information */
+    /* Exec Information */
+    char    SYSENV[5];
+    char    SYSISPF[11];
+    /* System Information */
+    /* Language Information */
+
+    /* **************************/
+    /* MVSVARS                  */
+    /* **************************/
+
+    char    FILLER01[2];
+
+    /* **************************/
+    /* FLAG FIELD               */
+    /* **************************/
+
+    unsigned char flags1;  /* allocations */
+    unsigned char flags2;  /* environment */
+    unsigned char flags3;  /* unused */
+    unsigned char flags4;  /* unused */
+
+} RX_ENVIRONMENT_CTX, *RX_ENVIRONMENT_CTX_PTR;
 
 /* ---------------------------------------------------------- */
 /* assembler module RXIKJ441                                  */
@@ -108,5 +151,40 @@ extern int call_rxwto (RX_WTO_PARAMS_PTR params);
 extern int call_rxwait (RX_WAIT_PARAMS_PTR params);
 extern unsigned int call_rxabend (RX_ABEND_PARAMS_PTR params);
 #endif
+
+struct psa {
+    char    psastuff[548];      /* 548 bytes before ASCB ptr */
+    struct  ascb *psaaold;
+};
+
+struct ascb {
+    char    ascbascb[4];        /* acronym in ebcdic -ASCB- */
+    char    ascbstuff[104];     /* 104 byte to the ASXB ptr */
+    struct  asxb *ascbasxb;
+};
+
+struct asxb {
+    char    asxbasxb[4];        /* acronym in ebcdic -ASXB- */
+    char    asxbstuff[16];         /* 16 bytes to the lwa ptr */
+    struct lwa *asxblwa;
+};
+
+struct lwa {
+    int     lwapptr;          /* address of the logon work area */
+    char    lwalwa[8];        /* ebcdic ' LWA '
+    char    lwastuff[12];     /* 12 byte to the PSCB ptr */
+    struct  pscb *lwapscb;
+};
+
+struct pscb {
+    char    pscbstuff[52];        /* 52 byte before UPT ptr */
+    struct  upt *pscbupt;
+};
+
+struct upt {
+    char    uptstuff[16];         /* 16 byte before UPTPREFX */
+    char    uptprefx[7];        /* dsname prefix */
+    char    uptprefl;        /* length of dsname prefix */
+};
 
 #endif

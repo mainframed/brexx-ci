@@ -1,4 +1,8 @@
 #include <stdlib.h>
+#include <stdio.h>
+#ifdef JCC
+#include <io.h>
+#endif
 #include "rexx.h"
 #include "rxdefs.h"
 #include "rxmvsext.h"
@@ -6,10 +10,34 @@
 #include "bmem.h"
 #endif
 
+RX_ENVIRONMENT_CTX_PTR environment = NULL;
+
+extern FILE * stdin;
+extern FILE * stdout;
+extern FILE * stderr;
+
+/* FLAG2 */
+const unsigned char _TSOFG  = 0x1; // hex for 0000 0001
+const unsigned char _TSOBG  = 0x2; // hex for 0000 0010
+const unsigned char _EXEC   = 0x4; // hex for 0000 0100
+const unsigned char _ISPF   = 0x8; // hex for 0000 1000
+/* FLAG3 */
+const unsigned char _STDIN  = 0x1; // hex for 0000 0001
+const unsigned char _STDOUT = 0x2; // hex for 0000 0010
+const unsigned char _STDERR = 0x4; // hex for 0000 0100
+
+#ifdef JCC
+extern char* _style;
+#else
+char* _style;
+#endif
+
 /* internal function prototypes */
 int checkNameLength(long lName);
 int checkValueLength(long lValue);
 int checkVariableBlacklist(PLstr name);
+void DumpHex(const void* data, size_t size);
+int reopen(int fp);
 
 #ifdef __CROSS__
 char *getItem(RX_IKJ441_DUMMY_DICT *dict, char *key);
@@ -19,8 +47,8 @@ void  addItem(RX_IKJ441_DUMMY_DICT *dict, char *key, char *value);
 RX_IKJ441_DUMMY_DICT_HEAD sDummyDictionary = {0};
 #endif
 
-#define BLACKLIST_SIZE 4
-char *RX_VAR_BLACKLIST[BLACKLIST_SIZE] = {"RC", "LASTCC", "SIGL", "RESULT"};
+#define BLACKLIST_SIZE 8
+char *RX_VAR_BLACKLIST[BLACKLIST_SIZE] = {"RC", "LASTCC", "SIGL", "RESULT", "SYSPREF", "SYSUID", "SYSENV", "SYSISPF"};
 
 void R_wto(int func)
 {
@@ -43,7 +71,6 @@ void R_wto(int func)
         memset(msgptr,0,80);
         memcpy(msgptr,(char *)LSTR(*ARG1),msglen);
 
-
         params->msgadr       = msgptr;
         params->msgladr      = (unsigned int *)&msglen;
         params->ccadr        = (unsigned *)&cc;
@@ -55,7 +82,6 @@ void R_wto(int func)
         free(params);
         free(msgptr);
     }
-
 }
 
 void R_wait(int func)
@@ -100,23 +126,49 @@ void R_abend(int func)
     free(params);
 }
 
-/* new function */
-void R_dec(int func)
+void R_userid(int func)
 {
-    if (ARGN != 1) Lerror(ERR_INCORRECT_CALL,0);
+    char *userid = "n.a.";
 
-    Ldec(ARG1);
-
-    Lstrcpy(ARGR,ARG1);
+    if (ARGN>0) {
+        Lerror(ERR_INCORRECT_CALL,0);
+    }
+#ifdef JCC
+    userid = getlogin();
+#endif
+    Lscpy(ARGR,userid);
 }
 
-void R_inc(int func)
+void R_msg(int func)
 {
-    if (ARGN != 1) Lerror(ERR_INCORRECT_CALL,0);
+    char *msg = "not yet implemented";
 
-    Linc(ARG1);
+    Lscpy(ARGR,msg);
+}
 
-    Lstrcpy(ARGR,ARG1);
+void R_sysvar(int func)
+{
+    char *msg = "not yet implemented";
+
+    if (ARGN != 1) {
+        Lerror(ERR_INCORRECT_CALL,0);
+    }
+
+    get_s(1);
+
+    Lupper(ARG1);
+
+    if (strcmp(ARG1->pstr, "SYSUID") == 0) {
+        Lscpy(ARGR,environment->SYSUID);
+    } else if (strcmp(ARG1->pstr, "SYSPREF") == 0) {
+        Lscpy(ARGR, environment->SYSPREF);
+    } else if (strcmp(ARG1->pstr, "SYSENV") == 0) {
+        Lscpy(ARGR,environment->SYSENV);
+    } else if (strcmp(ARG1->pstr, "SYSISPF") == 0) {
+        Lscpy(ARGR,environment->SYSISPF);
+    } else {
+        Lscpy(ARGR,msg);
+    }
 }
 
 #ifdef __DEBUG__
@@ -161,37 +213,158 @@ void R_magic(int func)
 }
 #endif
 
-void RxMvsInitialize()
+int RxMvsInitialize()
 {
-    RX_INIT_PARAMS_PTR params;
+    RX_INIT_PARAMS_PTR parameters;
 
-    int      cc     = 0;
-    void     *wk;
+    int      rc     = 0;
 
-    params = malloc(sizeof(RX_INIT_PARAMS));
-    wk     = malloc(512);
+    parameters   = malloc(sizeof(RX_INIT_PARAMS));
+    environment  = malloc(sizeof(RX_ENVIRONMENT_CTX));
 
-    memset(wk,42,80);
+    memset(parameters,00, sizeof(RX_INIT_PARAMS));
+    memset(environment,00, sizeof(RX_ENVIRONMENT_CTX));
 
-    params->wkadr        = (unsigned *)wk;
+    parameters->rxctxadr     = (unsigned *)environment;
 
-    call_rxinit(params);
+    rc = call_rxinit(parameters);
 
-    free(wk);
-    free(params);
+    if ((environment->flags3 & _STDIN) == _STDIN) {
+        reopen(_STDIN);
+    }
+    if ((environment->flags3 & _STDOUT) == _STDOUT) {
+        reopen(_STDOUT);
+    }
+    if ((environment->flags3 & _STDERR) == _STDERR) {
+        reopen(_STDERR);
+    }
 
+    free(parameters);
 
+#ifdef __DEBUG__
+    DumpHex(environment, sizeof(RX_ENVIRONMENT_CTX));
+#endif
 
+    return rc;
+}
+
+int reopen(int fp) {
+
+    int new_fp, rc = 0;
+
+#ifdef JCC
+    _style = "//DDN:";
+    switch(fp) {
+        case 0x01:
+            if (stdin != NULL) {
+              fclose(stdin);
+            }
+
+            new_fp = _open("STDIN", O_TEXT | O_RDONLY);
+            rc = _dup2(new_fp, 0);
+            _close(new_fp);
+
+            stdin = fdopen(0,"rt");
+
+            break;
+        case 0X02:
+            if (stdout != NULL) {
+              fclose(stdout);
+            }
+
+            new_fp = _open("STDOUT", O_TEXT | O_WRONLY);
+            rc = _dup2(new_fp, 1);
+            _close(new_fp);
+
+            stdout = fdopen(1,"at");
+
+            break;
+        case 0x04:
+            if (stderr != NULL) {
+              fclose(stderr);
+            }
+
+            new_fp = _open("STDERR", O_TEXT | O_WRONLY);
+            rc = _dup2(new_fp, 2);
+            _close(new_fp);
+
+            stderr = fdopen(2, "at");
+
+            break;
+        default:
+            rc = ERR_INITIALIZATION;
+            break;
+    }
+#endif
+    return 0;
+
+}
+
+void RxMvsRegFunctions()
+{
     /* MVS specific functions */
     RxRegFunction("WAIT",   R_wait,   0);
     RxRegFunction("WTO",    R_wto ,   0);
     RxRegFunction("ABEND",  R_abend , 0);
-    /* new functions */
-    RxRegFunction("DEC",    R_dec,    0);
-    RxRegFunction("INC",    R_inc,    0);
+    RxRegFunction("USERID", R_userid, 0);
+    RxRegFunction("MSG",    R_msg,    0);
+    RxRegFunction("SYSVAR", R_sysvar, 0);
+
 #ifdef __DEBUG__
     RxRegFunction("MAGIC",  R_magic,  0);
 #endif
+}
+
+int isTSO() {
+    int ret = 0;
+
+    if ((environment->flags2 & _TSOFG) == _TSOFG ||
+        (environment->flags2 & _TSOBG) == _TSOBG) {
+        ret = 1;
+    }
+
+    return ret;
+}
+
+int isTSOFG() {
+    int ret = 0;
+
+    if ((environment->flags2 & _TSOFG) == _TSOFG) {
+        ret = 1;
+    }
+
+    return ret;
+}
+
+int isTSOBG() {
+    int ret = 0;
+
+    if ((environment->flags2 & _TSOBG) == _TSOBG &&
+        (environment->flags2 & _TSOFG) != _TSOFG) {
+        ret = 1;
+    }
+
+    return ret;
+}
+
+int isEXEC() {
+    int ret = 0;
+
+    if ((environment->flags2 & _EXEC) == _EXEC) {
+        ret = 1;
+    }
+
+    return ret;
+}
+
+int isISPF() {
+    int ret = 0;
+
+    if ((environment->flags2 & _ISPF) == _ISPF) {
+        ret = 1;
+    }
+
+    return ret;
 }
 
 int GetClistVar(PLstr name, PLstr value)
@@ -215,7 +388,7 @@ int GetClistVar(PLstr name, PLstr value)
     memset(wk,     0, sizeof(wk));
     memset(params, 0, sizeof(RX_IKJCT441_PARAMS)),
 
-    params->ecode    = 18;
+            params->ecode    = 18;
     params->nameadr  = (char *)name->pstr;
     params->namelen  = name->len;
     params->valueadr = 0;
@@ -227,7 +400,9 @@ int GetClistVar(PLstr name, PLstr value)
     if (value->maxlen < params->valuelen) {
         Lfx(value,params->valuelen);
     }
-    strncpy((char *)value->pstr,params->valueadr,params->valuelen);
+    if (value->pstr != params->valueadr) {
+        strncpy((char *)value->pstr,params->valueadr,params->valuelen);
+    }
 
     value->len    = params->valuelen;
     value->maxlen = params->valuelen;
@@ -237,7 +412,6 @@ int GetClistVar(PLstr name, PLstr value)
     free(params);
 
     return rc;
-
 }
 
 int SetClistVar(PLstr name, PLstr value)
@@ -274,7 +448,7 @@ int SetClistVar(PLstr name, PLstr value)
     memset(wk,     0, sizeof(wk));
     memset(params, 0, sizeof(RX_IKJCT441_PARAMS)),
 
-    params->ecode    = 2;
+            params->ecode    = 2;
     params->nameadr  = (char *)name->pstr;
     params->namelen  = name->len;
     params->valueadr = (char *)value->pstr;
@@ -318,6 +492,8 @@ int checkVariableBlacklist(PLstr name)
     int rc = 0;
     int i  = 0;
 
+    Lupper(name);
+
     for (i = 0; i < BLACKLIST_SIZE; ++i) {
         if (strcmp((char *)name->pstr,RX_VAR_BLACKLIST[i]) == 0)
             return -1;
@@ -330,7 +506,32 @@ int checkVariableBlacklist(PLstr name)
 #ifdef __CROSS__
 int call_rxinit(RX_INIT_PARAMS_PTR params)
 {
+    int rc = 0;
 
+    RX_ENVIRONMENT_CTX_PTR env;
+
+#ifdef __DEBUG__
+    printf("DBG> DUMMY RXINIT ...\n");
+#endif
+
+    if (params != NULL) {
+        if (params->rxctxadr != NULL) {
+            env = params->rxctxadr;
+            env->flags1 = 0x0F;
+            env->flags2 = 0x07;
+            env->flags3 = 0x00;
+
+            strncpy(env->SYSENV,  "DEVEL",   5);
+            strncpy(env->SYSPREF, "MIG",     3);
+            strncpy(env->SYSUID,  "FIX0MIG", 7);
+
+        } else {
+            rc = -42;
+        }
+    } else {
+        rc = -43;
+    }
+    return rc;
 }
 
 unsigned int call_rxikj441 (RX_IKJCT441_PARAMS_PTR params)
@@ -463,7 +664,35 @@ void addItem(RX_IKJ441_DUMMY_DICT_PTR dict, char *key, char *value)
 }
 #endif
 
-
+void DumpHex(const void* data, size_t size)
+{
+    char ascii[17];
+    size_t i, j;
+    ascii[16] = '\0';
+    for (i = 0; i < size; ++i) {
+        printf("%02X ", ((unsigned char*)data)[i]);
+        if (((unsigned char*)data)[i] >= ' ' && ((unsigned char*)data)[i] <= '~') {
+            ascii[i % 16] = ((unsigned char*)data)[i];
+        } else {
+            ascii[i % 16] = '.';
+        }
+        if ((i+1) % 8 == 0 || i+1 == size) {
+            printf(" ");
+            if ((i+1) % 16 == 0) {
+                printf("|  %s \n", ascii);
+            } else if (i+1 == size) {
+                ascii[(i+1) % 16] = '\0';
+                if ((i+1) % 16 <= 8) {
+                    printf(" ");
+                }
+                for (j = (i+1) % 16; j < 16; ++j) {
+                    printf("   ");
+                }
+                printf("|  %s \n", ascii);
+            }
+        }
+    }
+}
 
 
 
