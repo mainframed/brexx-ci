@@ -247,7 +247,9 @@ void RxFileDCB(RxFile *rxf)
 /* ------------ RxFileLoadDSN ------------ */
 void __CDECL RxFileLoadDSN(RxFile *rxf)
 {
-    if (rxf->fp == NULL) {
+    Lupper(&(rxf->name));
+    Lupper(&(rxFileList->name));
+    if (rxf->fp == NULL && (strcmp((const char *) (&(rxFileList->name))->pstr, (const char *) (&(rxf->name))->pstr) != 0)) {
         char finalName[60];
 
         if (strlen(rxf->dsn) > 0) {
@@ -448,7 +450,8 @@ RxRun( char *filename, PLstr programstr,
 
     /* rxFileList->filename = "-BREXXX370-"; */
     if (*rxFileList->member != '\0') {
-        rxFileList->filename = rxFileList->member;
+        rxFileList->filename = "#";
+        strcat(rxFileList->filename,rxFileList->member);
     } else {
         rxFileList->filename = "-BREXX/370-";
     }
