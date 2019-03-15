@@ -7,7 +7,9 @@
 
 /* ------- Includes for any other external library ------- */
 #if defined(__MVS__) || defined(__CROSS__)
-extern void __CDECL RxMvsInitialize();
+extern int  __CDECL RxMvsInitialize();
+extern void __CDECL RxMvsRegFunctions();
+extern int  __CDECL isTSO();
 #endif
 
 #ifndef __CROSS__
@@ -28,7 +30,7 @@ int __CDECL
 main(int ac, char *av[])
 {
 	Lstr	args[MAXARGS], tracestr, file;
-	int	ia,ir,iaa;
+	int	ia,ir,iaa,rc;
 	bool	input, loop_over_stdin, parse_args, interactive;
 
 	input           = FALSE;
@@ -36,11 +38,21 @@ main(int ac, char *av[])
 	parse_args      = FALSE;
 	interactive     = FALSE;
 
+	rc = RxMvsInitialize();
+	if (rc != 0) {
+		printf("\nBRX0001E - ERROR IN INITIALIZATION OF THE BREXX/370 ENVIRONMENT: %d\n",rc);
+
+		return rc;
+	}
+
 	for (ia=0; ia<MAXARGS; ia++) LINITSTR(args[ia]);
 	LINITSTR(tracestr);
 	LINITSTR(file);
 
     if (ac<2) {
+        puts(VERSIONSTR);
+
+#ifdef LATER
         puts("\nsyntax: rexx [-[trace]|-F|-a|-i|-m] <filename> <args>...\n");
         puts("options:");
         puts("  -   to use stdin as input file");
@@ -53,7 +65,7 @@ main(int ac, char *av[])
         puts("Author: "AUTHOR);
         puts("Maintainer: "MAINTAINER);
         puts("Please report bugs, errors or comments at https://github.com/mgrossmann/brexx370\n");
-
+#endif
         return 0;
     }
 #ifdef __DEBUG__
@@ -71,7 +83,7 @@ main(int ac, char *av[])
 
 	/* --- Register functions of external libraries --- */
 #if defined(__MVS__) || defined(__CROSS__)
-    RxMvsInitialize();
+	RxMvsRegFunctions();
 #endif
 
 	/* --- scan arguments --- */
@@ -115,7 +127,11 @@ main(int ac, char *av[])
 				if (ir<ac-1) Lcat(&args[0]," ");
 			}
 		}
-		RxRun(av[ia],NULL,args,&tracestr,NULL);
+        if(isTSO())
+            RxRun(av[ia],NULL,args,&tracestr,"TSO");
+        else
+            RxRun(av[ia],NULL,args,&tracestr,NULL);
+
 	} else {
 		if (interactive)
 			Lcat(&file,
@@ -150,8 +166,11 @@ main(int ac, char *av[])
 			if (loop_over_stdin)
 				Lcat(&file,";end");
 		}
-		RxRun(NULL,&file,args,&tracestr,NULL);
-	}
+		if(isTSO())
+		    RxRun(NULL,&file,args,&tracestr,"TSO");
+		else
+            RxRun(NULL,&file,args,&tracestr,NULL);
+    }
 
 	/* --- Free everything --- */
 	RxFinalize();
