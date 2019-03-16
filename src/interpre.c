@@ -1025,7 +1025,7 @@ outofcmd:
 
 	        /* if we where started under TSO and we are in a EXEC environment - */
 			/* we have to set the variable value in the environment */
-			if (isTSOFG() && isEXEC() && 1>2) {
+			if (isTSOFG() && isEXEC()) {
 				SetClistVar((PLstr)*Rxcip++,STACKTOP);
 			} else {
 				*Rxcip++;
@@ -1052,7 +1052,7 @@ outofcmd:
 			/* TODO: must be moved to compile level, too. Using OP_UPD_CLIST_VAR. */
 			/* if we where started under TSO and we are in a EXEC environment - */
 			/* we have to set the variable value in the environment */
-			if (isTSOFG() && isEXEC() && 1>2) {
+			if (isTSOFG() && isEXEC()) {
 				SetClistVar(&(_tmpstr[RxStckTop-1]),STACKTOP);
 			}
 

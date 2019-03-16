@@ -249,17 +249,26 @@ void __CDECL RxFileLoadDSN(RxFile *rxf)
 {
     Lupper(&(rxf->name));
     Lupper(&(rxFileList->name));
-    if (rxf->fp == NULL && (strcmp((const char *) (&(rxFileList->name))->pstr, (const char *) (&(rxf->name))->pstr) != 0)) {
-        char finalName[60];
 
-        if (strlen(rxf->dsn) > 0) {
-            snprintf(finalName, 54, "%s%c%s%c", rxf->dsn, '(', LSTR(rxf->name), ')');
-        } else {
-            snprintf(finalName, 54, "%s", LSTR(rxf->name));
+    if (rxf->fp == NULL) {
+        const char *lastName = (const char *) LSTR(rxFileList->name);
+        const char *currentNamme = (const char *) LSTR(rxf->name);
+
+        if((*rxFileList->dsn == '\0' && *rxf->dsn == '\0')  /* no dsn set means try loading the initial script */
+           ||
+           (strcmp(lastName, currentNamme) != 0)) {         /* do not load same member from the same po */
+
+            char finalName[60];
+
+            if (strlen(rxf->dsn) > 0) {
+                snprintf(finalName, 54, "%s%c%s%c", rxf->dsn, '(', LSTR(rxf->name), ')');
+            } else {
+                snprintf(finalName, 54, "%s", LSTR(rxf->name));
+            }
+
+            _style = "//DSN:";
+            rxf->fp = FOPEN(finalName, "r");
         }
-
-        _style = "//DSN:";
-        rxf->fp = FOPEN(finalName, "r");
     }
 } /* RxFileLoadDSN */
 

@@ -21,8 +21,8 @@ typedef  struct trx_env_ctx
     /* **************************/
 
     /* User Information */
-    char    SYSPREF[9];
-    char    SYSUID[9];
+    char    SYSPREF[8];
+    char    SYSUID[8];
     /* Terminal Information */
     /* Exec Information */
     char    SYSENV[5];
@@ -33,8 +33,6 @@ typedef  struct trx_env_ctx
     /* **************************/
     /* MVSVARS                  */
     /* **************************/
-
-    char    FILLER01[2];
 
     /* **************************/
     /* FLAG FIELD               */
