@@ -351,7 +351,8 @@ int isEXEC() {
     int ret = 0;
 
     if ((environment->flags2 & _EXEC) == _EXEC) {
-        ret = 1;
+        /* ret = 1; */
+        ret = 0;
     }
 
     return ret;
