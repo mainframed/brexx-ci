@@ -91,6 +91,13 @@ void *
 realloc_or_die(void *ptr, size_t size)
 {
     ptr = realloc(ptr,size);
+
+    /* TODO: added beacause get rid of failed realloc's */
+    if (!ptr) {
+        FREE(ptr);
+        ptr = MALLOC(size, "");
+    }
+
     if (!ptr) {
         Lstr lerrno;
 
