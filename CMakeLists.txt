@@ -30,6 +30,7 @@ add_executable(brexx
         inc/rxmvsext.h
         inc/stack.h
         inc/trace.h
+        inc/util.h
         inc/variable.h
         lstring/abbrev.c
         lstring/abs.c
@@ -130,4 +131,5 @@ add_executable(brexx
         src/stack.c
         src/template.c
         src/trace.c
+        src/util.c
         src/variable.c)
