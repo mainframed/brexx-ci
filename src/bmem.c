@@ -90,13 +90,10 @@ malloc_or_die(size_t size, char *desc)
 void *
 realloc_or_die(void *ptr, size_t size)
 {
-    ptr = realloc(ptr,size);
-
     /* TODO: added beacause get rid of failed realloc's */
-    if (!ptr) {
-        FREE(ptr);
-        ptr = MALLOC(size, "");
-    }
+    size++;
+
+    ptr = realloc(ptr,size);
 
     if (!ptr) {
         Lstr lerrno;
