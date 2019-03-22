@@ -1,9 +1,42 @@
 #include <stdio.h>
 #include <ctype.h>
+
+#include "lstring.h"
 #include "util.h"
 
 
 const unsigned char *getA2ETable();
+
+QuotationType CheckQuotation(PLstr sDSName)
+{
+    bool bQuotationMarkAtBeginning  = FALSE;
+    bool bQuotationMarkAtEnd        = FALSE;
+    QuotationType quotationType     = UNQUOTED;
+
+    /* define possible quotation mark positions */
+    int iFirstCharPos = 0;
+    int iLastCharPos  = (sDSName->len > 0) ? ((int)sDSName->len - 1) : 0;
+
+    /* get chars at defined positions */
+    unsigned char cFirstChar = LSTR(*sDSName)[iFirstCharPos];
+    unsigned char cLastChar  = LSTR(*sDSName)[iLastCharPos];
+
+    if (cFirstChar == '\'' || cFirstChar == '\"') {
+        bQuotationMarkAtBeginning = TRUE;
+    }
+
+    if (cLastChar == '\'' || cLastChar == '\"') {
+        bQuotationMarkAtEnd = TRUE;
+    }
+
+    if ((bQuotationMarkAtBeginning) && (bQuotationMarkAtEnd)) {
+        quotationType = FULL_QUOTED;
+    } else if ((bQuotationMarkAtBeginning) || (bQuotationMarkAtEnd)) {
+        quotationType = PARTIALLY_QUOTED;
+    }
+
+    return quotationType;
+}
 
 void DumpHex(const unsigned char* data, size_t size)
 {
@@ -24,19 +57,6 @@ void DumpHex(const unsigned char* data, size_t size)
             ascii[i % 16] = '.';
         }
 
-#if !1
-        if ( isprint(A2ETbl[data[i]]) && A2ETbl[data[i]] != '%') {
-            ascii[i % 16] = data[i];
-        } else {
-            ascii[i % 16] = '.';
-        }
-
-        if ( isprint(data[i]) && data[i] != '%') {
-            ascii[i % 16] = data[i];
-        } else {
-            ascii[i % 16] = '.';
-        }
-#endif
         if ((i+1) % 8 == 0 || i+1 == size) {
             printf(" ");
             if ((i+1) % 16 == 0) {
