@@ -169,7 +169,7 @@ struct asxb {
 
 struct lwa {
     int     lwapptr;          /* address of the logon work area */
-    char    lwalwa[8];        /* ebcdic ' LWA '
+    char    lwalwa[8];        /* ebcdic ' LWA ' */
     char    lwastuff[12];     /* 12 byte to the PSCB ptr */
     struct  pscb *lwapscb;
 };

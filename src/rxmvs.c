@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+
 #ifdef JCC
 #include <io.h>
 #endif
@@ -146,6 +147,81 @@ void R_msg(int func)
     Lscpy(ARGR,msg);
 }
 
+void R_sysdsn(int func)
+{
+    char sDSName[45];
+    char sMessage[256];
+
+    unsigned char *ptr;
+
+    FILE *pFile;
+    int iErr;
+    QuotationType quotationType;
+
+    const char* MSG_OK                  = "OK";
+    const char* MSG_NOT_A_PO            = "MEMBER SPECIFIED, BUT DATASET IS NOT PARTITIONED";
+    const char* MSG_MEMBER_NOT_FOUND    = "MEMBER NOT FOUND";
+    const char* MSG_DATASET_NOT_FOUND   = "DATASET NOT FOUND";
+    const char* MSG_ERROR_READING       = "ERROR PROCESSING REQUESTED DATASET";
+    const char* MSG_DATSET_PROTECTED    = "PROTECTED DATASET";
+    const char* MSG_VOLUME_NOT_FOUND    = "VOLUME NOT ON SYSTEM";
+    const char* MSG_DATASET_UNAVAILABLE = "UNAVAILABLE DATASET";
+    const char* MSG_INVALID_DSNAME      = "INVALID DATASET NAME, ";
+    const char* MSG_MISSING_DSNAME      = "MISSING DATASET NAME";
+
+    memset(sDSName,0,45);
+    memset(sMessage,0,256);
+
+    iErr = 0;
+
+    if (ARGN != 1) {
+        Lerror(ERR_INCORRECT_CALL,0);
+    }
+
+    get_s(1);
+    Lupper(ARG1);
+    if (LSTR(*ARG1)[0] == '\0') {
+        strcat(sMessage,MSG_MISSING_DSNAME);
+        iErr = 1;
+    }
+
+    if (iErr == 0) {
+        quotationType = CheckQuotation(ARG1);
+        switch(quotationType) {
+            case UNQUOTED:
+                if (environment->SYSPREF[0] != '\0') {
+                    strcat(sDSName, environment->SYSPREF);
+                    strcat(sDSName, ".");
+                    strcat(sDSName, (const char*)LSTR(*ARG1));
+                }
+                break;
+            case PARTIALLY_QUOTED:
+                strcat(sMessage,MSG_INVALID_DSNAME);
+                strcat(sMessage,(const char*)LSTR(*ARG1));
+                iErr = 2;
+                break;
+            case FULL_QUOTED:
+                strncpy(sDSName, (const char *)(LSTR(*ARG1))+1, ARG1->len-2);
+                break;
+            default:
+                Lerror(ERR_DATA_NOT_SPEC,0);
+        }
+    }
+
+    if (iErr == 0) {
+        _style = "//DSN:";
+        pFile = FOPEN(sDSName,"R");
+        if (pFile != NULL) {
+            strcat(sMessage, MSG_OK);
+            FCLOSE(pFile);
+        } else {
+            strcat(sMessage,MSG_DATASET_NOT_FOUND);
+        }
+    }
+
+    Lscpy(ARGR,sMessage);
+}
+
 void R_sysvar(int func)
 {
     char *msg = "not yet implemented";
@@ -158,13 +234,13 @@ void R_sysvar(int func)
 
     Lupper(ARG1);
 
-    if (strcmp(ARG1->pstr, "SYSUID") == 0) {
+    if (strcmp((const char*)ARG1->pstr, "SYSUID") == 0) {
         Lscpy(ARGR,environment->SYSUID);
-    } else if (strcmp(ARG1->pstr, "SYSPREF") == 0) {
+    } else if (strcmp((const char*)ARG1->pstr, "SYSPREF") == 0) {
         Lscpy(ARGR, environment->SYSPREF);
-    } else if (strcmp(ARG1->pstr, "SYSENV") == 0) {
+    } else if (strcmp((const char*)ARG1->pstr, "SYSENV") == 0) {
         Lscpy(ARGR,environment->SYSENV);
-    } else if (strcmp(ARG1->pstr, "SYSISPF") == 0) {
+    } else if (strcmp((const char*)ARG1->pstr, "SYSISPF") == 0) {
         Lscpy(ARGR,environment->SYSISPF);
     } else {
         Lscpy(ARGR,msg);
@@ -308,6 +384,7 @@ void RxMvsRegFunctions()
     RxRegFunction("ABEND",  R_abend , 0);
     RxRegFunction("USERID", R_userid, 0);
     RxRegFunction("MSG",    R_msg,    0);
+    RxRegFunction("SYSDSN", R_sysdsn, 0);
     RxRegFunction("SYSVAR", R_sysvar, 0);
 
 #ifdef __DEBUG__
@@ -389,7 +466,7 @@ int GetClistVar(PLstr name, PLstr value)
     memset(wk,     0, sizeof(wk));
     memset(params, 0, sizeof(RX_IKJCT441_PARAMS)),
 
-            params->ecode    = 18;
+    params->ecode    = 18;
     params->nameadr  = (char *)name->pstr;
     params->namelen  = name->len;
     params->valueadr = 0;
@@ -517,7 +594,7 @@ int call_rxinit(RX_INIT_PARAMS_PTR params)
 
     if (params != NULL) {
         if (params->rxctxadr != NULL) {
-            env = params->rxctxadr;
+            env = (RX_ENVIRONMENT_CTX_PTR)params->rxctxadr;
             env->flags1 = 0x0F;
             env->flags2 = 0x07;
             env->flags3 = 0x00;
