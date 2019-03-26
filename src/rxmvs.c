@@ -35,12 +35,17 @@ char* _style;
 #endif
 
 /* internal function prototypes */
+void parseArgs(char **array, char *str);
+void parseDCB(FILE *pFile);
+void setVariable(char *sName, char *sValue);
 int checkNameLength(long lName);
 int checkValueLength(long lValue);
 int checkVariableBlacklist(PLstr name);
 int reopen(int fp);
 
 #ifdef __CROSS__
+int __get_ddndsnmemb (int handle, char * ddn, char * dsn,
+                      char * member, char * serial, unsigned char * flags);
 char *getItem(RX_IKJ441_DUMMY_DICT *dict, char *key);
 void  delItem(RX_IKJ441_DUMMY_DICT *dict, char *key);
 void  addItem(RX_IKJ441_DUMMY_DICT *dict, char *key, char *value);
@@ -60,7 +65,11 @@ void R_wto(int func)
     int      cc     = 0;
     void     *wk;
 
-    if (ARGN != 1) Lerror(ERR_INCORRECT_CALL,0);
+    if (ARGN != 1)
+        Lerror(ERR_INCORRECT_CALL,0);
+
+    LASCIIZ(*ARG1);
+    get_s(1);
 
     msglen = MIN(strlen((char *)LSTR(*ARG1)),80);
 
@@ -92,8 +101,10 @@ void R_wait(int func)
     unsigned time   = 0;
     int      cc     = 0;
 
-    if (ARGN != 1) Lerror(ERR_INCORRECT_CALL,0);
+    if (ARGN != 1)
+        Lerror(ERR_INCORRECT_CALL,0);
 
+    LASCIIZ(*ARG1);
     get_i (1,time);
 
     params = malloc(sizeof(RX_WAIT_PARAMS));
@@ -114,8 +125,10 @@ void R_abend(int func)
     RX_ABEND_PARAMS_PTR params;
     int ucc = 0;
 
-    if (ARGN != 1) Lerror(ERR_INCORRECT_CALL,0);
+    if (ARGN != 1)
+        Lerror(ERR_INCORRECT_CALL,0);
 
+    LASCIIZ(*ARG1);
     get_i (1,ucc);
 
     params = malloc(sizeof(RX_ABEND_PARAMS));
@@ -147,6 +160,80 @@ void R_msg(int func)
     Lscpy(ARGR,msg);
 }
 
+void R_listdsi(int func)
+{
+    char *args[2];
+
+    char sFileName[45];
+    char sFunctionCOde[3];
+
+    FILE *pFile;
+    int iErr;
+
+    QuotationType quotationType;
+
+    memset(sFileName,0,45);
+    memset(sFunctionCOde,0,3);
+
+    iErr = 0;
+
+    if (ARGN != 1)
+        Lerror(ERR_INCORRECT_CALL,0);
+
+    LASCIIZ(*ARG1);
+    get_s(1);
+    Lupper(ARG1);
+
+    args[0]= NULL;
+    args[1]= NULL;
+
+    parseArgs(args, (char *)LSTR(*ARG1));
+
+    if (args[1] != NULL && strcmp(args[1], "FILE") != 0)
+        Lerror(ERR_INCORRECT_CALL,0);
+
+    if (args[1] == NULL) {
+        _style = "//DSN:";
+        quotationType = CheckQuotation(args[0]);
+        switch (quotationType) {
+            case UNQUOTED:
+                if (environment->SYSPREF[0] != '\0') {
+                    strcat(sFileName, environment->SYSPREF);
+                    strcat(sFileName, ".");
+                    strcat(sFileName, (const char *) LSTR(*ARG1));
+                }
+                break;
+            case PARTIALLY_QUOTED:
+                strcat(sFunctionCOde, "16");
+                iErr = 2;
+                break;
+            case FULL_QUOTED:
+                strncpy(sFileName, (const char *) (LSTR(*ARG1)) + 1, ARG1->len - 2);
+                break;
+            default:
+                Lerror(ERR_DATA_NOT_SPEC, 0);
+
+
+        }
+    } else {
+        strcpy(sFileName,args[0]);
+        _style = "//DDN:";
+    }
+
+    if (iErr == 0) {
+        pFile = FOPEN(sFileName,"R");
+        if (pFile != NULL) {
+            strcat(sFunctionCOde,"0");
+            parseDCB(pFile);
+            FCLOSE(pFile);
+        } else {
+            strcat(sFunctionCOde,"16");
+        }
+    }
+
+    Lscpy(ARGR,sFunctionCOde);
+}
+
 void R_sysdsn(int func)
 {
     char sDSName[45];
@@ -174,19 +261,20 @@ void R_sysdsn(int func)
 
     iErr = 0;
 
-    if (ARGN != 1) {
+    if (ARGN != 1)
         Lerror(ERR_INCORRECT_CALL,0);
-    }
 
+    LASCIIZ(*ARG1);
     get_s(1);
     Lupper(ARG1);
+
     if (LSTR(*ARG1)[0] == '\0') {
         strcat(sMessage,MSG_MISSING_DSNAME);
         iErr = 1;
     }
 
     if (iErr == 0) {
-        quotationType = CheckQuotation(ARG1);
+        quotationType = CheckQuotation((char *)LSTR(*ARG1));
         switch(quotationType) {
             case UNQUOTED:
                 if (environment->SYSPREF[0] != '\0') {
@@ -230,8 +318,8 @@ void R_sysvar(int func)
         Lerror(ERR_INCORRECT_CALL,0);
     }
 
+    LASCIIZ(*ARG1);
     get_s(1);
-
     Lupper(ARG1);
 
     if (strcmp((const char*)ARG1->pstr, "SYSUID") == 0) {
@@ -379,13 +467,14 @@ int reopen(int fp) {
 void RxMvsRegFunctions()
 {
     /* MVS specific functions */
-    RxRegFunction("WAIT",   R_wait,   0);
-    RxRegFunction("WTO",    R_wto ,   0);
-    RxRegFunction("ABEND",  R_abend , 0);
-    RxRegFunction("USERID", R_userid, 0);
-    RxRegFunction("MSG",    R_msg,    0);
-    RxRegFunction("SYSDSN", R_sysdsn, 0);
-    RxRegFunction("SYSVAR", R_sysvar, 0);
+    RxRegFunction("WAIT",    R_wait,   0);
+    RxRegFunction("WTO",     R_wto ,   0);
+    RxRegFunction("ABEND",   R_abend , 0);
+    RxRegFunction("USERID",  R_userid, 0);
+    RxRegFunction("LISTDSI", R_listdsi, 0);
+    RxRegFunction("MSG",     R_msg,    0);
+    RxRegFunction("SYSDSN",  R_sysdsn, 0);
+    RxRegFunction("SYSVAR",  R_sysvar, 0);
 
 #ifdef __DEBUG__
     RxRegFunction("MAGIC",  R_magic,  0);
@@ -443,6 +532,105 @@ int isISPF() {
     }
 
     return ret;
+}
+
+
+void parseArgs(char **array, char *str)
+{
+    int i = 0;
+    char *p = strtok (str, " ");
+    while (p != NULL)
+    {
+        array[i++] = p;
+        p = strtok (NULL, " ");
+    }
+}
+
+void parseDCB(FILE *pFile)
+{
+    unsigned char *flags;
+    unsigned char  sDsn[45];
+    unsigned char  sDdn[9];
+    unsigned char  sMember[9];
+    unsigned char  sSerial[7];
+    unsigned char  sLrecl[6];
+    unsigned char  sBlkSize[6];
+
+    flags = malloc(11);
+    __get_ddndsnmemb(fileno(pFile), (char *)sDdn, (char *)sDsn, (char *)sMember, (char *)sSerial, flags);
+
+    /* DSN */
+    if (sDsn[0] != '\0')
+        setVariable("SYSDSNAME", (char *)sDsn);
+
+    /* DDN */
+    if (sDdn[0] != '\0')
+        setVariable("SYSDDNAME", (char *)sDdn);
+
+    /* MEMBER */
+    if (sMember[0] != '\0')
+        setVariable("SYSMEMBER", (char *)sMember);
+
+    /* VOLSER */
+    if (sSerial[0] != '\0')
+        setVariable("SYSVOLUME", (char *)sSerial);
+
+    /* DSORG */
+    if(flags[4] == 0x40)
+        setVariable("SYSDSORG", "PS");
+    else if (flags[4] == 0x02)
+        setVariable("SYSDSORG", "PO");
+    else
+        setVariable("SYSDSORG", "???");
+
+    /* RECFM */
+    if(flags[6] == 0x40)
+        setVariable("SYSRECFM", "V");
+    else if(flags[6] == 0x50)
+        setVariable("SYSRECFM", "VB");
+    else if(flags[6] == 0x54)
+        setVariable("SYSRECFM", "VBA");
+    else if(flags[6] == 0x80)
+        setVariable("SYSRECFM", "F");
+    else if(flags[6] == 0x90)
+        setVariable("SYSRECFM", "FB");
+    else if(flags[6] == 0xC0)
+        setVariable("SYSRECFM", "U");
+    else
+        setVariable("SYSRECFM", "??????");
+
+    /* BLKSIZE */
+    sprintf((char *)sBlkSize, "%d", flags[8] | flags[7] << 8);
+    setVariable("SYSBLKSIZE", (char *)sBlkSize);
+
+    /* LRECL */
+    sprintf((char *)sLrecl, "%d", flags[10] | flags[9] << 8);
+    setVariable("SYSLRECL", (char *)sLrecl);
+
+    free(flags);
+}
+
+void setVariable(char *sName, char *sValue)
+{
+    Lstr lsScope,lsName,lsValue;
+
+    LINITSTR(lsScope);
+    LINITSTR(lsName);
+    LINITSTR(lsValue);
+
+    Lfx(&lsScope,sizeof(dword));
+    Lfx(&lsName, strlen(sName));
+    Lfx(&lsValue, strlen(sValue));
+
+    Licpy(&lsScope,_rx_proc);
+    Lscpy(&lsName, sName);
+    Lscpy(&lsValue, sValue);
+
+    RxPoolSet(&lsScope, &lsName, &lsValue);
+
+    LFREESTR(lsScope);
+    LFREESTR(lsName);
+    LFREESTR(lsValue);
 }
 
 int GetClistVar(PLstr name, PLstr value)
@@ -740,6 +928,7 @@ void addItem(RX_IKJ441_DUMMY_DICT_PTR dict, char *key, char *value)
     d->next = dict->next;
     dict->next = d;
 }
+
 #endif
 
 

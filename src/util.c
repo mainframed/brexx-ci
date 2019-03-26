@@ -7,19 +7,19 @@
 
 const unsigned char *getA2ETable();
 
-QuotationType CheckQuotation(PLstr sDSName)
+QuotationType CheckQuotation(char *sDSName)
 {
     bool bQuotationMarkAtBeginning  = FALSE;
     bool bQuotationMarkAtEnd        = FALSE;
     QuotationType quotationType     = UNQUOTED;
 
     /* define possible quotation mark positions */
-    int iFirstCharPos = 0;
-    int iLastCharPos  = (sDSName->len > 0) ? ((int)sDSName->len - 1) : 0;
+    size_t iFirstCharPos = 0;
+    size_t iLastCharPos  = (strlen(sDSName) > 0) ? (strlen(sDSName) - 1) : 0;
 
     /* get chars at defined positions */
-    unsigned char cFirstChar = LSTR(*sDSName)[iFirstCharPos];
-    unsigned char cLastChar  = LSTR(*sDSName)[iLastCharPos];
+    unsigned char cFirstChar = (unsigned char)sDSName[iFirstCharPos];
+    unsigned char cLastChar  = (unsigned char)sDSName[iLastCharPos];
 
     if (cFirstChar == '\'' || cFirstChar == '\"') {
         bQuotationMarkAtBeginning = TRUE;
