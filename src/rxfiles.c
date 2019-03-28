@@ -76,6 +76,12 @@ struct files_st {
 	long	line;
 } *file;
 
+#ifdef JCC
+extern char* _style;
+#else
+char* _style;
+#endif
+
 /* ------------------------* RxInitFiles *------------------------ */
 void __CDECL
 RxInitFiles(void)
@@ -213,12 +219,18 @@ find_empty( void )
 
 /* -------------------------* open_file *------------------------- */
 static int
-open_file( const PLstr fn, const char *mode )
+open_file( const PLstr fn, const char *mode, bool isDSN)
 {
 	int	i;
 	Lstr	str;
 
 	i = find_empty();
+
+	if (isDSN) {
+		_style = "//DSN:";
+	} else {
+		_style = "//DDN:";
+	}
 
 	LINITSTR(str); Lfx(&str,LLEN(*fn));
 	Lstrcpy(&str,fn);
@@ -230,10 +242,7 @@ open_file( const PLstr fn, const char *mode )
 		return -1;
 	}
 	LPMALLOC(file[i].name);
-#if defined(MSDOS) || defined(WCE)
-	/* For MSDOS or 32bit DOS store the name in uppercase */
-	Lupper(&str);
-#endif
+
 	Lstrcpy(file[i].name,&str);
 	file[i].line = 1;
 	LFREESTR(str);
@@ -253,16 +262,29 @@ close_file( const int f )
 } /* close_file */
 
 /* --------------------------------------------------------------- */
-/*  OPEN( file, mode )                                             */
+/*  OPEN( file, mode, dmode                                        */
 /* --------------------------------------------------------------- */
 void __CDECL
 R_open( )
 {
-	if (ARGN != 2) Lerror(ERR_INCORRECT_CALL, 0 );
+	if ((ARGN < 2) || (ARGN > 3)) Lerror(ERR_INCORRECT_CALL, 0 );
 	must_exist(1); L2STR(ARG1);
 	must_exist(2); L2STR(ARG2);
 	Llower(ARG2); LASCIIZ(*ARG2);
-	Licpy(ARGR, open_file(ARG1,LSTR(*ARG2)));
+
+	if (exist(3)) {
+		L2STR(ARG3);
+		Lupper(ARG3); LASCIIZ(*ARG3);
+
+		if (strcmp((char *)LSTR(*ARG3),"DSN") == 0) {
+			Licpy(ARGR, open_file(ARG1,(char *)LSTR(*ARG2), TRUE));
+		} else {
+			Licpy(ARGR, open_file(ARG1,(char *)LSTR(*ARG2), FALSE));
+		}
+
+	} else {
+		Licpy(ARGR, open_file(ARG1,(char *)LSTR(*ARG2), FALSE));
+	}
 } /* R_open */
 
 /* --------------------------------------------------------------- */
@@ -349,52 +371,52 @@ R_stream( )
 
 			if (!Lcmp(&cmd,"READ")) {
 				if (i>=0) close_file(i);
-				i = open_file(ARG1,"r");
+				i = open_file(ARG1,"r", FALSE);
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
 			if (!Lcmp(&cmd,"READBINARY")) {
 				if (i>=0) close_file(i);
-				i = open_file(ARG1,"rb");
+				i = open_file(ARG1,"rb", FALSE);
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
 			if (!Lcmp(&cmd,"WRITE")) {
 				if (i>=0) close_file(i);
-				i = open_file(ARG1,"w");
+				i = open_file(ARG1,"w", FALSE);
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
 			if (!Lcmp(&cmd,"WRITEBINARY")) {
 				if (i>=0) close_file(i);
-				i = open_file(ARG1,"wb");
+				i = open_file(ARG1,"wb", FALSE);
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
 			if (!Lcmp(&cmd,"APPEND")) {
 				if (i>=0) close_file(i);
-				i = open_file(ARG1,"a+");
+				i = open_file(ARG1,"a+", FALSE);
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
 			if (!Lcmp(&cmd,"APPENDBINARY")) {
 				if (i>=0) close_file(i);
-				i = open_file(ARG1,"ab+");
+				i = open_file(ARG1,"ab+", FALSE);
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
 			if (!Lcmp(&cmd,"UPDATE")) {
 				if (i>=0) close_file(i);
-				i = open_file(ARG1,"r+");
+				i = open_file(ARG1,"r+", FALSE);
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
 			if (!Lcmp(&cmd,"UPDATEBINARY")) {
 				if (i>=0) close_file(i);
-				i = open_file(ARG1,"rb+");
+				i = open_file(ARG1,"rb+", FALSE);
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
 			if (!Lcmp(&cmd,"CREATE")) {
 				if (i>=0) close_file(i);
-				i = open_file(ARG1,"w+");
+				i = open_file(ARG1,"w+", FALSE);
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
 			if (!Lcmp(&cmd,"CREATEBINARY")) {
 				if (i>=0) close_file(i);
-				i = open_file(ARG1,"wb+");
+				i = open_file(ARG1,"wb+", FALSE);
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
 			if (!Lcmp(&cmd,"CLOSE")) {
@@ -443,7 +465,7 @@ R_charslines( const int func )
 	i = FSTDIN;
 	if (exist(1))
 		if (LLEN(*ARG1)) i = find_file(ARG1);
-	if (i==-1) i = open_file(ARG1,"r+");
+	if (i==-1) i = open_file(ARG1,"r+", FALSE);
 	if (i==-1)
 		Lerror(ERR_CANT_OPEN_FILE,0);
 
@@ -470,7 +492,7 @@ R_charlinein( const int func )
 	i = FSTDIN;
 	if (exist(1))
 		if (LLEN(*ARG1)) i = find_file(ARG1);
-	if (i==-1) i = open_file(ARG1,"r+");
+	if (i==-1) i = open_file(ARG1,"r+", FALSE);
 	if (i==-1)
 		Lerror(ERR_CANT_OPEN_FILE,0);
 	get_oiv(2,start,LSTARTPOS);
@@ -504,8 +526,8 @@ R_charlineout( const int func )
 	if (exist(1))
 		if (LLEN(*ARG1)) i = find_file(ARG1);
 	if (i==-1) {
-		i = open_file(ARG1,"r+");
-		if (i==-1) i = open_file(ARG1,"w+");
+		i = open_file(ARG1,"r+", FALSE);
+		if (i==-1) i = open_file(ARG1,"w+", FALSE);
 	}
 	if (i==-1)
 		Lerror(ERR_CANT_OPEN_FILE,0);
@@ -540,7 +562,7 @@ R_write( )
 	i = FSTDOUT;
 	if (exist(1))
 		if (LLEN(*ARG1)) i = find_file(ARG1);
-	if (i==-1) i = open_file(ARG1,"w");
+	if (i==-1) i = open_file(ARG1,"w", FALSE);
 	if (i==-1)
 		Lerror(ERR_CANT_OPEN_FILE,0);
 	if (exist(2)) {
@@ -572,7 +594,7 @@ R_read( )
 	i = FSTDIN;
 	if (exist(1))
 		if (LLEN(*ARG1)) i = find_file(ARG1);
-	if (i==-1) i = open_file(ARG1,"r");
+	if (i==-1) i = open_file(ARG1,"r", FALSE);
 	if (i==-1)
 		Lerror(ERR_CANT_OPEN_FILE,0);
 
