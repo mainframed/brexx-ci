@@ -90,8 +90,8 @@ eq_str:
 
 	for(;(a<ae) && (b<be) && (*a==*b); a++,b++) ;
 
-	for(; (a<ae) && ISSPACE(*a);a++) ;
-	for(; (b<be) && ISSPACE(*b);b++) ;
+	/* for(; (a<ae) && ISSPACE(*a);a++) ; */
+	/* for(; (b<be) && ISSPACE(*b);b++) ; */
 
 	if (a==ae && b==be)
 		return 0;
