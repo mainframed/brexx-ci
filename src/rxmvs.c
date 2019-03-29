@@ -172,6 +172,8 @@ void R_listdsi(int func)
 
     QuotationType quotationType;
 
+    char* _style_old = _style;
+
     memset(sFileName,0,45);
     memset(sFunctionCOde,0,3);
 
@@ -232,6 +234,8 @@ void R_listdsi(int func)
     }
 
     Lscpy(ARGR,sFunctionCOde);
+
+    _style = _style_old;
 }
 
 void R_sysdsn(int func)
@@ -243,7 +247,10 @@ void R_sysdsn(int func)
 
     FILE *pFile;
     int iErr;
+
     QuotationType quotationType;
+
+    char* _style_old = _style;
 
     const char* MSG_OK                  = "OK";
     const char* MSG_NOT_A_PO            = "MEMBER SPECIFIED, BUT DATASET IS NOT PARTITIONED";
@@ -308,6 +315,8 @@ void R_sysdsn(int func)
     }
 
     Lscpy(ARGR,sMessage);
+
+    _style = _style_old;
 }
 
 void R_qualify(int func)
@@ -315,6 +324,8 @@ void R_qualify(int func)
     char sFileName[45];
 
     QuotationType quotationType;
+
+    char* _style_old = _style;
 
     memset(sFileName,0,45);
 
@@ -343,6 +354,8 @@ void R_qualify(int func)
     }
 
     Lscpy(ARGR,sFileName);
+
+    _style = _style_old;
 }
 
 void R_sysvar(int func)
@@ -450,6 +463,7 @@ int RxMvsInitialize()
 int reopen(int fp) {
 
     int new_fp, rc = 0;
+    char* _style_old = _style;
 
 #ifdef JCC
     _style = "//DDN:";
@@ -495,8 +509,9 @@ int reopen(int fp) {
             break;
     }
 #endif
-    return 0;
+    _style = _style_old;
 
+    return 0;
 }
 
 void RxMvsRegFunctions()

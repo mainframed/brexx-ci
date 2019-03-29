@@ -247,6 +247,8 @@ void RxFileDCB(RxFile *rxf)
 /* ------------ RxFileLoadDSN ------------ */
 void __CDECL RxFileLoadDSN(RxFile *rxf)
 {
+    char* _style_old = _style;
+
     Lupper(&(rxf->name));
     Lupper(&(rxFileList->name));
 
@@ -270,6 +272,8 @@ void __CDECL RxFileLoadDSN(RxFile *rxf)
             rxf->fp = FOPEN(finalName, "r");
         }
     }
+
+    _style = _style_old;
 } /* RxFileLoadDSN */
 
 /* ------------ RxFileLoadDDN ------------ */
@@ -277,6 +281,7 @@ void __CDECL RxFileLoadDDN(RxFile *rxf, const char *ddn)
 {
     if (rxf->fp == NULL) {
         char finalName[20];
+        char* _style_old = _style;
 
         if (ddn != NULL) {
             snprintf(finalName, 18, "%s%c%s%c", ddn, '(', LSTR(rxf->name), ')');
@@ -286,6 +291,8 @@ void __CDECL RxFileLoadDDN(RxFile *rxf, const char *ddn)
 
         _style = "//DDN:";
         rxf->fp = FOPEN(finalName, "r");
+
+        _style = _style_old;
     }
 } /* RxFileLoadDDN */
 

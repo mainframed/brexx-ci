@@ -224,6 +224,8 @@ open_file( const PLstr fn, const char *mode, bool isDSN)
 	int	i;
 	Lstr	str;
 
+	char* _style_old = _style;
+
 	i = find_empty();
 
 	if (isDSN) {
@@ -246,6 +248,9 @@ open_file( const PLstr fn, const char *mode, bool isDSN)
 	Lstrcpy(file[i].name,&str);
 	file[i].line = 1;
 	LFREESTR(str);
+
+	_style = _style_old;
+
 	return i;
 } /* open_file */
 
