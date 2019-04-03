@@ -1544,8 +1544,10 @@ outofcmd:
 				DataEnd = BreakStart;
 
 			if (DataEnd!=DataStart) {
-                _Lsubstr(RxStck[RxStckTop--], ToParse, DataStart, DataEnd - DataStart);
-                SetClistVar(&(_tmpstr[RxStckTop + 1]), STACKTOP);
+				_Lsubstr(RxStck[RxStckTop--], ToParse, DataStart, DataEnd - DataStart);
+				if (isTSOFG() && isEXEC()) {
+					SetClistVar(&(_tmpstr[RxStckTop + 1]), STACKTOP);
+				}
             }
 			else {
 				LZEROSTR(*(STACKTOP));
