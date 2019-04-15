@@ -110,6 +110,7 @@ int	_trace;			/* if trace is enabled	*/
 PLstr   RxStck[STCK_SIZE];	/* Array of PLstr       */
 int     RxStckTop;		/* top item of stack    */
 Lstr	_tmpstr[STCK_SIZE];	/* temporary strings	*/
+unsigned long long  ullInstrCount = 0;
 
 /*extern	int	_interrupt;*/	/* if any interrupt is pending	*/
 /*void	ProcessInterrupt();*/
@@ -976,6 +977,7 @@ outofcmd:
 		 */
 			/* START A NEW COMMAND */
 		case OP_NEWCLAUSE:
+			ullInstrCount++;
 			DEBUGDISPLAY0("NEWCLAUSE");
 			if (_trace) TraceClause();
 #ifdef WCE

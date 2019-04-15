@@ -360,6 +360,7 @@ void R_qualify(int func)
 
 void R_sysvar(int func)
 {
+    extern unsigned long long ullInstrCount;
     char *msg = "not yet implemented";
 
     if (ARGN != 1) {
@@ -377,7 +378,9 @@ void R_sysvar(int func)
     } else if (strcmp((const char*)ARG1->pstr, "SYSENV") == 0) {
         Lscpy(ARGR,environment->SYSENV);
     } else if (strcmp((const char*)ARG1->pstr, "SYSISPF") == 0) {
-        Lscpy(ARGR,environment->SYSISPF);
+        Lscpy(ARGR, environment->SYSISPF);
+    } else if (strcmp((const char*)ARG1->pstr, "RXINSTRC") == 0) {
+        Licpy(ARGR, ullInstrCount);
     } else {
         Lscpy(ARGR,msg);
     }
