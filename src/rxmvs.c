@@ -38,10 +38,12 @@ void ** entry_R13;
 long __libc_tso_status;
 #endif
 
+char *getVariable(char *sName);
+void setVariable(char *sName, char *sValue);
+
 /* internal function prototypes */
 void parseArgs(char **array, char *str);
 void parseDCB(FILE *pFile);
-void setVariable(char *sName, char *sValue);
 int reopen(int fp);
 
 #ifdef __CROSS__
@@ -150,6 +152,8 @@ void R_userid(int func)
 void R_msg(int func)
 {
     char *msg = "not yet implemented";
+
+    msg = getVariable("MYNAME");
 
     Lscpy(ARGR,msg);
 }
@@ -595,7 +599,6 @@ int isTSO() {
     return ret;
 }
 
-
 int isISPF() {
     int ret = 0;
 
@@ -681,6 +684,35 @@ void parseDCB(FILE *pFile)
     free(flags);
 }
 
+char *getVariable(char *sName)
+{
+    char *sValue = NULL;
+
+    Lstr lsScope,lsName,lsValue;
+
+    LINITSTR(lsScope)
+    LINITSTR(lsName)
+    LINITSTR(lsValue)
+
+    Lfx(&lsScope,sizeof(dword));
+    Lfx(&lsName, strlen(sName));
+
+    Licpy(&lsScope,_rx_proc);
+    Lscpy(&lsName, sName);
+
+    RxPoolGet(&lsScope, &lsName, &lsValue);
+
+    LASCIIZ(lsValue)
+
+    sValue =  (char *)lsValue.pstr;
+
+    LFREESTR(lsScope)
+    LFREESTR(lsName)
+    LFREESTR(lsValue)
+
+    return sValue;
+}
+
 void setVariable(char *sName, char *sValue)
 {
     Lstr lsScope,lsName,lsValue;
@@ -747,6 +779,7 @@ int call_rxtso(RX_TSO_PARAMS_PTR params)
 #endif
     return 0;
 }
+
 int call_rxptime (RX_PTIME_PARAMS_PTR params)
 {
 #ifdef __DEBUG__
@@ -793,6 +826,7 @@ unsigned int call_rxabend (RX_ABEND_PARAMS_PTR params)
     return 0;
 }
 #endif
+
 
 
 
