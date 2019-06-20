@@ -8,9 +8,6 @@ int __CDECL isTSOBG();
 int __CDECL isEXEC();
 int __CDECL isIPSF();
 
-int __CDECL GetClistVar(PLstr name, PLstr value);
-int __CDECL SetClistVar(PLstr name, PLstr value);
-
 /* ---------------------------------------------------------- */
 /* environment context RXENVCTX                               */
 /* ---------------------------------------------------------- */
@@ -46,7 +43,7 @@ typedef  struct trx_env_ctx
 } RX_ENVIRONMENT_CTX, *RX_ENVIRONMENT_CTX_PTR;
 
 /* ---------------------------------------------------------- */
-/* assembler module RXIKJ441                                  */
+/* assembler module RXINIT                                  */
 /* ---------------------------------------------------------- */
 typedef struct trx_init_params
 {
@@ -55,17 +52,14 @@ typedef struct trx_init_params
 } RX_INIT_PARAMS, *RX_INIT_PARAMS_PTR;
 
 /* ---------------------------------------------------------- */
-/* assembler module RXIKJ441                                  */
+/* assembler module RXTSO                                  */
 /* ---------------------------------------------------------- */
-typedef struct trx_ikjct441_params
+typedef struct trx_tso_params
 {
-    unsigned    ecode;
-    size_t      namelen;
-    char       *nameadr;
-    size_t      valuelen;
-    char       *valueadr;
-    unsigned   *wkadr;
-} RX_IKJCT441_PARAMS, *RX_IKJCT441_PARAMS_PTR;
+    unsigned   *cppladdr;
+    char       ddin[8];
+    char       ddout[8];
+} RX_TSO_PARAMS, *RX_TSO_PARAMS_PTR;
 
 /* ---------------------------------------------------------- */
 /* assembler module RXPTIME                                   */
@@ -119,22 +113,8 @@ typedef struct trx_abend_params
 } RX_ABEND_PARAMS, *RX_ABEND_PARAMS_PTR;
 
 #ifdef __CROSS__
-typedef struct trx_ikj441_dummy_dict
-{
-    char *key;
-    char *value;
-    struct trx_ikj441_dummy_dict *next;
-} RX_IKJ441_DUMMY_DICT, *RX_IKJ441_DUMMY_DICT_PTR;
-
-typedef struct trx_ikj441_dummy_dict_head
-{
-    RX_IKJ441_DUMMY_DICT *first;
-} RX_IKJ441_DUMMY_DICT_HEAD;
-#endif
-
-#ifdef __CROSS__
 int call_rxinit(RX_INIT_PARAMS_PTR params);
-unsigned int call_rxikj441 (RX_IKJCT441_PARAMS_PTR params);
+int call_rxtso(RX_TSO_PARAMS_PTR params);
 int call_rxptime (RX_PTIME_PARAMS_PTR params);
 int call_rxstime (RX_STIME_PARAMS_PTR params);
 int call_rxwto (RX_WTO_PARAMS_PTR params);
@@ -142,7 +122,7 @@ int call_rxwait (RX_WAIT_PARAMS_PTR params);
 unsigned int call_rxabend (RX_ABEND_PARAMS_PTR params);
 #else
 extern int call_rxinit(RX_INIT_PARAMS_PTR params);
-extern unsigned int call_rxikj441 (RX_IKJCT441_PARAMS_PTR params);
+extern int call_rxtso(RX_TSO_PARAMS_PTR params);
 extern int call_rxptime (RX_PTIME_PARAMS_PTR params);
 extern int call_rxstime (RX_STIME_PARAMS_PTR params);
 extern int call_rxwto (RX_WTO_PARAMS_PTR params);

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.14)
 project(brexx C)
 
 set(CMAKE_C_STANDARD 90)
@@ -12,7 +12,6 @@ add_executable(brexx
         inc/bintree.h
         inc/bmem.h
         inc/bstr.h
-        inc/cefunc.h
         inc/compile.h
         inc/config.h
         inc/dbginfo.h
@@ -112,13 +111,13 @@ add_executable(brexx
         src/address.c
         src/bintree.c
         src/bmem.c
+        src/brexx.c
         src/builtin.c
         src/compile.c
         src/dqueue.c
         src/error.c
         src/expr.c
         src/interpre.c
-        src/brexx.c
         src/nextsymb.c
         src/rexx.c
         src/rexxfunc.c

@@ -824,11 +824,11 @@ RxSetSpecialVar( int rcsigl, long num )
             break;
     }
 
-    LINITSTR(value);
+    LINITSTR(value)
     Lfx(&value,0);
     Licpy(&value,num);
     RxVarSet(_proc[_rx_proc].scope,varleaf,&value);
-    LFREESTR(value);
+    LFREESTR(value)
 } /* RxSetSpecialVar */
 
 /* --------------- RxScopeMalloc ---------------- */

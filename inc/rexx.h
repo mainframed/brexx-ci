@@ -214,7 +214,7 @@ int	    __CDECL RxRegFunction( char *name, void (__CDECL *func)(int), int opt );
 void	__CDECL RxHaltTrap( int );
 void	__CDECL RxSignalCondition( int );
 
-int	    __CDECL RxRedirectCmd(PLstr cmd, int in, int out, PLstr resultstr);
+int	    __CDECL RxRedirectCmd(PLstr cmd, int in, int out, PLstr resultstr, PLstr env);
 int	    __CDECL RxExecuteCmd( PLstr cmd, PLstr env );
 
 #ifdef __cplusplus
