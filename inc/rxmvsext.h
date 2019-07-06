@@ -2,11 +2,11 @@
 #define __RXMVSEXT_H
 
 /* TODO: should be moved to rxmvs.h */
-int __CDECL isTSO();
-int __CDECL isTSOFG();
-int __CDECL isTSOBG();
-int __CDECL isEXEC();
-int __CDECL isIPSF();
+int  isTSO();
+int  isTSOFG();
+int  isTSOBG();
+int  isEXEC();
+int  isIPSF();
 
 /* ---------------------------------------------------------- */
 /* environment context RXENVCTX                               */
@@ -62,6 +62,17 @@ typedef struct trx_tso_params
 } RX_TSO_PARAMS, *RX_TSO_PARAMS_PTR;
 
 /* ---------------------------------------------------------- */
+/* assembler module RXSVC                                     */
+/* ---------------------------------------------------------- */
+typedef struct trx_svc_params
+{
+    int SVC;
+    unsigned int R0;
+    unsigned int R1;
+    unsigned int R15;
+} RX_SVC_PARAMS, *RX_SVC_PARAMS_PTR;
+
+/* ---------------------------------------------------------- */
 /* assembler module RXPTIME                                   */
 /* ---------------------------------------------------------- */
 typedef struct trx_ptime_params
@@ -112,23 +123,35 @@ typedef struct trx_abend_params
     int         ucc;
 } RX_ABEND_PARAMS, *RX_ABEND_PARAMS_PTR;
 
+char *getVariable(char *sName);
+char *getStemVariable(char *sName);
+int  getIntegerVariable(char *sName);
+void setVariable(char *sName, char *sValue);
+void setIntegerVariable(char *sName, int iValue);
+
 #ifdef __CROSS__
-int call_rxinit(RX_INIT_PARAMS_PTR params);
-int call_rxtso(RX_TSO_PARAMS_PTR params);
-int call_rxptime (RX_PTIME_PARAMS_PTR params);
-int call_rxstime (RX_STIME_PARAMS_PTR params);
-int call_rxwto (RX_WTO_PARAMS_PTR params);
-int call_rxwait (RX_WAIT_PARAMS_PTR params);
+int  call_rxinit(RX_INIT_PARAMS_PTR params);
+int  call_rxtso(RX_TSO_PARAMS_PTR params);
+void call_rxsvc(RX_SVC_PARAMS_PTR params);
+int  call_rxptime (RX_PTIME_PARAMS_PTR params);
+int  call_rxstime (RX_STIME_PARAMS_PTR params);
+int  call_rxwto (RX_WTO_PARAMS_PTR params);
+int  call_rxwait (RX_WAIT_PARAMS_PTR params);
 unsigned int call_rxabend (RX_ABEND_PARAMS_PTR params);
 #else
-extern int call_rxinit(RX_INIT_PARAMS_PTR params);
-extern int call_rxtso(RX_TSO_PARAMS_PTR params);
-extern int call_rxptime (RX_PTIME_PARAMS_PTR params);
-extern int call_rxstime (RX_STIME_PARAMS_PTR params);
-extern int call_rxwto (RX_WTO_PARAMS_PTR params);
-extern int call_rxwait (RX_WAIT_PARAMS_PTR params);
+extern int  call_rxinit(RX_INIT_PARAMS_PTR params);
+extern int  call_rxtso(RX_TSO_PARAMS_PTR params);
+extern void call_rxsvc(RX_SVC_PARAMS_PTR params);
+extern int  call_rxptime (RX_PTIME_PARAMS_PTR params);
+extern int  call_rxstime (RX_STIME_PARAMS_PTR params);
+extern int  call_rxwto (RX_WTO_PARAMS_PTR params);
+extern int  call_rxwait (RX_WAIT_PARAMS_PTR params);
 extern unsigned int call_rxabend (RX_ABEND_PARAMS_PTR params);
 #endif
+
+/* ---------------------------------------------------------- */
+/* MVS control blocks                                         */
+/* ---------------------------------------------------------- */
 
 struct psa {
     char    psastuff[548];      /* 548 bytes before ASCB ptr */

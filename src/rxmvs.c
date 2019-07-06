@@ -38,9 +38,6 @@ void ** entry_R13;
 long __libc_tso_status;
 #endif
 
-char *getVariable(char *sName);
-void setVariable(char *sName, char *sValue);
-
 /* internal function prototypes */
 void parseArgs(char **array, char *str);
 void parseDCB(FILE *pFile);
@@ -684,7 +681,8 @@ void parseDCB(FILE *pFile)
     free(flags);
 }
 
-char *getVariable(char *sName)
+char *
+getVariable(char *sName)
 {
     char *sValue = NULL;
 
@@ -713,7 +711,45 @@ char *getVariable(char *sName)
     return sValue;
 }
 
-void setVariable(char *sName, char *sValue)
+char *
+getStemVariable(char *sName)
+{
+    char *sValue = NULL;
+
+    Lstr lsScope,lsName,lsValue;
+
+    LINITSTR(lsScope)
+    LINITSTR(lsName)
+    LINITSTR(lsValue)
+
+    Lfx(&lsScope,sizeof(dword));
+    Lfx(&lsName, strlen(sName));
+
+    Licpy(&lsScope,_rx_proc);
+    Lscpy(&lsName, sName);
+
+    RxPoolGet(&lsScope, &lsName, &lsValue);
+
+    LASCIIZ(lsValue)
+
+    sValue =  (char *)lsValue.pstr;
+
+    LFREESTR(lsScope)
+    LFREESTR(lsName)
+    LFREESTR(lsValue)
+
+    return sValue;
+}
+
+int
+getIntegerVariable(char *sName) {
+    char sValue[19];
+    strcpy(sValue, getVariable(sName));
+    return (atoi(sValue));
+}
+
+void
+setVariable(char *sName, char *sValue)
 {
     Lstr lsScope,lsName,lsValue;
 
@@ -736,6 +772,13 @@ void setVariable(char *sName, char *sValue)
     LFREESTR(lsValue);
 }
 
+void
+setIntegerVariable(char *sName, int iValue)
+{
+    char sValue[19];
+    sprintf(sValue,"%d",iValue);
+    setVariable(sName,sValue);
+}
 /* internal functions */
 
 /* dummy implementations for cross development */
@@ -778,6 +821,14 @@ int call_rxtso(RX_TSO_PARAMS_PTR params)
 
 #endif
     return 0;
+}
+
+void call_rxsvc (RX_SVC_PARAMS_PTR params)
+{
+#ifdef __DEBUG__
+    if (params != NULL)
+        printf("DBG> DUMMY RXSVC for svc %d .\n", params->SVC);
+#endif
 }
 
 int call_rxptime (RX_PTIME_PARAMS_PTR params)
@@ -829,4 +880,71 @@ unsigned int call_rxabend (RX_ABEND_PARAMS_PTR params)
 
 
 
+/*
+char * __CDECL
+rxgsvar(char *v) {
+    PBinLeaf    l;
+    PLstr       pstr;
+    PLstr       vv;
+    PLstr       vd;
+    Lstr        vn;
+    int         found;
+    int         hasdot;
+    int         poolnum;
+    char       *sconv;
 
+    LPMALLOC(vv);
+    Lfx(vv,strlen(v));
+    Lscpy(vv,v);
+    Lupper(vv);
+    LPMALLOC(vd);
+    l=(PBinLeaf)RxVarFindName(_proc[_rx_proc].scope,vv,&found);
+    if(l==0) { return(NULL); }
+    if(found) {
+        Lstrcpy(vd,LEAFVAL(l));
+        if(LTYPE(*vd)==0) {
+            sconv=(char *)malloc(LLEN(*vd)+1);
+            memset(sconv,0,LLEN(*vd)+1);
+            strncpy(sconv,LSTR(*vd),LLEN(*vd));
+            return(sconv);
+        }
+        if(LTYPE(*vd)==1) {
+            sconv=(char *)malloc(LLEN(*vd)+1);
+            memset(sconv,0,LLEN(*vd)+1);
+            sprintf(sconv,"%d",LINT(*vd));
+            return(sconv);
+        }
+        if(LTYPE(*vd)==2) {
+            sconv=(char *)malloc(LLEN(*vd)+1);
+            memset(sconv,0,LLEN(*vd)+1);
+            sprintf(sconv,"%f",LREAL(*vd));
+            return(sconv);
+        }
+        return(NULL);
+    } else {
+        if (MEMCHR(LSTR(*vv),'.',LLEN(*vv)-1)!=NULL) {
+            Lstrcpy(vd,&stemvaluenotfound);
+        } else {
+            Lstrcpy(vd,LEAFVAL(l));
+            if(LTYPE(*vd)==0) {
+                sconv=(char *)malloc(LLEN(*vd)+1);
+                memset(sconv,0,LLEN(*vd)+1);
+                strncpy(sconv,LSTR(*vd),LLEN(*vd));
+                return(sconv);
+            }
+            if(LTYPE(*vd)==1) {
+                sconv=(char *)malloc(LLEN(*vd)+1);
+                memset(sconv,0,LLEN(*vd)+1);
+                sprintf(sconv,"%d",LINT(*vd));
+                return(sconv);
+            }
+            if(LTYPE(*vd)==2) {
+                sconv=(char *)malloc(LLEN(*vd)+1);
+                memset(sconv,0,LLEN(*vd)+1);
+                sprintf(sconv,"%f",LREAL(*vd));
+                return(sconv);
+            }
+        }
+        return(NULL);
+    }
+}*/

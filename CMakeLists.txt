@@ -6,6 +6,7 @@ SET(CMAKE_C_FLAGS -D__CROSS__)
 SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -D__DEBUG__")
 
 include_directories(inc)
+include_directories(fss)
 include_directories(mvs)
 
 add_executable(brexx
@@ -16,6 +17,7 @@ add_executable(brexx
         inc/config.h
         inc/dbginfo.h
         inc/dqueue.h
+        inc/hostcmd.h
         inc/interpre.h
         inc/ldefs.h
         inc/lerror.h
@@ -31,6 +33,7 @@ add_executable(brexx
         inc/trace.h
         inc/util.h
         inc/variable.h
+        inc/rxtso.h
         lstring/abbrev.c
         lstring/abs.c
         lstring/add.c
@@ -108,6 +111,8 @@ add_executable(brexx
         lstring/x2c.c
         lstring/x2d.c
         lstring/xrange.c
+        fss/fss.h
+        fss/fss.c
         src/address.c
         src/bintree.c
         src/bmem.c
@@ -117,6 +122,7 @@ add_executable(brexx
         src/dqueue.c
         src/error.c
         src/expr.c
+        src/hostcmd.c
         src/interpre.c
         src/nextsymb.c
         src/rexx.c
@@ -126,6 +132,7 @@ add_executable(brexx
         src/rxmath.c
         src/rxmvs.c
         src/rxstr.c
+        src/rxtso.c
         src/rxword.c
         src/stack.c
         src/template.c

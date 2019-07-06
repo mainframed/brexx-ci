@@ -7,6 +7,7 @@
 #include "stack.h"
 #include "compile.h"
 #include "interpre.h"
+#include "hostcmd.h"
 
 #ifndef WIN
 #if defined(MSDOS) || defined(__WIN32__)
@@ -194,33 +195,40 @@ RxExecuteCmd( PLstr cmd, PLstr env )
 	int	in,out;
 	Lstr	cmdN;
 
-	LINITSTR(cmdN); Lfx(&cmdN,1);
-	Lstrcpy(&cmdN,cmd);
-	L2STR(&cmdN);
+	if (isHostCmd(cmd)) {
+	    rxReturnCode = handleHostCmd(cmd);
+	} else {
 
-	LASCIIZ(cmdN);
+        LINITSTR(cmdN)
+        Lfx(&cmdN,1);
+        Lstrcpy(&cmdN,cmd);
+        L2STR(&cmdN);
 
-	chkcmd4stack(&cmdN,&in,&out);
-	rxReturnCode = RxRedirectCmd(&cmdN,in,out,FALSE, env);
+        LASCIIZ(cmdN)
 
-	/* free string */
-	LFREESTR(cmdN);
+        chkcmd4stack(&cmdN,&in,&out);
+        rxReturnCode = RxRedirectCmd(&cmdN,in,out,FALSE, env);
 
-	if (rxReturnCode == 0x806000) {
-		rxReturnCode = -3;
+        /* free string */
+        LFREESTR(cmdN);
+
+        if (rxReturnCode == 0x806000) {
+            rxReturnCode = -3;
+        }
+
+        RxSetSpecialVar(RCVAR,rxReturnCode);
+        if (rxReturnCode && !(_proc[_rx_proc].trace & off_trace)) {
+            if (_proc[_rx_proc].trace & (error_trace | normal_trace)) {
+                TraceCurline(NULL,TRUE);
+                fprintf(STDERR,"       +++ RC(%d) +++\n",rxReturnCode);
+                if (_proc[_rx_proc].interactive_trace)
+                    TraceInteractive(FALSE);
+            }
+            if (_proc[_rx_proc].condition & SC_ERROR)
+                RxSignalCondition(SC_ERROR);
+        }
 	}
 
-	RxSetSpecialVar(RCVAR,rxReturnCode);
-	if (rxReturnCode && !(_proc[_rx_proc].trace & off_trace)) {
-		if (_proc[_rx_proc].trace & (error_trace | normal_trace)) {
-			TraceCurline(NULL,TRUE);
-			fprintf(STDERR,"       +++ RC(%d) +++\n",rxReturnCode);
-			if (_proc[_rx_proc].interactive_trace)
-				TraceInteractive(FALSE);
-		}
-		if (_proc[_rx_proc].condition & SC_ERROR)
-			RxSignalCondition(SC_ERROR);
-	}
 
 	return rxReturnCode;
 } /* RxExecuteCmd */
