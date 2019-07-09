@@ -13,6 +13,26 @@
 #define SNULL(V) { memset((V),0,strlen((V))); }
 
 int RxEXECIO();
+int RxTEST();
+int RxLOCK();
+int RxDUMP();
+int RxSET();
+int RxSHOW();
+int RxCONVERSE();
+
+// internal functions
+char *rxpull();
+char *copies(char *str, size_t count);
+void  rxqueue(char *s);
+long  rxqueued();
+void  setmapatr(int func,char *pname,char ccolor,char cattr,char cext);
+void  remlf(char *s);
+void  clearcmd(char *hcmdargvp[]);
+int   parsecmd(char scmd[256],char *hcmdargvp[]);
+int   findcmd(char scmd[255],char *hcmdargvp[]);
+int   parsemap(char *pname);
+
+int   RxForceRC(int rc);
 
 char *hcmdargvp[128];
 char  hcmdargcp;
@@ -63,15 +83,579 @@ struct sFields
     char *data;            // Field Data
 };
 
-char *
-trimr(char *strim)
+bool
+isHostCmd(PLstr cmd)
 {
-    char *ptmp=0;
-    ptmp=strim+strlen(strim)-1;
-    while((ptmp>=strim)&&(*ptmp==' ')) {
-        *ptmp-='\0';
+    bool isHostCmd = FALSE;
+    char lclcmd[1025];
+
+    strcpy(lclcmd,(const char*)LSTR(*cmd));
+    hcmdargcp=parsecmd(lclcmd,hcmdargvp);
+
+    if(strcasecmp(hcmdargvp[0], "EXECIO") == 0) {
+        isHostCmd = TRUE;
+    } else if (strcasecmp(hcmdargvp[0], "TEST") == 0) {
+        isHostCmd = TRUE;
+    } else if (strcasecmp(hcmdargvp[0], "LOCK") == 0) {
+        isHostCmd = TRUE;
+    } else if (strcasecmp(hcmdargvp[0], "DUMP") == 0) {
+        isHostCmd = TRUE;
+    } else if (strcasecmp(hcmdargvp[0], "SET") == 0) {
+        isHostCmd = TRUE;
+    } else if (strcasecmp(hcmdargvp[0], "SHOW") == 0) {
+        isHostCmd = TRUE;
+    } else if (strcasecmp(hcmdargvp[0], "CONVERSE") == 0) {
+        isHostCmd = TRUE;
     }
-    return strim;
+
+    return isHostCmd;
+}
+
+int
+handleHostCmd(PLstr cmd)
+{
+    int returnCode = 0;
+    char lclcmd[1025];
+
+    strcpy(lclcmd,(const char*)LSTR(*cmd));
+    hcmdargcp=parsecmd(lclcmd,hcmdargvp);
+
+    if(strcasecmp(hcmdargvp[0], "EXECIO") == 0) {
+        returnCode = RxEXECIO();
+    } else if (strcasecmp(hcmdargvp[0], "TEST") == 0) {
+        returnCode = RxTEST();
+    } else if (strcasecmp(hcmdargvp[0], "LOCK") == 0) {
+        returnCode = RxLOCK();
+    } else if (strcasecmp(hcmdargvp[0], "DUMP") == 0) {
+        returnCode = RxDUMP();
+    } else if (strcasecmp(hcmdargvp[0], "SET") == 0) {
+        returnCode = RxSET();
+    } else if (strcasecmp(hcmdargvp[0], "SHOW") == 0) {
+        returnCode = RxSHOW();
+    } else if (strcasecmp(hcmdargvp[0], "CONVERSE") == 0) {
+        returnCode = RxCONVERSE();
+    }
+
+    return returnCode;
+}
+
+int
+RxTEST()
+{
+    int ii = 0;
+
+    printf("stack=%i\n", rxqueued());
+    for(ii=1;ii<=rxqueued();ii++) {
+      printf(">>%s\n",rxpull());
+    }
+    return (RxForceRC(0));
+}
+
+int
+RxLOCK()
+{
+    struct sFields *nf;
+    int ii,jj = 0;
+    ii = fssAFields();
+
+    for (jj = 0; jj < ii; jj++) {
+        nf = (struct sFields *) fssAField(jj);
+        if (nf->typef == 2) {
+            nf->sattr[1] = 'P';
+            printf("n=%d t=%d n=%s l=%d a=%s l=%d\n",
+                   jj,
+                   nf->typef,
+                   nf->name,
+                   nf->length,
+                   nf->sattr,
+                   nf->length
+            );
+        }
+    }
+    return (RxForceRC(0));
+}
+
+int
+RxDUMP()
+{
+    struct sFields *nf;
+    int ii,jj = 0;
+    ii = fssAFields();
+
+    for (jj = 0; jj < ii; jj++) {
+        nf = (struct sFields *) fssAField(jj);
+        printf("n=%03d t=%d p=%-8s n=%-10s l=%05d a=%3s d=%s\n",
+               jj,
+               nf->typef,
+               nf->pname,
+               nf->name,
+               nf->length,
+               nf->sattr,
+               nf->data
+        );
+    }
+    return (RxForceRC(0));
+}
+
+int
+RxEXECIO()
+{
+    int ii;
+    char str1[64];
+    unsigned char pbuff[1025];
+    unsigned char vname1[19];
+    unsigned char vname2[19];
+    unsigned char vname3[19];
+    unsigned char obuff[4097];
+    int ip1 = 0;
+    int recs = 0;
+    FILE *f;
+
+    // DISKR
+    if (strcasecmp(hcmdargvp[2], "DISKR") == 0) {
+        ip1 = findcmd("STEM", hcmdargvp);
+        if (ip1 != -1) {
+            ip1++;
+            strcpy(vname1, hcmdargvp[ip1]);         // name of stem variable
+        }
+        SNULL(str1);
+        f = fopen(hcmdargvp[3], "r");
+        if (f == NULL) {
+            return (RxForceRC(8));
+        }
+        recs = 0;
+        while (fgets(pbuff, 1024, f)) {
+            recs++;
+            remlf(&pbuff[0]);                       // remove linefeed
+            sprintf(vname2, "%s%d", vname1, recs);  // edited stem name
+            if (ip1 != -1) {
+                setVariable(vname2, pbuff);         // set rexx variable
+            }
+            if (ip1 == -1) {
+                rxqueue(pbuff);
+            }
+        }
+        if (ip1 > 0) {
+            sprintf(vname2, "%s0", vname1);
+            sprintf(vname3, "%d", recs);
+            setVariable(vname2, vname3);
+        }
+        fclose(f);
+        return (RxForceRC(0));
+    }
+
+    // DISKW
+    if (strcasecmp(hcmdargvp[2], "DISKW") == 0) {
+        ip1 = findcmd("STEM", hcmdargvp);
+        if (ip1 != -1) {
+            ip1++;
+            strcpy(vname1, hcmdargvp[ip1]);  // name of stem variable
+        }
+        f = fopen(hcmdargvp[3], "w");
+        if (f == NULL) {
+            return (RxForceRC(8));
+        }
+        if (ip1 != -1) {
+            sprintf(vname2, "%s0", vname1);
+            recs = getIntegerVariable(vname2);
+        }
+        if (ip1 == -1) {
+            recs = rxqueued();
+        }
+        for (ii = 1; ii <= recs; ii++) {
+            if (ip1 != -1) {
+                SNULL(vname2);
+                sprintf(vname2, "%s%d", vname1, ii);
+                sprintf(obuff, "%s\n", getStemVariable(vname2));
+                fputs(obuff, f);
+            }
+            if (ip1 == -1) {
+                SNULL(obuff);
+                sprintf(obuff, "%s\n", rxpull());
+                fputs(obuff, f);
+            }
+        }
+        fclose(f);
+        return (RxForceRC(0));
+    }
+
+    // DISKA
+    if (strcasecmp(hcmdargvp[2], "DISKA") == 0) {
+        ip1 = findcmd("STEM", hcmdargvp);
+        if (ip1 > 0) {
+            ip1++;
+            strcpy(vname1, hcmdargvp[ip1]);  // name of stem variable
+        }
+        f = fopen(hcmdargvp[3], "a");
+        if (f == NULL) {
+            return (RxForceRC(8));
+        }
+        sprintf(vname2, "%s0", vname1);
+        recs = getIntegerVariable(vname2);
+        for (ii = 1; ii <= recs; ii++) {
+            SNULL(vname2);
+            sprintf(vname2, "%s%d", vname1, ii);
+            sprintf(obuff, "%s\n", getStemVariable(vname2));
+            fputs(obuff, f);
+        }
+        fclose(f);
+        return (RxForceRC(0));
+    }
+}
+
+int
+RxSET()
+{
+    int ii;
+    int lclattr = 0;
+    char str1[64];
+    unsigned char pbuff[1025];
+    unsigned char vname1[19];
+    unsigned char vname2[19];
+    unsigned char pname[19];
+    char sattr[3];      // attribute sequence
+    int ip1 = 0;
+    int iflag1 = 0;
+    int iflag2 = 0;
+    int recs = 0;
+    int vars = 0;
+    FILE *f;
+    struct sFields *nf;
+
+    if (strcasecmp(hcmdargvp[2], "LOCK") == 0) {
+        setmapatr(1, hcmdargvp[1], NULL, 'P', NULL);
+        return (RxForceRC(0));
+    }
+    if (strcasecmp(hcmdargvp[2], "UNLOCK") == 0) {
+        setmapatr(1, hcmdargvp[1], NULL, 'U', NULL);
+        return (RxForceRC(0));
+    }
+    if (strcasecmp(hcmdargvp[1], "CURSOR") == 0) {
+        setVariable("ZCURSOR", hcmdargvp[2]);
+        return (RxForceRC(0));
+    }
+    if (strcasecmp(hcmdargvp[1], "PANLIB") == 0) {
+        setVariable("ZPANLIB", hcmdargvp[2]);
+        sprintf(str1, "//DDN:%s", hcmdargvp[2]);
+        f = fopen(str1, "r");
+        if (f == NULL) {
+            return (RxForceRC(8));
+        }
+        recs = 0;
+        iflag1 = 0;       // section control
+        iflag2 = 0;       // proc control
+        while (fgets(pbuff, 1024, f)) {
+            remlf(&pbuff[0]);
+            if (pbuff[0] == ')') {
+                hcmdargcp = parsecmd(pbuff, hcmdargvp);
+                if (strcasecmp(hcmdargvp[0], "PANEL") == 0) {
+                    strcpy(pname, hcmdargvp[1]);
+                    iflag1 = 0;
+                    iflag2 = 0;
+                    recs = 0;
+                }
+                if (strcasecmp(hcmdargvp[0], "BODY") == 0) {
+                    iflag1 = 1;                     // enable panel scan
+                    recs = 0;
+                    vars = 0;
+                }
+                if (strcasecmp(hcmdargvp[0], "PROC") == 0) {
+                    iflag2 = 1;
+                    iflag1 = 0;
+                }
+                if (strcasecmp(hcmdargvp[0], "END") == 0) {
+                    iflag1 = 0;                     // disable panel scan
+                    iflag2 = 0;
+                }
+                if (strcasecmp(hcmdargvp[0], "PROC") == 0 ||
+                    strcasecmp(hcmdargvp[0], "END") == 0) {
+                    if (recs > 0) {
+                        sprintf(vname1, "%s.0", pname, recs);
+                        setIntegerVariable(vname1, recs);
+                    }
+                }
+            } else {
+                if (iflag1 == 1) {
+                    recs++;
+                    sprintf(vname2, "%s.%d", pname, recs);
+                    setVariable(vname2, pbuff);
+                }
+                if (iflag2 == 1) {
+                    hcmdargcp = parsecmd(pbuff, hcmdargvp);
+                    if (strcasecmp(hcmdargvp[0], "FIELDS") == 0) {
+                        for (ii = 1; ii <= hcmdargcp - 1; ii++) {
+                            vars++;    // keep zlist list incremented
+                            sprintf(vname1, "_%s_lst.%d", pname,
+                                    vars);
+                            setVariable(vname1, hcmdargvp[ii]);
+                        }
+                        sprintf(vname1, "_%s_lst.0", pname);
+                        setIntegerVariable(vname1, vars);
+                    }
+                }
+            }
+        }
+        fclose(f);
+        return (RxForceRC(0));
+    }
+    if (strcasecmp(hcmdargvp[1], "DEBUG") == 0) {
+        for (ii = 2; ii <= hcmdargcp; ii++) {
+            if (strcasecmp(hcmdargvp[ii], "PANEL") == 0) {
+                fssDebug(2);
+            }
+        }
+        return (RxForceRC(0));
+    }
+    if (strcasecmp(hcmdargvp[1], "PANEL") == 0) {
+        fssSetPanel(hcmdargvp[2]);
+        setVariable("ZPANEL", hcmdargvp[2]);
+        return (RxForceRC(0));
+    }
+    // default values
+    lclattr = 0;
+    sattr[0] = '1';
+    sattr[1] = 'U';
+    sattr[2] = 'D';
+    sattr[3] = NULL;
+    // attribute sequence for panel resources
+    ip1 = findcmd("NOCOLOR", hcmdargvp);
+    if (ip1 > 0) { sattr[0] = '0'; }
+    ip1 = findcmd("DFLT", hcmdargvp);
+    if (ip1 > 0) { sattr[0] = '0'; }
+    ip1 = findcmd("BLUE", hcmdargvp);
+    if (ip1 > 0) {
+        sattr[0] = '1';
+        lclattr += fssBLUE;
+    }
+    ip1 = findcmd("RED", hcmdargvp);
+    if (ip1 > 0) {
+        sattr[0] = '2';
+        lclattr += fssRED;
+    }
+    ip1 = findcmd("PINK", hcmdargvp);
+    if (ip1 > 0) {
+        sattr[0] = '3';
+        lclattr += fssPINK;
+    }
+    ip1 = findcmd("GREEN", hcmdargvp);
+    if (ip1 > 0) {
+        sattr[0] = '4';
+        lclattr += fssGREEN;
+    }
+    ip1 = findcmd("TURQ", hcmdargvp);
+    if (ip1 > 0) {
+        sattr[0] = '5';
+        lclattr += fssTURQ;
+    }
+    ip1 = findcmd("YELLOW", hcmdargvp);
+    if (ip1 > 0) {
+        sattr[0] = '6';
+        lclattr += fssYELLOW;
+    }
+    ip1 = findcmd("WHITE", hcmdargvp);
+    if (ip1 > 0) {
+        sattr[0] = '7';
+        lclattr += fssWHITE;
+    }
+    // extended attributes
+    ip1 = findcmd("NOEXT", hcmdargvp);
+    if (ip1 > 0) { sattr[2] = 'D'; }
+    ip1 = findcmd("BLINK", hcmdargvp);
+    if (ip1 > 0) {
+        sattr[2] = 'B';
+        lclattr += fssBLINK;
+    }
+    ip1 = findcmd("REV", hcmdargvp);
+    if (ip1 > 0) {
+        sattr[2] = 'R';
+        lclattr += fssREVERSE;
+    }
+    ip1 = findcmd("USCORE", hcmdargvp);
+    if (ip1 > 0) {
+        sattr[2] = 'U';
+        lclattr += fssUSCORE;
+    }
+    // basic attributes
+    ip1 = findcmd("UNP", hcmdargvp);
+    if (ip1 > 0) {
+        sattr[1] = 'U';
+        lclattr += fssUNP;
+    }
+    ip1 = findcmd("PROT", hcmdargvp);
+    if (ip1 > 0) {
+        sattr[1] = 'P';
+        lclattr += fssPROT;
+    }
+    ip1 = findcmd("DARK", hcmdargvp);
+    if (ip1 > 0) { sattr[1] = 'D'; }
+    ip1 = findcmd("BRI", hcmdargvp);
+    if (ip1 > 0) { sattr[1] = 'B'; }
+    ip1 = findcmd("NORMAL", hcmdargvp);
+    if (ip1 > 0) {
+        sattr[1] = 'N';
+        lclattr += fssNON;
+    }
+    //
+    sprintf(vname1, "_%s", hcmdargvp[1]);
+    setVariable(vname1, sattr);
+    nf = (struct sFields *) fssAFieldName(hcmdargvp[1]);
+    if (nf != NULL) {
+        memcpy(nf->sattr, sattr, 4);
+    }
+    //
+    return (RxForceRC(0));
+}
+
+int RxSHOW()
+{
+    struct sFields *nf;
+
+    if (strcasecmp(hcmdargvp[0], "SHOW") == 0) {
+        nf = (struct sFields *) fssAFieldName(hcmdargvp[1]);
+        printf("field n=%s l=%d\n", nf->name, nf->length);
+        return (RxForceRC(0));
+    }
+}
+
+int
+RxCONVERSE()
+{
+    int localrc = 0;
+    int ip1     = 0;
+    int sleepv  = 0;
+
+    // CONVERSE stempnl POPUP row col
+    //                  WINDOW row col
+    //                  *NOSTRIP|STRIP
+    //                  *READ|NOREAD
+    //                  WAIT milisec
+    //                  CURSOR field
+    // RC(08) .. panel not defined
+    // RC(12) .. current panel different of converse panel
+
+    if (erx_panel[0] = '\0') {
+        printf("HCMD(PANEL) PANEL name is null\n");
+        return (RxForceRC(8));
+    }
+    strcpy(erx_panel, (char *) getStemVariable("ZPANEL"));
+    if (strcasecmp(erx_panel, hcmdargvp[1]) != 0) {
+        return (RxForceRC(12));
+    }
+    ip1 = findcmd("POPUP", hcmdargvp);
+    if (ip1 != -1) {
+        floaty = atoi(hcmdargvp[ip1 + 1]);
+        floatx = atoi(hcmdargvp[ip1 + 2]);
+        erx_float = 1;
+    } else {
+        floaty = 0;
+        floatx = 0;
+        pnlw = 0;
+        pnlh = 0;
+        erx_float = 0;
+        pnllvlix = 0;
+    }
+    erx_border = 0;
+    ip1 = findcmd("BORDER", hcmdargvp);
+    if (ip1 != -1) {
+        erx_border = 1;
+    }
+    erx_vlist = 1;
+    ip1 = findcmd("NOLIST", hcmdargvp);
+    if (ip1 != -1) {
+        erx_vlist = 0;
+    }
+    ip1 = findcmd("CURSOR", hcmdargvp);
+    if (ip1 != -1) {
+        setVariable("ZCURSOR", hcmdargvp[ip1 + 1]);
+    }
+    ip1 = findcmd("WINDOW", hcmdargvp);
+    if (ip1 != -1) {
+        pnlh = atoi(hcmdargvp[ip1 + 1]);
+        pnlw = atoi(hcmdargvp[ip1 + 2]);
+        erx_float = 1;
+    }
+    erx_trim = 0;   // default no strip
+    setVariable("ZSTRIP", "OFF");
+    ip1 = findcmd("STRIP", hcmdargvp);
+    if (ip1 != -1) {
+        setVariable("ZSTRIP", "ON");
+    }
+    erx_read = 0;
+    ip1 = findcmd("NOREAD", hcmdargvp);
+    if (ip1 != -1) {
+        erx_read = 1;
+    }
+    sleepv = 0;
+    ip1 = findcmd("WAIT", hcmdargvp);
+    if (ip1 != -1) {
+        sleepv = atoi(hcmdargvp[ip1 + 1]);
+    }
+    localrc = parsemap(hcmdargvp[1]);
+    if (sleepv > 0) {
+#ifdef JCC
+        Sleep(sleepv);
+#endif
+    }
+    return (RxForceRC(0));
+}
+
+void
+rxqueue(char *s)
+{
+    PLstr pstr;
+
+    LPMALLOC(pstr);
+    Lscpy(pstr,s);
+    Queue2Stack(pstr);
+    return;
+}
+
+long
+rxqueued()
+{
+    return(StackQueued());
+}
+
+char *
+rxpull()
+{
+    PLstr pstr;
+    pstr=PullFromStack();
+    return(LSTR(*pstr));
+}
+
+void
+setmapatr(int func,char *pname,char ccolor,char cattr,char cext) {
+
+    struct sFields *nf;
+    int    ii;
+    int    jj;
+    char   vname[20];
+
+    if(func==1) {
+
+        ii=fssAFields();
+        for(jj=0;jj<ii;jj++) {
+            nf=(struct sFields *)fssAField(jj);
+            if(nf->typef==2) {
+                if(strcasecmp(pname,nf->pname)==0) {
+                    if(cattr!=NULL) {
+                        nf->sattr[1]='P';
+                    }
+                    fssSetAttr(nf->name,fssPROT);
+                    //printf("n=%d t=%d n=%s l=%d a=%s l=%d\n",
+                    //       jj,
+                    //       nf->typef,
+                    //       nf->name,
+                    //       nf->length,
+                    //       nf->sattr,
+                    //       nf->length
+                    //      );
+                }
+            }
+        }
+    }
+
 }
 
 void
@@ -123,107 +707,18 @@ findcmd(char scmd[255],char *hcmdargvp[])
     return(-1);
 }
 
-char *
-getstem(char *vname,int ix)
-{
-    char sname[20];
-
-    if(ix<0) { return NULL; }
-    sprintf(sname,"%s%i",vname,ix);
-    return((char *)getStemVariable(sname));
-
-}
-
-void
-setstem(char *vname,int ix,char *data)
-{
-
-    char sname[20];
-    sprintf(sname,"%s%i",vname,ix);
-    setVariable(sname,data);
-
-}
-
-void
-rxqueue(char *s)
-{
-    PLstr pstr;
-
-    LPMALLOC(pstr);
-    Lscpy(pstr,s);
-    Queue2Stack(pstr);
-    return;
-}
-
-long
-rxqueued()
-{
-    return(StackQueued());
-}
-
-
-char *
-rxpull()
-{
-    PLstr pstr;
-    pstr=PullFromStack();
-    return(LSTR(*pstr));
-}
-
-char *
-copies(char *str, size_t count)
-{
-    char *ret;
-    if(count==0) return NULL;
-    ret=malloc(strlen (str) * count + count);
-    if(ret==NULL) return NULL;
-    strcpy (ret, str);
-    while (--count > 0) {
-        strcat (ret, " ");
-        strcat (ret, str);
-    }
-    return ret;
-}
-
-void
-getsba(char *psba,char *srowcol)
-{
-    char sba[2];
-    int  sbacol=0;
-    int  sbarow=0;
-    int  sbaba1=0;
-    int  sbaba2=0;
-    int  sbaaddr=0;
-
-    memcpy(sba,psba,1);
-    memcpy(sba+1,psba+1,1);
-    sbaba1=sba[0] & 0x3f;
-    sbaba2=sba[1] & 0x3f;
-    sbaaddr=sbaba1*64+sbaba2;
-    sbarow=sbaaddr/80+1;
-    sbacol=sbaaddr%80+1;
-    sprintf(srowcol,"%02d %02d",sbarow,sbacol);
-
-    return;
-}
-
 int __CDECL
 parsemap(char *pname)
 {
     struct sFields *nf;
     int   ii;
-    int   ij;
-    int   iy;
     int   ix;
     int   jj;
     int   istem;
     char  fldstr[19];
     char  fldatr[6];
     char  sattr[4];
-    char *fldptr;
-    char *vszmap;
     char *vtmp;
-    char *dtmp;
     char *s;
     char *sl;
     char  b[1];
@@ -232,18 +727,17 @@ parsemap(char *pname)
     char *dtrl=0;
     int   txtpos=0;
     int   fldpos=0;
-    int   mrkpos=0;
     int   sizepos=0;
     int   fldix=0;
-    short ftype=0;
     int   fattr=0;
+    int   ftype=0;
     char *vdata;
-    char *vnattr;
     char  cursor[19];
     char  vn1[19];
     int   aid;
     char  spname[19];
     char  editstr[256];
+    int   mrkpos=0;
     int   nrow;
     int   ncol;
     char  saidpos[6];
@@ -636,38 +1130,19 @@ parsemap(char *pname)
     return(0);
 }
 
-void
-setmapatr(int func,char *pname,char ccolor,char cattr,char cext) {
-
-    struct sFields *nf;
-    int    ii;
-    int    jj;
-    char   vname[20];
-
-    if(func==1) {
-
-        ii=fssAFields();
-        for(jj=0;jj<ii;jj++) {
-            nf=(struct sFields *)fssAField(jj);
-            if(nf->typef==2) {
-                if(strcasecmp(pname,nf->pname)==0) {
-                    if(cattr!=NULL) {
-                        nf->sattr[1]='P';
-                    }
-                    fssSetAttr(nf->name,fssPROT);
-                    //printf("n=%d t=%d n=%s l=%d a=%s l=%d\n",
-                    //       jj,
-                    //       nf->typef,
-                    //       nf->name,
-                    //       nf->length,
-                    //       nf->sattr,
-                    //       nf->length
-                    //      );
-                }
-            }
-        }
+char *
+copies(char *str, size_t count)
+{
+    char *ret;
+    if(count==0) return NULL;
+    ret=malloc(strlen (str) * count + count);
+    if(ret==NULL) return NULL;
+    strcpy (ret, str);
+    while (--count > 0) {
+        strcat (ret, " ");
+        strcat (ret, str);
     }
-
+    return ret;
 }
 
 int
@@ -676,501 +1151,60 @@ RxForceRC(int rc) {
     return(rc);
 }
 
-int
-aFunc(PLstr cmd, PLstr env)
+/*
+ *
+ */
+
+char *
+getstem(char *vname,int ix)
 {
-    PBinLeaf l;
-    Lstr str;
-    PLstr pstr;
-    int localrc;
-    int istem;
-    int ii;
-    int jj;
-    int lclattr = 0;
-    PLstr vd;
-    char lclcmd[1025];
-    char cursor[9];
-    char ddname[9];
-    char str1[64];
-    unsigned char pbuff[1025];
-    unsigned char vname1[19];
-    unsigned char vname2[19];
-    unsigned char vname3[19];
-    unsigned char pname[19];
-    unsigned char vdata[1025];
-    unsigned char obuff[4097];
-    char sattr[3];      // attribute sequence
-    int ip1 = 0;
-    int ip2 = 0;
-    int ip3 = 0;
-    int ip4 = 0;
-    int ip5 = 0;
-    int iflag1 = 0;
-    int iflag2 = 0;
-    int sleepv = 0;
-    int recs = 0;
-    int vars = 0;
-    int fgdbg = 0;
-    long lrecs = 0;
-    FILE *f;
-    struct sFields *nf;
+    char sname[20];
 
-    rxReturnCode = 0;
-
-    strcpy(lclcmd, LSTR(*cmd));
-    hcmdargcp = parsecmd(lclcmd, hcmdargvp);
-
-    if (strcasecmp(hcmdargvp[0], "TEST") == 0) {
-        printf("stack=%i\n", rxqueued());
-        //for(ii=1;ii<=queued();ii++) {
-        //  printf(">>%s\n",rxpull());
-        //}
-        return (RxForceRC(0));
-    }
-
-    if (strcmp(LSTR(*cmd), "LOCK") == 0) {
-        ii = fssAFields();
-        for (jj = 0; jj < ii; jj++) {
-            nf = (struct sFields *) fssAField(jj);
-            if (nf->typef == 2) {
-                nf->sattr[1] = 'P';
-                printf("n=%d t=%d n=%s l=%d a=%s l=%d\n",
-                       jj,
-                       nf->typef,
-                       nf->name,
-                       nf->length,
-                       nf->sattr,
-                       nf->length
-                );
-            }
-        }
-        return (RxForceRC(0));
-    }
-
-    if (strcmp(LSTR(*cmd), "DUMP") == 0) {
-        ii = fssAFields();
-        for (jj = 0; jj < ii; jj++) {
-            nf = (struct sFields *) fssAField(jj);
-            printf("n=%03d t=%d p=%-8s n=%-10s l=%05d a=%3s d=%s\n",
-                   jj,
-                   nf->typef,
-                   nf->pname,
-                   nf->name,
-                   nf->length,
-                   nf->sattr,
-                   nf->data
-            );
-        }
-        return (RxForceRC(0));
-    }
-
-    if (strcasecmp(hcmdargvp[0], "SET") == 0) {
-        if (strcasecmp(hcmdargvp[2], "LOCK") == 0) {
-            setmapatr(1, hcmdargvp[1], NULL, 'P', NULL);
-            return (RxForceRC(0));
-        }
-        if (strcasecmp(hcmdargvp[2], "UNLOCK") == 0) {
-            setmapatr(1, hcmdargvp[1], NULL, 'U', NULL);
-            return (RxForceRC(0));
-        }
-        if (strcasecmp(hcmdargvp[1], "CURSOR") == 0) {
-            setVariable("ZCURSOR", hcmdargvp[2]);
-            return (RxForceRC(0));
-        }
-        if (strcasecmp(hcmdargvp[1], "PANLIB") == 0) {
-            setVariable("ZPANLIB", hcmdargvp[2]);
-            sprintf(str1, "//DDN:%s", hcmdargvp[2]);
-            f = fopen(str1, "r");
-            if (f == NULL) {
-                return (RxForceRC(8));
-            }
-            recs = 0;
-            iflag1 = 0;       // section control
-            iflag2 = 0;       // proc control
-            while (fgets(pbuff, 1024, f)) {
-                remlf(&pbuff[0]);
-                if (pbuff[0] == ')') {
-                    hcmdargcp = parsecmd(pbuff, hcmdargvp);
-                    if (strcasecmp(hcmdargvp[0], "PANEL") == 0) {
-                        strcpy(pname, hcmdargvp[1]);
-                        iflag1 = 0;
-                        iflag2 = 0;
-                        recs = 0;
-                    }
-                    if (strcasecmp(hcmdargvp[0], "BODY") == 0) {
-                        iflag1 = 1;                     // enable panel scan
-                        recs = 0;
-                        vars = 0;
-                    }
-                    if (strcasecmp(hcmdargvp[0], "PROC") == 0) {
-                        iflag2 = 1;
-                        iflag1 = 0;
-                    }
-                    if (strcasecmp(hcmdargvp[0], "END") == 0) {
-                        iflag1 = 0;                     // disable panel scan
-                        iflag2 = 0;
-                    }
-                    if (strcasecmp(hcmdargvp[0], "PROC") == 0 ||
-                        strcasecmp(hcmdargvp[0], "END") == 0) {
-                        if (recs > 0) {
-                            sprintf(vname1, "%s.0", pname, recs);
-                            setIntegerVariable(vname1, recs);
-                        }
-                    }
-                } else {
-                    if (iflag1 == 1) {
-                        recs++;
-                        sprintf(vname2, "%s.%d", pname, recs);
-                        setVariable(vname2, pbuff);
-                    }
-                    if (iflag2 == 1) {
-                        hcmdargcp = parsecmd(pbuff, hcmdargvp);
-                        if (strcasecmp(hcmdargvp[0], "FIELDS") == 0) {
-                            for (ii = 1; ii <= hcmdargcp - 1; ii++) {
-                                vars++;    // keep zlist list incremented
-                                sprintf(vname1, "_%s_lst.%d", pname,
-                                        vars);
-                                setVariable(vname1, hcmdargvp[ii]);
-                            }
-                            sprintf(vname1, "_%s_lst.0", pname);
-                            setIntegerVariable(vname1, vars);
-                        }
-                    }
-                }
-            }
-            fclose(f);
-            return (RxForceRC(0));
-        }
-        if (strcasecmp(hcmdargvp[1], "DEBUG") == 0) {
-            for (ii = 2; ii <= hcmdargcp; ii++) {
-                if (strcasecmp(hcmdargvp[ii], "PANEL") == 0) {
-                    fssDebug(2);
-                }
-            }
-            return (RxForceRC(0));
-        }
-        if (strcasecmp(hcmdargvp[1], "PANEL") == 0) {
-            fssSetPanel(hcmdargvp[2]);
-            setVariable("ZPANEL", hcmdargvp[2]);
-            return (RxForceRC(0));
-        }
-        // default values
-        lclattr = 0;
-        sattr[0] = '1';
-        sattr[1] = 'U';
-        sattr[2] = 'D';
-        sattr[3] = NULL;
-        // attribute sequence for panel resources
-        ip1 = findcmd("NOCOLOR", hcmdargvp);
-        if (ip1 > 0) { sattr[0] = '0'; }
-        ip1 = findcmd("DFLT", hcmdargvp);
-        if (ip1 > 0) { sattr[0] = '0'; }
-        ip1 = findcmd("BLUE", hcmdargvp);
-        if (ip1 > 0) {
-            sattr[0] = '1';
-            lclattr += fssBLUE;
-        }
-        ip1 = findcmd("RED", hcmdargvp);
-        if (ip1 > 0) {
-            sattr[0] = '2';
-            lclattr += fssRED;
-        }
-        ip1 = findcmd("PINK", hcmdargvp);
-        if (ip1 > 0) {
-            sattr[0] = '3';
-            lclattr += fssPINK;
-        }
-        ip1 = findcmd("GREEN", hcmdargvp);
-        if (ip1 > 0) {
-            sattr[0] = '4';
-            lclattr += fssGREEN;
-        }
-        ip1 = findcmd("TURQ", hcmdargvp);
-        if (ip1 > 0) {
-            sattr[0] = '5';
-            lclattr += fssTURQ;
-        }
-        ip1 = findcmd("YELLOW", hcmdargvp);
-        if (ip1 > 0) {
-            sattr[0] = '6';
-            lclattr += fssYELLOW;
-        }
-        ip1 = findcmd("WHITE", hcmdargvp);
-        if (ip1 > 0) {
-            sattr[0] = '7';
-            lclattr += fssWHITE;
-        }
-        // extended attributes
-        ip1 = findcmd("NOEXT", hcmdargvp);
-        if (ip1 > 0) { sattr[2] = 'D'; }
-        ip1 = findcmd("BLINK", hcmdargvp);
-        if (ip1 > 0) {
-            sattr[2] = 'B';
-            lclattr += fssBLINK;
-        }
-        ip1 = findcmd("REV", hcmdargvp);
-        if (ip1 > 0) {
-            sattr[2] = 'R';
-            lclattr += fssREVERSE;
-        }
-        ip1 = findcmd("USCORE", hcmdargvp);
-        if (ip1 > 0) {
-            sattr[2] = 'U';
-            lclattr += fssUSCORE;
-        }
-        // basic attributes
-        ip1 = findcmd("UNP", hcmdargvp);
-        if (ip1 > 0) {
-            sattr[1] = 'U';
-            lclattr += fssUNP;
-        }
-        ip1 = findcmd("PROT", hcmdargvp);
-        if (ip1 > 0) {
-            sattr[1] = 'P';
-            lclattr += fssPROT;
-        }
-        ip1 = findcmd("DARK", hcmdargvp);
-        if (ip1 > 0) { sattr[1] = 'D'; }
-        ip1 = findcmd("BRI", hcmdargvp);
-        if (ip1 > 0) { sattr[1] = 'B'; }
-        ip1 = findcmd("NORMAL", hcmdargvp);
-        if (ip1 > 0) {
-            sattr[1] = 'N';
-            lclattr += fssNON;
-        }
-        //
-        sprintf(vname1, "_%s", hcmdargvp[1]);
-        setVariable(vname1, sattr);
-        nf = (struct sFields *) fssAFieldName(hcmdargvp[1]);
-        if (nf != NULL) {
-            memcpy(nf->sattr, sattr, 4);
-        }
-        //
-        return (RxForceRC(0));
-    }
-
-    if (strcasecmp(hcmdargvp[0], "SHOW") == 0) {
-        nf = (struct sFields *) fssAFieldName(hcmdargvp[1]);
-        printf("field n=%s l=%d\n", nf->name, nf->length);
-        return (RxForceRC(0));
-    }
-
-    // CONVERSE stempnl POPUP row col
-    //                  WINDOW row col
-    //                  *NOSTRIP|STRIP
-    //                  *READ|NOREAD
-    //                  WAIT milisec
-    //                  CURSOR field
-    // RC(08) .. panel not defined
-    // RC(12) .. current panel different of converse panel
-    if (strcasecmp(hcmdargvp[0], "CONVERSE") == 0) {
-        if (erx_panel[0] = '\0') {
-            printf("HCMD(PANEL) PANEL name is null\n");
-            return (RxForceRC(8));
-        }
-        strcpy(erx_panel, (char *) getStemVariable("ZPANEL"));
-        if (strcasecmp(erx_panel, hcmdargvp[1]) != 0) {
-            return (RxForceRC(12));
-        }
-        ip1 = findcmd("POPUP", hcmdargvp);
-        if (ip1 != -1) {
-            floaty = atoi(hcmdargvp[ip1 + 1]);
-            floatx = atoi(hcmdargvp[ip1 + 2]);
-            erx_float = 1;
-        } else {
-            floaty = 0;
-            floatx = 0;
-            pnlw = 0;
-            pnlh = 0;
-            erx_float = 0;
-            pnllvlix = 0;
-        }
-        erx_border = 0;
-        ip1 = findcmd("BORDER", hcmdargvp);
-        if (ip1 != -1) {
-            erx_border = 1;
-        }
-        erx_vlist = 1;
-        ip1 = findcmd("NOLIST", hcmdargvp);
-        if (ip1 != -1) {
-            erx_vlist = 0;
-        }
-        ip1 = findcmd("CURSOR", hcmdargvp);
-        if (ip1 != -1) {
-            setVariable("ZCURSOR", hcmdargvp[ip1 + 1]);
-        }
-        ip1 = findcmd("WINDOW", hcmdargvp);
-        if (ip1 != -1) {
-            pnlh = atoi(hcmdargvp[ip1 + 1]);
-            pnlw = atoi(hcmdargvp[ip1 + 2]);
-            erx_float = 1;
-        }
-        erx_trim = 0;   // default no strip
-        setVariable("ZSTRIP", "OFF");
-        ip1 = findcmd("STRIP", hcmdargvp);
-        if (ip1 != -1) {
-            setVariable("ZSTRIP", "ON");
-        }
-        erx_read = 0;
-        ip1 = findcmd("NOREAD", hcmdargvp);
-        if (ip1 != -1) {
-            erx_read = 1;
-        }
-        sleepv = 0;
-        ip1 = findcmd("WAIT", hcmdargvp);
-        if (ip1 != -1) {
-            sleepv = atoi(hcmdargvp[ip1 + 1]);
-        }
-        localrc = parsemap(hcmdargvp[1]);
-        if (sleepv > 0) {
-#ifdef JCC
-            Sleep(sleepv);
-#endif
-        }
-        return (RxForceRC(0));
-    }
-
-    if (strcmp(LSTR(*cmd), "VVV") == 0) {
-        printf("-- vvv=%s\n", getVariable("a1"));
-    }
-//    rxReturnCode = system(LSTR(*cmd));
+    if(ix<0) { return NULL; }
+    sprintf(sname,"%s%i",vname,ix);
+    return((char *)getStemVariable(sname));
 
 }
 
-bool
-isHostCmd(PLstr cmd)
+void
+setstem(char *vname,int ix,char *data)
 {
-    bool isHostCmd = FALSE;
-    char lclcmd[1025];
 
-    strcpy(lclcmd,(const char*)LSTR(*cmd));
-    hcmdargcp=parsecmd(lclcmd,hcmdargvp);
+    char sname[20];
+    sprintf(sname,"%s%i",vname,ix);
+    setVariable(sname,data);
 
-    if(strcasecmp(hcmdargvp[0], "EXECIO") == 0) {
-        isHostCmd = TRUE;
-    }
-
-    return isHostCmd;
 }
 
-int
-handleHostCmd(PLstr cmd)
+char *
+trimr(char *strim)
 {
-    int returnCode = 0;
-    char lclcmd[1025];
-
-    strcpy(lclcmd,(const char*)LSTR(*cmd));
-    hcmdargcp=parsecmd(lclcmd,hcmdargvp);
-
-    if(strcasecmp(hcmdargvp[0], "EXECIO") == 0) {
-        returnCode = RxEXECIO();
+    char *ptmp=0;
+    ptmp=strim+strlen(strim)-1;
+    while((ptmp>=strim)&&(*ptmp==' ')) {
+        *ptmp-='\0';
     }
-
-
-    return returnCode;
+    return strim;
 }
 
-int RxEXECIO()
+void
+getsba(char *psba,char *srowcol)
 {
-    int ii;
-    char str1[64];
-    unsigned char pbuff[1025];
-    unsigned char vname1[19];
-    unsigned char vname2[19];
-    unsigned char vname3[19];
-    unsigned char obuff[4097];
-    int ip1 = 0;
-    int recs = 0;
-    FILE *f;
+    char sba[2];
+    int  sbacol=0;
+    int  sbarow=0;
+    int  sbaba1=0;
+    int  sbaba2=0;
+    int  sbaaddr=0;
 
-    // DISKR
-    if (strcasecmp(hcmdargvp[2], "DISKR") == 0) {
-        ip1 = findcmd("STEM", hcmdargvp);
-        if (ip1 != -1) {
-            ip1++;
-            strcpy(vname1, hcmdargvp[ip1]);  // name of stem variable
-        }
-        SNULL(str1);
-        f = fopen(hcmdargvp[3], "r");
-        if (f == NULL) {
-            return (RxForceRC(8));
-        }
-        recs = 0;
-        while (fgets(pbuff, 1024, f)) {
-            recs++;
-            remlf(&pbuff[0]);                   // remove linefeed
-            sprintf(vname2, "%s%d", vname1, recs); // edited stem name
-            if (ip1 != -1) {
-                setVariable(vname2, pbuff);               // set rexx variable
-            }
-            if (ip1 == -1) {
-                rxqueue(pbuff);
-            }
-        }
-        if (ip1 > 0) {
-            sprintf(vname2, "%s0", vname1);
-            sprintf(vname3, "%d", recs);
-            setVariable(vname2, vname3);
-        }
-        fclose(f);
-        return (RxForceRC(0));
-    }
+    memcpy(sba,psba,1);
+    memcpy(sba+1,psba+1,1);
+    sbaba1=sba[0] & 0x3f;
+    sbaba2=sba[1] & 0x3f;
+    sbaaddr=sbaba1*64+sbaba2;
+    sbarow=sbaaddr/80+1;
+    sbacol=sbaaddr%80+1;
+    sprintf(srowcol,"%02d %02d",sbarow,sbacol);
 
-    // DISKW
-    if (strcasecmp(hcmdargvp[2], "DISKW") == 0) {
-        ip1 = findcmd("STEM", hcmdargvp);
-        if (ip1 != -1) {
-            ip1++;
-            strcpy(vname1, hcmdargvp[ip1]);  // name of stem variable
-        }
-        f = fopen(hcmdargvp[3], "w");
-        if (f == NULL) {
-            return (RxForceRC(8));
-        }
-        if (ip1 != -1) {
-            sprintf(vname2, "%s0", vname1);
-            recs = getIntegerVariable(vname2);
-        }
-        if (ip1 == -1) {
-            recs = rxqueued();
-        }
-        for (ii = 1; ii <= recs; ii++) {
-            if (ip1 != -1) {
-                SNULL(vname2);
-                sprintf(vname2, "%s%d", vname1, ii);
-                sprintf(obuff, "%s\n", getStemVariable(vname2));
-                fputs(obuff, f);
-            }
-            if (ip1 == -1) {
-                SNULL(obuff);
-                sprintf(obuff, "%s\n", rxpull());
-                fputs(obuff, f);
-            }
-        }
-        fclose(f);
-        return (RxForceRC(0));
-    }
-
-    // DISKA
-    if (strcasecmp(hcmdargvp[2], "DISKA") == 0) {
-        ip1 = findcmd("STEM", hcmdargvp);
-        if (ip1 > 0) {
-            ip1++;
-            strcpy(vname1, hcmdargvp[ip1]);  // name of stem variable
-        }
-        f = fopen(hcmdargvp[3], "a");
-        if (f == NULL) {
-            return (RxForceRC(8));
-        }
-        sprintf(vname2, "%s0", vname1);
-        recs = getIntegerVariable(vname2);
-        for (ii = 1; ii <= recs; ii++) {
-            SNULL(vname2);
-            sprintf(vname2, "%s%d", vname1, ii);
-            sprintf(obuff, "%s\n", getStemVariable(vname2));
-            fputs(obuff, f);
-        }
-        fclose(f);
-        return (RxForceRC(0));
-    }
+    return;
 }
