@@ -7,9 +7,8 @@
 #include "fss.h"
 
 #define VALLOC(VN,VL) { (VN)=(char *)malloc((VL)); \
-                        memset((VN),0,(VL)); }
+                              memset((VN),0,(VL)); }
 #define VFREE(VN) { free((VN)); }
-#define VINIT(VN,VL) { memset((VN),0,(VL)); }
 #define SNULL(V) { memset((V),0,strlen((V))); }
 
 int RxEXECIO();
@@ -210,6 +209,9 @@ RxEXECIO()
     int ip1 = 0;
     int recs = 0;
     FILE *f;
+    PLstr plsValue;
+
+    LPMALLOC(plsValue)
 
     // DISKR
     if (strcasecmp(hcmdargvp[2], "DISKR") == 0) {
@@ -218,7 +220,7 @@ RxEXECIO()
             ip1++;
             strcpy(vname1, hcmdargvp[ip1]);         // name of stem variable
         }
-        SNULL(str1);
+        SNULL(str1)
         f = fopen(hcmdargvp[3], "r");
         if (f == NULL) {
             return (RxForceRC(8));
@@ -266,7 +268,8 @@ RxEXECIO()
             if (ip1 != -1) {
                 SNULL(vname2);
                 sprintf(vname2, "%s%d", vname1, ii);
-                sprintf(obuff, "%s\n", getStemVariable(vname2));
+                getVariable(vname2, plsValue);
+                sprintf(obuff, "%s\n", LSTR(*plsValue));
                 fputs(obuff, f);
             }
             if (ip1 == -1) {
@@ -295,12 +298,15 @@ RxEXECIO()
         for (ii = 1; ii <= recs; ii++) {
             SNULL(vname2);
             sprintf(vname2, "%s%d", vname1, ii);
-            sprintf(obuff, "%s\n", getStemVariable(vname2));
+            getVariable(vname2, plsValue);
+            sprintf(obuff, "%s\n", LSTR(*plsValue));
             fputs(obuff, f);
         }
         fclose(f);
         return (RxForceRC(0));
     }
+
+    LPFREE(plsValue)
 }
 
 int
@@ -313,7 +319,7 @@ RxSET()
     unsigned char vname1[19];
     unsigned char vname2[19];
     unsigned char pname[19];
-    char sattr[3];      // attribute sequence
+    char sattr[4];      // attribute sequence
     int ip1 = 0;
     int iflag1 = 0;
     int iflag2 = 0;
@@ -416,7 +422,7 @@ RxSET()
     sattr[0] = '1';
     sattr[1] = 'U';
     sattr[2] = 'D';
-    sattr[3] = NULL;
+    sattr[3] = '\0';
     // attribute sequence for panel resources
     ip1 = findcmd("NOCOLOR", hcmdargvp);
     if (ip1 > 0) { sattr[0] = '0'; }
@@ -523,6 +529,7 @@ RxCONVERSE()
     int localrc = 0;
     int ip1     = 0;
     int sleepv  = 0;
+    PLstr plsValue;
 
     // CONVERSE stempnl POPUP row col
     //                  WINDOW row col
@@ -533,11 +540,14 @@ RxCONVERSE()
     // RC(08) .. panel not defined
     // RC(12) .. current panel different of converse panel
 
+    LPMALLOC(plsValue)
     if (erx_panel[0] = '\0') {
         printf("HCMD(PANEL) PANEL name is null\n");
         return (RxForceRC(8));
     }
-    strcpy(erx_panel, (char *) getStemVariable("ZPANEL"));
+
+    getVariable("ZPANEL", plsValue);
+    strcpy(erx_panel, (const char *)LSTR(*plsValue));
     if (strcasecmp(erx_panel, hcmdargvp[1]) != 0) {
         return (RxForceRC(12));
     }
@@ -596,6 +606,8 @@ RxCONVERSE()
         Sleep(sleepv);
 #endif
     }
+
+    LPFREE(plsValue)
     return (RxForceRC(0));
 }
 
@@ -721,7 +733,8 @@ parsemap(char *pname)
     char *vtmp;
     char *s;
     char *sl;
-    char  b[1];
+    char *adata;
+    char  b[2];
     char *dtxt;
     char *dhdr=0;
     char *dtrl=0;
@@ -731,7 +744,6 @@ parsemap(char *pname)
     int   fldix=0;
     int   fattr=0;
     int   ftype=0;
-    char *vdata;
     char  cursor[19];
     char  vn1[19];
     int   aid;
@@ -743,22 +755,32 @@ parsemap(char *pname)
     char  saidpos[6];
     int   zfld=0;
 
+    char *slorg=0;
+    char *ssorg=0;
+
+    PLstr plsValue;
+
     VALLOC(vtmp,81)
     VALLOC(dtxt,81)
     VALLOC(dhdr,79)
     VALLOC(dtrl,79)
+    LPMALLOC(plsValue)
 
     // defaults
     erx_trim=0;
-    if(strcasecmp((char *)getVariable("ZSTRIP"),"ON")==0) {
+
+    getVariable("ZSTRIP",plsValue);
+    if(strcasecmp((const char*)LSTR(*plsValue),"ON")==0) {
         erx_trim=1;
     }
 
+    getVariable("ZPANEL", plsValue);
     memset(erx_panel,0,sizeof(erx_panel));
-    strcpy(erx_panel,(char *)getStemVariable("ZPANEL"));
+    strcpy(erx_panel,(const char*)LSTR(*plsValue));
 
+    getVariable("ZCURSOR", plsValue);
     memset(cursor,0,sizeof(cursor));
-    strcpy(cursor,(char *)getStemVariable("ZCURSOR"));
+    strcpy(cursor,(const char*)LSTR(*plsValue));
 
     if(erx_float==0) {                // initialize for base panel
         fssReset();
@@ -778,15 +800,17 @@ parsemap(char *pname)
         for(jj=0;jj<ii;jj++) {
             nf=(struct sFields *)fssAField(jj);
             if(strcasecmp(pname,nf->pname)==0&&nf->typef==2) {
-                vdata=(char *)getStemVariable(nf->name);
-                if(vdata==NULL||strlen(vdata)==0) {
+                getVariable(nf->name, plsValue);
+                //if(vdata==NULL||strlen(vdata)==0) {
+                if(LSTR(*plsValue)==NULL||LLEN(*plsValue)==0) {
                     strcpy(editstr,copies(" ",nf->length));
                     strcpy(nf->data,editstr);
                 } else {
                     SNULL(editstr);
                     sprintf(editstr,"%s%s",
-                            vdata,
-                            copies(" ",nf->length-strlen(vdata))
+                            LSTR(*plsValue),
+                            //copies(" ",nf->length-strlen(vdata))
+                            copies(" ",nf->length-LLEN(*plsValue))
                     );
                     strcpy(nf->data,editstr);
                 }
@@ -803,14 +827,15 @@ parsemap(char *pname)
     // prepare border for popup
     //if(pnlw>0&&pnlh>0) {
     if(erx_border==1) {
-        SNULL(dtxt);
-        SNULL(dhdr);
-        SNULL(dtrl);
-        SNULL(sattr);
+        SNULL(dtxt)
+        SNULL(dhdr)
+        SNULL(dtrl)
+        SNULL(sattr)
         strcpy(sattr,"7PR");
         fattr=fssPROT+fssREVERSE+fssWHITE;
         // get header title for popup window
-        strcpy(dhdr,(char *)getVariable("ZHDR"));
+        getVariable("ZHDR", plsValue);
+        strcpy(dhdr,(const char*)LSTR(*plsValue));
         memset(dtxt,' ',pnlw+2);
         memset(dtxt+(pnlw+2)+1,0,1);
         if(strlen(dhdr)>0) {
@@ -818,8 +843,9 @@ parsemap(char *pname)
         }
         fssTxa(floaty,floatx-1,sattr,dtxt);
         // get trailer title for popup window
-        SNULL(dtxt);
-        strcpy(dtrl,(char *)getVariable("ZTRL"));
+        SNULL(dtxt)
+        getVariable("ZTRL", plsValue);
+        strcpy(dtrl,(const char *)LSTR(*plsValue));
         memset(dtxt,' ',pnlw+2);
         memset(dtxt+(pnlw+2)+1,0,1);
         if(strlen(dhdr)>0) {
@@ -835,14 +861,21 @@ parsemap(char *pname)
         }
     }
 
+    VALLOC(s,80)
+    VALLOC(sl,80)
+
+    slorg = sl;
+
     for(ii=1;ii<=istem;ii++) {
 
-        VALLOC(sl,80);
-        VALLOC(s,80);
-
         sprintf(vtmp,"%s.%d",pname,ii);
-        s=(char *)getStemVariable(vtmp);
-        sl=s;
+
+        sl = slorg;
+
+        getVariable(vtmp, plsValue);
+        strcpy(s,(const char *)LSTR(*plsValue));
+        memcpy(s,(const char *)LSTR(*plsValue),80);    // TODO: strcpy
+        memcpy(sl,s,80);                               // TODO: use s instead
 
         txtpos=-1;
         fldpos=-1;
@@ -929,7 +962,8 @@ parsemap(char *pname)
                     if(strcasecmp(dtxt,"Z")==0) {
                         zfld++;
                         sprintf(vn1,"_%s_lst.%d",erx_panel,zfld);
-                        strcpy(dtxt,(char *)getVariable(vn1));
+                        getVariable(vn1, plsValue);
+                        strcpy(dtxt,(const char *)LSTR(*plsValue));
 //          strcpy(dtxt,(char *)getstem("ZVARS.",zfld));
                     }
                     VALLOC(pnlfld[pnlfldix].name,18);
@@ -937,10 +971,13 @@ parsemap(char *pname)
 
                     // next field in field array
                     pnlfldix++;
-                    vdata=(char *)getStemVariable(dtxt);
+
                     memset(fldstr,0,sizeof(fldstr));
                     sprintf(fldstr,"_%s",dtxt);
-                    strcpy(fldatr,(char *)getStemVariable(fldstr));
+
+                    getVariable(fldstr, plsValue);
+                    memset(fldatr,0,sizeof(fldatr));
+                    strncpy(fldatr,(const char*)LSTR(*plsValue),LLEN(*plsValue));
 
                     // consider field and its attributes
 //        fattr=0;
@@ -1000,23 +1037,24 @@ parsemap(char *pname)
 //        }
                     // aki
                     fattr=0;
-                    if(vdata==NULL||strlen(vdata)==0) {
+                    getVariable(dtxt, plsValue);
+                    if(LSTR(*plsValue) == NULL || LLEN(*plsValue) == 0) {
                         fssFla(floaty+ii,floatx+fldpos,fattr,dtxt,sizepos,
                                copies(" ",sizepos),
                                fldatr
                         );
                     } else {
                         SNULL(editstr);
-                        if(strlen(vdata)<sizepos) {
+                        if(LLEN(*plsValue)<sizepos) {
                             sprintf(editstr,"%s%s",
-                                    vdata,
-                                    copies(" ",sizepos-strlen(vdata))
+                                    LSTR(*plsValue),
+                                    copies(" ",sizepos-LLEN(*plsValue))
                             );
                             fssFla(floaty+ii,floatx+fldpos,fattr,dtxt,sizepos,editstr,
                                    fldatr
                             );
                         } else {
-                            fssFla(floaty+ii,floatx+fldpos,fattr,dtxt,sizepos,vdata,
+                            fssFla(floaty+ii,floatx+fldpos,fattr,dtxt,sizepos,LSTR(*plsValue),
                                    fldatr
                             );
                         }
@@ -1033,10 +1071,14 @@ parsemap(char *pname)
             *sl++;
         }
 
-        VFREE(s)
-        VFREE(sl)
+
 
     }
+
+    sl = slorg;
+    VFREE(s)
+    VFREE(sl)
+    LPFREE(plsValue)
 
     //printf("-- parsemap w=%d h=%d\n",pnlw,pnlh);
 
@@ -1124,8 +1166,6 @@ parsemap(char *pname)
     VFREE(dtxt)
     VFREE(dhdr)
     VFREE(dtrl)
-    VFREE(s)
-    VFREE(sl)
 
     return(0);
 }
@@ -1155,26 +1195,6 @@ RxForceRC(int rc) {
  *
  */
 
-char *
-getstem(char *vname,int ix)
-{
-    char sname[20];
-
-    if(ix<0) { return NULL; }
-    sprintf(sname,"%s%i",vname,ix);
-    return((char *)getStemVariable(sname));
-
-}
-
-void
-setstem(char *vname,int ix,char *data)
-{
-
-    char sname[20];
-    sprintf(sname,"%s%i",vname,ix);
-    setVariable(sname,data);
-
-}
 
 char *
 trimr(char *strim)

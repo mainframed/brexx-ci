@@ -146,21 +146,12 @@ void R_userid(int func)
     Lscpy(ARGR,userid);
 }
 
-void R_msg(int func)
-{
-    char *msg = "not yet implemented";
-
-    msg = getVariable("MYNAME");
-
-    Lscpy(ARGR,msg);
-}
-
 void R_listdsi(int func)
 {
     char *args[2];
 
     char sFileName[45];
-    char sFunctionCOde[3];
+    char sFunctionCode[3];
 
     FILE *pFile;
     int iErr;
@@ -170,7 +161,7 @@ void R_listdsi(int func)
     char* _style_old = _style;
 
     memset(sFileName,0,45);
-    memset(sFunctionCOde,0,3);
+    memset(sFunctionCode,0,3);
 
     iErr = 0;
 
@@ -201,7 +192,7 @@ void R_listdsi(int func)
                 }
                 break;
             case PARTIALLY_QUOTED:
-                strcat(sFunctionCOde, "16");
+                strcat(sFunctionCode, "16");
                 iErr = 2;
                 break;
             case FULL_QUOTED:
@@ -220,15 +211,15 @@ void R_listdsi(int func)
     if (iErr == 0) {
         pFile = FOPEN(sFileName,"R");
         if (pFile != NULL) {
-            strcat(sFunctionCOde,"0");
+            strcat(sFunctionCode,"0");
             parseDCB(pFile);
             FCLOSE(pFile);
         } else {
-            strcat(sFunctionCOde,"16");
+            strcat(sFunctionCode,"16");
         }
     }
 
-    Lscpy(ARGR,sFunctionCOde);
+    Lscpy(ARGR,sFunctionCode);
 
     _style = _style_old;
 }
@@ -575,7 +566,6 @@ void RxMvsRegFunctions()
     RxRegFunction("ABEND",   R_abend , 0);
     RxRegFunction("USERID",  R_userid, 0);
     RxRegFunction("LISTDSI", R_listdsi, 0);
-    RxRegFunction("MSG",     R_msg,    0);
     RxRegFunction("SYSDSN",  R_sysdsn, 0);
     RxRegFunction("QUALIFY", R_qualify, 0);
     RxRegFunction("SYSVAR",  R_sysvar, 0);
@@ -681,16 +671,13 @@ void parseDCB(FILE *pFile)
     free(flags);
 }
 
-char *
-getVariable(char *sName)
+void
+getVariable(char *sName, PLstr plsValue)
 {
-    char *sValue = NULL;
-
-    Lstr lsScope,lsName,lsValue;
+    Lstr lsScope,lsName;
 
     LINITSTR(lsScope)
     LINITSTR(lsName)
-    LINITSTR(lsValue)
 
     Lfx(&lsScope,sizeof(dword));
     Lfx(&lsName, strlen(sName));
@@ -698,24 +685,19 @@ getVariable(char *sName)
     Licpy(&lsScope,_rx_proc);
     Lscpy(&lsName, sName);
 
-    RxPoolGet(&lsScope, &lsName, &lsValue);
+    RxPoolGet(&lsScope, &lsName, plsValue);
 
-    LASCIIZ(lsValue)
+    LASCIIZ(*plsValue)
 
-    sValue =  (char *)lsValue.pstr;
 
     LFREESTR(lsScope)
     LFREESTR(lsName)
-    LFREESTR(lsValue)
-
-    return sValue;
 }
 
 char *
 getStemVariable(char *sName)
 {
-    char *sValue = NULL;
-
+    char  sValue[4097];
     Lstr lsScope,lsName,lsValue;
 
     LINITSTR(lsScope)
@@ -732,7 +714,16 @@ getStemVariable(char *sName)
 
     LASCIIZ(lsValue)
 
-    sValue =  (char *)lsValue.pstr;
+    if(LTYPE(lsValue)==1) {
+        sprintf(sValue,"%d",LINT(lsValue));
+    }
+    if(LTYPE(lsValue)==2) {
+        sprintf(sValue,"%f",LREAL(lsValue));
+    }
+    if(LTYPE(lsValue)==0) {
+        memset(sValue,0,sizeof(sValue));
+        strncpy(sValue,LSTR(lsValue),LLEN(lsValue));
+    }
 
     LFREESTR(lsScope)
     LFREESTR(lsName)
@@ -744,7 +735,19 @@ getStemVariable(char *sName)
 int
 getIntegerVariable(char *sName) {
     char sValue[19];
-    strcpy(sValue, getVariable(sName));
+    PLstr plsValue;
+    LPMALLOC(plsValue)
+    getVariable(sName, plsValue);
+
+    if(LTYPE(*plsValue)==1) {
+        sprintf(sValue,"%d",(int)LINT(*plsValue));
+    } else if (LTYPE(*plsValue)==0) {
+        memset(sValue,0,sizeof(sValue));
+        strncpy(sValue,(const char*)LSTR(*plsValue),LLEN(*plsValue));
+    } else {
+        sprintf(sValue,"%d",0);
+    }
+
     return (atoi(sValue));
 }
 
@@ -877,74 +880,3 @@ unsigned int call_rxabend (RX_ABEND_PARAMS_PTR params)
     return 0;
 }
 #endif
-
-
-
-/*
-char * __CDECL
-rxgsvar(char *v) {
-    PBinLeaf    l;
-    PLstr       pstr;
-    PLstr       vv;
-    PLstr       vd;
-    Lstr        vn;
-    int         found;
-    int         hasdot;
-    int         poolnum;
-    char       *sconv;
-
-    LPMALLOC(vv);
-    Lfx(vv,strlen(v));
-    Lscpy(vv,v);
-    Lupper(vv);
-    LPMALLOC(vd);
-    l=(PBinLeaf)RxVarFindName(_proc[_rx_proc].scope,vv,&found);
-    if(l==0) { return(NULL); }
-    if(found) {
-        Lstrcpy(vd,LEAFVAL(l));
-        if(LTYPE(*vd)==0) {
-            sconv=(char *)malloc(LLEN(*vd)+1);
-            memset(sconv,0,LLEN(*vd)+1);
-            strncpy(sconv,LSTR(*vd),LLEN(*vd));
-            return(sconv);
-        }
-        if(LTYPE(*vd)==1) {
-            sconv=(char *)malloc(LLEN(*vd)+1);
-            memset(sconv,0,LLEN(*vd)+1);
-            sprintf(sconv,"%d",LINT(*vd));
-            return(sconv);
-        }
-        if(LTYPE(*vd)==2) {
-            sconv=(char *)malloc(LLEN(*vd)+1);
-            memset(sconv,0,LLEN(*vd)+1);
-            sprintf(sconv,"%f",LREAL(*vd));
-            return(sconv);
-        }
-        return(NULL);
-    } else {
-        if (MEMCHR(LSTR(*vv),'.',LLEN(*vv)-1)!=NULL) {
-            Lstrcpy(vd,&stemvaluenotfound);
-        } else {
-            Lstrcpy(vd,LEAFVAL(l));
-            if(LTYPE(*vd)==0) {
-                sconv=(char *)malloc(LLEN(*vd)+1);
-                memset(sconv,0,LLEN(*vd)+1);
-                strncpy(sconv,LSTR(*vd),LLEN(*vd));
-                return(sconv);
-            }
-            if(LTYPE(*vd)==1) {
-                sconv=(char *)malloc(LLEN(*vd)+1);
-                memset(sconv,0,LLEN(*vd)+1);
-                sprintf(sconv,"%d",LINT(*vd));
-                return(sconv);
-            }
-            if(LTYPE(*vd)==2) {
-                sconv=(char *)malloc(LLEN(*vd)+1);
-                memset(sconv,0,LLEN(*vd)+1);
-                sprintf(sconv,"%f",LREAL(*vd));
-                return(sconv);
-            }
-        }
-        return(NULL);
-    }
-}*/

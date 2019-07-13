@@ -1,6 +1,8 @@
 #ifndef __RXMVSEXT_H
 #define __RXMVSEXT_H
 
+#include "lstring.h"
+
 /* TODO: should be moved to rxmvs.h */
 int  isTSO();
 int  isTSOFG();
@@ -123,8 +125,7 @@ typedef struct trx_abend_params
     int         ucc;
 } RX_ABEND_PARAMS, *RX_ABEND_PARAMS_PTR;
 
-char *getVariable(char *sName);
-char *getStemVariable(char *sName);
+void getVariable(char *sName, PLstr plsValue);
 int  getIntegerVariable(char *sName);
 void setVariable(char *sName, char *sValue);
 void setIntegerVariable(char *sName, int iValue);
