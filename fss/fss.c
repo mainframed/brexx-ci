@@ -45,10 +45,6 @@
 #include "fss.h"
 #include "ldefs.h"
 
-// Limit To a 3270 Mod 2
-#define MAX_ROW 24
-#define MAX_COL 80
-
 // Field Definition
 struct sFields
 {
@@ -60,7 +56,7 @@ struct sFields
 };
 
 // Calculate buffer offset from Row and Column
-#define bufPos(row,col) ( ((row-1) * 80) + (col - 1) )
+#define bufPos(row,col,max_col) ( ((row-1) * max_col) + (col - 1) )
 
 // Return Attribute Values
 #define XH(attr) ((attr >> 16) & 0xFF)    // Return Extended Highlighting Attribute
@@ -423,10 +419,10 @@ int fssTxt(int row, int col, int attr, char * text)
     txtlen = strlen(text);                  // get text length
 
     // Validate Field Starting Position
-    if(row < 1 || col < 2 || row > MAX_ROW || col > MAX_COL)
+    if(row < 1 || col < 2 || row > fssAlternateRows || col > fssAlternateCols)
         return -1;
 
-    if(txtlen < 1 || txtlen > 79)           // Validate Maximum Length
+    if(txtlen < 1 || txtlen > (fssAlternateCols-1))           // Validate Maximum Length
         return -2;
 
     ix = fssFieldCnt++;                     // Increment field count
@@ -435,7 +431,7 @@ int fssTxt(int row, int col, int attr, char * text)
     // Fill In Field Array Values
     //----------------------------
     fssFields[ix].name    =  0;             // no name for a text field
-    fssFields[ix].bufaddr =  bufPos(row,col);
+    fssFields[ix].bufaddr =  bufPos(row,col,fssAlternateCols);
     fssFields[ix].attr    =  ((attr & 0xFFFF00) | xlate3270( attr & 0xFF));
     fssFields[ix].length  =  txtlen;
     fssFields[ix].data    =  (char *) malloc(txtlen+1);
@@ -459,11 +455,11 @@ int fssFld(int row, int col, int attr, char * fldName, int len, char *text)
     int ix;
 
     // Validate Field Start Position
-    if(row < 1 || col < 2 || row > MAX_ROW || col > MAX_COL)
+    if(row < 1 || col < 2 || row > fssAlternateRows || col > fssAlternateCols)
         return -1;
 
     // Validate Field Length
-    if(len < 1 || len > 79)
+    if(len < 1 || len > (fssAlternateCols-1))
         return -2;
 
     if(findField(fldName))                  // Check for duplicate Field Name
@@ -476,7 +472,7 @@ int fssFld(int row, int col, int attr, char * fldName, int len, char *text)
     //----------------------------
     fssFields[ix].name    =  (char *) malloc(strlen(fldName)+1);
     strcpy(fssFields[ix].name, fldName);
-    fssFields[ix].bufaddr =  bufPos(row,col);
+    fssFields[ix].bufaddr =  bufPos(row,col,fssAlternateCols);
     fssFields[ix].attr    =  ((attr & 0xFFFF00) | xlate3270( attr & 0xFF));
     fssFields[ix].length  =  len;
     fssFields[ix].data    =  (char *) malloc(len + 1);
@@ -724,7 +720,7 @@ int fssRefresh(void)
     char *inBuf;
     char *p;
 
-    BUFLEN = (MAX_ROW * MAX_COL * 2);       // Max buffer length
+    BUFLEN = (fssAlternateRows * fssAlternateCols * 2);       // Max buffer length
 
     outBuf = malloc(BUFLEN);                // alloc output buffer
     inBuf  = malloc(BUFLEN);                // alloc input buffer
