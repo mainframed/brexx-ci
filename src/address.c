@@ -102,9 +102,9 @@ RxRedirectCmd(PLstr cmd, int in, int out, PLstr outputstr, PLstr env)
 		if ((f=fopen(fnin,"w"))!=NULL) {
 			while (StackQueued()>0) {
 				str = PullFromStack();
-				L2STR(str); LASCIIZ(*str);
+				L2STR(str); LASCIIZ(*str)
 				fputs(LSTR(*str),f); fputc('\n',f);
-				LPFREE(str);
+				LPFREE(str)
 			}
 			fclose(f);
 
@@ -195,8 +195,8 @@ RxExecuteCmd( PLstr cmd, PLstr env )
 	int	in,out;
 	Lstr	cmdN;
 
-	if (isHostCmd(cmd)) {
-	    rxReturnCode = handleHostCmd(cmd);
+	if (isHostCmd(cmd, env)) {
+	    rxReturnCode = handleHostCmd(cmd, env);
 	} else {
 
         LINITSTR(cmdN)
@@ -210,7 +210,7 @@ RxExecuteCmd( PLstr cmd, PLstr env )
         rxReturnCode = RxRedirectCmd(&cmdN,in,out,FALSE, env);
 
         /* free string */
-        LFREESTR(cmdN);
+        LFREESTR(cmdN)
 
         if (rxReturnCode == 0x806000) {
             rxReturnCode = -3;

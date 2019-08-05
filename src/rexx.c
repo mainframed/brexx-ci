@@ -236,7 +236,7 @@ void RxFileDCB(RxFile *rxf)
     strcpy(rxf->dsn, dsn);
     strcpy(rxf->member, member);
 
-#ifdef __DEBUG__
+#ifdef __DEBUG1__
     fprintf(STDOUT,"DBG> name  : %s\n",   LSTR(rxf->name));
     fprintf(STDOUT,"DBG> ddn   : %s\n",   rxf->ddn);
     fprintf(STDOUT,"DBG> dsn   : %s\n",   rxf->dsn);

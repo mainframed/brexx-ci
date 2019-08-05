@@ -1,5 +1,5 @@
 /*-----------------------------------------------------------------
- |  Copyright (c) 2012-, Tommy Sprinkle (tommy@tommysprinkle.com)  
+ |  Copyright (c) 2012-, Tommy Sprinkle (tommy@tommysprinkle.com)
  |  Licensed under the NEW BSD Open Source License
   -----------------------------------------------------------------*/
 
@@ -17,6 +17,8 @@ int     fssTxt(int row, int col, int attr, char *text);
 int     fssSetField(char *fldName, char *text);
 char  * fssGetField(char *fldName);
 int     fssGetAID(void);
+int     fssGetAlternateScreenWidth();
+int     fssGetAlternateScreenHeight();
 int     fssRefresh(void);
 int     fssSetCursor(char *fldName);
 int     fssSetAttr(char *fildName, int attr);
@@ -28,26 +30,12 @@ int     fssIsNumeric(char * data);
 int     fssIsBlank(  char * data);
 int     fssIsHex(    char * data);
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-struct sFields *    fssAField(int idf);
-struct sFields *    fssAFieldName(char *n);
-void                fssSetPanel(char *s);
-void                fssDebug(short p);
-int                 fssAFields();
-int                 fssTxa(int row, int col, char *sattr, char * text);
-int                 fssFla(int row, int col, int attr, char * fldName, int len, char *text, char *sattr);
-int                 fssCursor(char *fldName);
-int                 fssRefresh2(int rfflag);
-int                 fssFieldPos();
-char *              fssGetData(char *fldName);
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// fssprot default 30
+
+
 #define fssPROT   0x30
 #define fssNUM    0x10
 #define fssHI     0x08
-// fssnon default 0c
 #define fssNON    0x0C
-#define fssUNP    0xC0
 
 #define fssBLUE   0xF100
 #define fssRED    0xF200

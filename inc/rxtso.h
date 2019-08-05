@@ -6,11 +6,24 @@
 #ifndef TSO_H
 #define TSO_H
 
+/* ---------------------------------------------------------- */
+/* parameters for GTTERM macro                                */
+/* ---------------------------------------------------------- */
+typedef struct trx_gtterm_params
+{
+    unsigned    *primadr;
+    unsigned    *altadr;
+    unsigned    *attradr;
+    unsigned    *termidadr;
+} RX_GTTERM_PARAMS, *RX_GTTERM_PARAMS_PTR;
+
 void tput(char * data, int length);
 int  tget(char * data, int length);
 
 int  tput_fullscr(char * data, int legnth);
 int  tget_asis   (char * data, int length);
+
+void gtterm(RX_GTTERM_PARAMS_PTR pParams);
 
 void stfsmode(int opt);   /* 1-ON, 0-OFF */
 void sttmpmd (int opt);   /* 1-ON, 0-Off */

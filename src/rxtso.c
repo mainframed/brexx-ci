@@ -160,6 +160,19 @@ int tget_asis(char *data, int len)
     return params.R1;
 }
 
+//----------------------------------------
+// GTTERM
+//----------------------------------------
+void gtterm(RX_GTTERM_PARAMS_PTR paramsPtr)
+{
+    RX_SVC_PARAMS params;
+
+    params.SVC = 94;
+    params.R0  = (17 << 24);
+    params.R1  = (unsigned)paramsPtr;
+
+    call_rxsvc(&params);
+}
 
 //----------------------------------------
 // Convert a 3270 Buffer Address into an offset

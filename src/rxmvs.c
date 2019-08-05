@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <rxtso.h>
 
 #ifdef JCC
 #include <io.h>
@@ -458,6 +459,7 @@ int RxMvsInitialize()
         printf("\n");
 #endif
 
+#ifdef ___NEW___
         tso_parameter   = malloc(sizeof(RX_TSO_PARAMS));
         memset(tso_parameter,00, sizeof(RX_TSO_PARAMS));
 
@@ -467,8 +469,9 @@ int RxMvsInitialize()
 
         rc = call_rxtso(tso_parameter);
 
-#ifdef __DEBUG__
+#ifdef __DEBUG1__
         printf("DBG> RC(RXTSO)=%d\n",rc);
+#endif
 #endif
 
     }
@@ -689,7 +692,6 @@ getVariable(char *sName, PLstr plsValue)
 
     LASCIIZ(*plsValue)
 
-
     LFREESTR(lsScope)
     LFREESTR(lsName)
 }
@@ -756,9 +758,9 @@ setVariable(char *sName, char *sValue)
 {
     Lstr lsScope,lsName,lsValue;
 
-    LINITSTR(lsScope);
-    LINITSTR(lsName);
-    LINITSTR(lsValue);
+    LINITSTR(lsScope)
+    LINITSTR(lsName)
+    LINITSTR(lsValue)
 
     Lfx(&lsScope,sizeof(dword));
     Lfx(&lsName, strlen(sName));
@@ -770,15 +772,16 @@ setVariable(char *sName, char *sValue)
 
     RxPoolSet(&lsScope, &lsName, &lsValue);
 
-    LFREESTR(lsScope);
-    LFREESTR(lsName);
-    LFREESTR(lsValue);
+    LFREESTR(lsScope)
+    LFREESTR(lsName)
+    LFREESTR(lsValue)
 }
 
 void
 setIntegerVariable(char *sName, int iValue)
 {
     char sValue[19];
+
     sprintf(sValue,"%d",iValue);
     setVariable(sName,sValue);
 }
@@ -829,7 +832,23 @@ int call_rxtso(RX_TSO_PARAMS_PTR params)
 void call_rxsvc (RX_SVC_PARAMS_PTR params)
 {
 #ifdef __DEBUG__
-    if (params != NULL)
+    if (params != NULL) {
+        printf("DBG> DUMMY RXSVC for svc %d .\n", params->SVC);
+        if(params->SVC == 93) {
+            if((params->R1 & 0x81000000) == 0x81000000) {
+                printf("DBG> TGET ASIS\n");
+                printf("DBG> PRESS ENTER KEY\n");
+                getchar();
+
+                params->R1 = 42;
+            } else if ((params->R1 & 0x03000000) == 0x03000000) {
+                printf("DBG> TPUT FSS\n");
+            }
+        } else if (params->SVC == 94) {
+            RX_GTTERM_PARAMS_PTR paramsPtr = params->R1;
+            memcpy((void *)*paramsPtr->primadr,0x1850,2);
+        }
+    }
         printf("DBG> DUMMY RXSVC for svc %d .\n", params->SVC);
 #endif
 }

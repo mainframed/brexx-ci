@@ -33,11 +33,10 @@
 #define	VERSIONSTR	PACKAGE" "VERSION" ("__DATE__")"
 #define	AUTHOR		"Vasilis.Vlachoudis@cern.ch"
 #define MAINTAINER  "PeterJ, mgrossmann"
-#define REGAPPKEY	TEXT("Software\\Marmita\\BRexx")
 #define	SCIENTIFIC	0
 #define ENGINEERING	1
 
-#define MAXARGS		15
+#define MAXARGS		99  // was 15
 #define PROC_INC	10
 #define CLAUSE_INC	100
 #ifdef JCC

@@ -45,20 +45,14 @@
 #	include <malloc.h>
 #endif
 
-#if defined(__DEBUG__) && !defined(WCE)
+#if defined(__DEBUG__)
 #	define	MALLOC(s,d)	 mem_malloc(s,d)
 #	define	REALLOC(p,s) mem_realloc(p,s)
 #	define	FREE		 mem_free
 #else
-#	if defined(__BORLANDC__) && (defined(__HUGE__) || defined(__LARGE__))
-#		define	MALLOC(s,d)	farmalloc(s)
-#		define	REALLOC(p,s)	farrealloc(p,s)
-#		define	FREE		farfree
-#	else
-#		define	MALLOC(s,d)	    malloc_or_die(s,d)
-#		define	REALLOC(p,s)    realloc_or_die(p,s)
-#		define	FREE		    free
-#	endif
+#	define	MALLOC(s,d)	    malloc_or_die(s,d)
+#	define	REALLOC(p,s)    realloc_or_die(p,s)
+#	define	FREE		    free
 #endif
 
 /* ------ function prototypes --------- */

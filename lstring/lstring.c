@@ -136,6 +136,7 @@ Lfx( const PLstr s, const size_t len )
 
     if (LISNULL(*s)) {
         LSTR(*s) = (unsigned char *) MALLOC( (max = LNORMALISE(len))+LEXTRA, "Lstr" );
+        memset(LSTR(*s),0,max);
         LLEN(*s) = 0;
         LMAXLEN(*s) = max;
         LTYPE(*s) = LSTRING_TY;
