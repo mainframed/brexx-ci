@@ -204,10 +204,10 @@ RxFileLoad(RxFile *rxf, bool loadLibrary)
         /* try load via dsn */
         RxFileLoadDSN(rxf);
     } else {								/* try to load a library */
-        /* try to load from "ur" script location */
-        RxFileLoadDSN(rxf);
         /* try to load from RXLIB */
         RxFileLoadDDN(rxf, "RXLIB");
+        /* try to load from "ur" script location */
+        RxFileLoadDSN(rxf);
     }
 
     if (rxf->fp != NULL) {
