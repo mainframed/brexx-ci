@@ -21,12 +21,18 @@ typedef  struct trx_env_ctx
 
     /* User Information */
     char    SYSPREF[8];
+        /* SYSPROC - */
+            /* When the REXX exec is invoked in the foreground (SYSVAR('SYSENV') returns 'FORE'), SYSVAR('SYSPROC') will return the name of the current LOGON procedure.*/
+            /* When the REXX exec is invoked in batch (for example, from a job submitted by using the SUBMIT command), SYSVAR('SYSPROC') will return the value 'INIT', which is the ID for the initiator. */
     char    SYSUID[8];
     /* Terminal Information */
+        /* SYSLTERM - number of lines available on the terminal screen. In the background, SYSLTERM returns 0 */
+        /* SYSWTERM - width of the terminal screen. In the background, SYSWTERM returns 132. */
     /* Exec Information */
     char    SYSENV[5];
     char    SYSISPF[11];
     /* System Information */
+        /* SYSTERMID - the terminal ID of the terminal where the REXX exec was started. */
     /* Language Information */
 
     /* **************************/
@@ -41,6 +47,10 @@ typedef  struct trx_env_ctx
     unsigned char flags2;  /* environment */
     unsigned char flags3;  /* unused */
     unsigned char flags4;  /* unused */
+
+    unsigned      dummy[32];
+    unsigned     *VSAMSUBT;
+    unsigned      reserved[64];
 
 } RX_ENVIRONMENT_CTX, *RX_ENVIRONMENT_CTX_PTR;
 
@@ -73,6 +83,27 @@ typedef struct trx_svc_params
     unsigned int R1;
     unsigned int R15;
 } RX_SVC_PARAMS, *RX_SVC_PARAMS_PTR;
+
+/* ---------------------------------------------------------- */
+/* assembler module RXVSAM                                    */
+/* ---------------------------------------------------------- */
+typedef  struct trx_vsam_params
+{
+    char            VSAMFUNC[8];
+    unsigned char   VSAMTYPE;
+    char            VSAMDDN[8];
+    char            VSAMKEY[255];
+    unsigned char   VSAMKEYL;
+    unsigned char   ALLIGN1[3];
+    unsigned       *VSAMREC;
+    unsigned short  VSAMRECL;
+    unsigned char   ALLIGN2[2];
+    unsigned       *VSAMSUBTA;
+    unsigned        VSAMRCODE;
+    unsigned        VSAMFILL[2];
+    char            VSAMMSG[81];
+    char            VSAMTRC[81];
+} RX_VSAM_PARAMS, *RX_VSAM_PARAMS_PTR;
 
 /* ---------------------------------------------------------- */
 /* assembler module RXPTIME                                   */
@@ -108,7 +139,7 @@ typedef struct t_rx_wto_params
 } RX_WTO_PARAMS, *RX_WTO_PARAMS_PTR;
 
 /* ---------------------------------------------------------- */
-/* assembler module RXAIT                                     */
+/* assembler module RXWAIT                                     */
 /* ---------------------------------------------------------- */
 typedef struct t_rx_wait_params
 {
@@ -134,6 +165,7 @@ void setIntegerVariable(char *sName, int iValue);
 int  call_rxinit(RX_INIT_PARAMS_PTR params);
 int  call_rxtso(RX_TSO_PARAMS_PTR params);
 void call_rxsvc(RX_SVC_PARAMS_PTR params);
+int  call_rxvsam(RX_VSAM_PARAMS_PTR params);
 int  call_rxptime (RX_PTIME_PARAMS_PTR params);
 int  call_rxstime (RX_STIME_PARAMS_PTR params);
 int  call_rxwto (RX_WTO_PARAMS_PTR params);
@@ -143,6 +175,7 @@ unsigned int call_rxabend (RX_ABEND_PARAMS_PTR params);
 extern int  call_rxinit(RX_INIT_PARAMS_PTR params);
 extern int  call_rxtso(RX_TSO_PARAMS_PTR params);
 extern void call_rxsvc(RX_SVC_PARAMS_PTR params);
+extern int  call_rxvsam(RX_VSAM_PARAMS_PTR params);
 extern int  call_rxptime (RX_PTIME_PARAMS_PTR params);
 extern int  call_rxstime (RX_STIME_PARAMS_PTR params);
 extern int  call_rxwto (RX_WTO_PARAMS_PTR params);

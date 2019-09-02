@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <rxtso.h>
 
 #ifdef JCC
 #include <io.h>
@@ -8,6 +7,7 @@
 #include "rexx.h"
 #include "rxdefs.h"
 #include "rxmvsext.h"
+#include "rxtso.h"
 #include "util.h"
 #ifdef __DEBUG__
 #include "bmem.h"
@@ -851,6 +851,43 @@ void call_rxsvc (RX_SVC_PARAMS_PTR params)
     }
         printf("DBG> DUMMY RXSVC for svc %d .\n", params->SVC);
 #endif
+}
+
+int call_rxvsam (RX_VSAM_PARAMS_PTR params)
+{
+#ifdef __DEBUG__
+    if (params != NULL) {
+        printf("\n");
+        printf("DBG> DUMMY RXVSAM ...\n");
+        printf("DBG>  VSAMFUNC : %s\n",params->VSAMFUNC);
+        printf("DBG>  VSAMTYPE : %c\n",params->VSAMTYPE);
+        printf("DBG>  VSAMDDN  : %s\n",params->VSAMDDN);
+        printf("DBG>  VSAMKEY  : %s\n",params->VSAMKEY);
+        printf("DBG>  VSAMKEYL : %d\n",params->VSAMKEYL);
+
+        if (strcasecmp(params->VSAMFUNC, "READK") == 0) {
+            char * record = MALLOC(13, "CROSS VSAM READK");
+            memset(record,0,13);
+            strcpy(record,"123456789ABC");
+            params->VSAMREC = (void *)record;
+            params->VSAMRECL=12;
+        }
+
+        if (strcasecmp(params->VSAMFUNC, "READN") == 0) {
+            char * record = MALLOC(13,"CROSS VSAM READN");
+
+            strcpy(record,"ABC123456789");
+            params->VSAMREC = (void *)record;
+            params->VSAMRECL=12;
+        }
+
+        if (strcasecmp(params->VSAMFUNC, "WRITE") == 0) {
+            printf("DBG>  VSAMREC  : %s\n",params->VSAMREC);
+        }
+    }
+
+#endif
+    return 0;
 }
 
 int call_rxptime (RX_PTIME_PARAMS_PTR params)

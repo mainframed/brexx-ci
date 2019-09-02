@@ -1,4 +1,5 @@
 #include <string.h>
+#include "bmem.h"
 #include "rexx.h"
 #include "lstring.h"
 #include "bintree.h"
@@ -15,6 +16,7 @@
 */
 
 int RxEXECIO();
+int RxVSAMIO();
 int RxFSS_INIT();
 int RxFSS_TERM();
 int RxFSS_RESET();
@@ -35,7 +37,9 @@ int parsecmd(char scmd[256]);
 int findcmd(char scmd[255]);
 int RxForceRC(int rc);
 
+extern RX_ENVIRONMENT_CTX_PTR environment;
 char *hcmdargvp[128];
+bool vsamsubtSet = FALSE;
 
 typedef char BYTE;
 
@@ -49,6 +53,8 @@ isHostCmd(PLstr cmd, PLstr env)
     parsecmd(lclcmd);
 
     if (strcasecmp(hcmdargvp[0], "EXECIO") == 0) {
+        isHostCmd = TRUE;
+    } else if ( (strcasecmp(hcmdargvp[0], "VSAMIO") == 0)) {
         isHostCmd = TRUE;
     } else if ( (strcasecmp((char *)LSTR(*env) , "FSS") == 0) &&
                 (strcasecmp(hcmdargvp[0], "INIT") == 0)) {
@@ -89,8 +95,10 @@ handleHostCmd(PLstr cmd, PLstr env)
     strcpy(lclcmd, (const char *) LSTR(*cmd));
     parsecmd(lclcmd);
 
-    if (strcasecmp(hcmdargvp[0], "EXECIO") == 0) {
+    if ( (strcasecmp(hcmdargvp[0], "EXECIO") == 0)) {
         returnCode = RxEXECIO();
+    } else if ( (strcasecmp(hcmdargvp[0], "VSAMIO") == 0)) {
+        returnCode = RxVSAMIO();
     } else if ( (strcasecmp((char *)LSTR(*env) , "FSS") == 0) &&
                  (strcasecmp(hcmdargvp[0], "INIT") == 0)) {
         returnCode = RxFSS_INIT();
@@ -118,6 +126,433 @@ handleHostCmd(PLstr cmd, PLstr env)
     }
 
     return returnCode;
+}
+
+int
+RxVSAMIO()
+{
+    RX_VSAM_PARAMS_PTR params;
+
+    int iErr = 0;
+
+    params =  MALLOC(sizeof(RX_VSAM_PARAMS),"RXVSAM");
+    memset(params,0,sizeof(RX_VSAM_PARAMS));
+    strcpy(params->VSAMDDN,"        ");
+
+    // OPEN
+    if (strcasecmp(hcmdargvp[1], "OPEN") == 0) {
+
+        // set function code
+        if (findcmd("READ") != -1) {
+            strcpy(params->VSAMFUNC,"OPENR");
+        } else if (findcmd("UPDATE") != -1) {
+            strcpy(params->VSAMFUNC,"OPENU");
+        } else if (findcmd("LOAD") != -1) {
+            strcpy(params->VSAMFUNC,"OPENL");
+        } else if (findcmd("RESET") != -1) {
+            strcpy(params->VSAMFUNC,"OPENX");
+        } else {
+            FREE(params);
+            Lerror(ERR_INCORRECT_CALL,0);
+        }
+
+        // set vsam type to KSDS
+        params->VSAMTYPE = 'K';
+
+        // set DDN
+        if (strlen(hcmdargvp[2]) >= 1 && strlen(hcmdargvp[2]) <= 8) {
+            strncpy(params->VSAMDDN, hcmdargvp[2], strlen(hcmdargvp[2]));
+        } else {
+            iErr = -1;
+        }
+
+        // call rxvsam
+        if (iErr == 0) {
+            if (vsamsubtSet) {
+                params->VSAMSUBTA = environment->VSAMSUBT;
+            }
+
+            iErr = call_rxvsam(params);
+
+            if (!vsamsubtSet) {
+                environment->VSAMSUBT = params->VSAMSUBTA;
+                vsamsubtSet = TRUE;
+            }
+        }
+
+    // READ
+    } else if (strcasecmp(hcmdargvp[1], "READ") == 0) {
+
+        unsigned char vname[19];
+        int pos;
+        bool useVar = FALSE;
+
+        // set function code
+        pos = findcmd("KEY");
+        if (pos != -1) {
+            if (findcmd("UPDATE") == -1) {
+                strcpy(params->VSAMFUNC, "READK");
+            } else {
+                strcpy(params->VSAMFUNC, "READKU");
+            }
+            strcpy(params->VSAMKEY, hcmdargvp[++pos]);
+            params->VSAMKEYL = strlen(params->VSAMKEY);
+        } else if (findcmd("NEXT") != -1) {
+            if (findcmd("UPDATE") == -1) {
+                strcpy(params->VSAMFUNC, "READN");
+            } else {
+                strcpy(params->VSAMFUNC, "READNU");
+            }
+        } else {
+            FREE(params);
+            Lerror(ERR_INCORRECT_CALL,0);
+        }
+
+        // use var or queue
+        pos = findcmd("VAR");
+        if (pos != -1) {
+            useVar = TRUE;
+            strcpy(vname, hcmdargvp[++pos]);
+        }
+
+        // set vsam type to KSDS
+        params->VSAMTYPE = 'K';
+
+        // set DDN
+        if (strlen(hcmdargvp[2]) >= 1 && strlen(hcmdargvp[2]) <= 8) {
+            strncpy(params->VSAMDDN, hcmdargvp[2], strlen(hcmdargvp[2]));
+        } else {
+            iErr = -1;
+        }
+
+        // call rxvsam
+        if (iErr == 0) {
+            if (vsamsubtSet) {
+                params->VSAMSUBTA = environment->VSAMSUBT;
+            }
+
+            iErr = call_rxvsam(params);
+
+            if (!vsamsubtSet) {
+                environment->VSAMSUBT = params->VSAMSUBTA;
+                vsamsubtSet = TRUE;
+            }
+        }
+
+        if (iErr == 0 && params->VSAMRECL > 0) {
+
+            char *record;
+
+            record = MALLOC(params->VSAMRECL + 1, "VSAM RECORD");
+            memset(record, 0,  params->VSAMRECL + 1);
+            strncpy(record,(char *)params->VSAMREC, params->VSAMRECL);
+
+            if (useVar){
+                setVariable(vname, record);
+            } else {
+                rxqueue(record);
+            }
+
+            FREE(record);
+        }
+
+    // LOCATE
+    } else if (strcasecmp(hcmdargvp[1], "LOCATE") == 0) {
+
+        int pos;
+
+        // set function code
+        strcpy(params->VSAMFUNC, "LOCATE");
+
+        pos = findcmd("KEY");
+        if (pos != -1) {
+            strcpy(params->VSAMKEY, hcmdargvp[++pos]);
+            params->VSAMKEYL = strlen(params->VSAMKEY);
+        } else {
+            FREE(params);
+            Lerror(ERR_INCORRECT_CALL,0);
+        }
+
+        // set vsam type to KSDS
+        params->VSAMTYPE = 'K';
+
+        // set DDN
+        if (strlen(hcmdargvp[2]) >= 1 && strlen(hcmdargvp[2]) <= 8) {
+            strncpy(params->VSAMDDN, hcmdargvp[2], strlen(hcmdargvp[2]));
+        } else {
+            iErr = -1;
+        }
+
+        // call rxvsam
+        if (iErr == 0) {
+            if (vsamsubtSet) {
+                params->VSAMSUBTA = environment->VSAMSUBT;
+            }
+
+            iErr = call_rxvsam(params);
+
+            if (!vsamsubtSet) {
+                environment->VSAMSUBT = params->VSAMSUBTA;
+                vsamsubtSet = TRUE;
+            }
+        }
+
+    // POINT
+    } else if (strcasecmp(hcmdargvp[1], "POINT") == 0) {
+
+        int pos;
+
+        // set function code
+        strcpy(params->VSAMFUNC, "POINT");
+
+        pos = findcmd("KEY");
+        if (pos != -1) {
+            strcpy(params->VSAMKEY, hcmdargvp[++pos]);
+            params->VSAMKEYL = strlen(params->VSAMKEY);
+        } else {
+            FREE(params);
+            Lerror(ERR_INCORRECT_CALL,0);
+        }
+
+        // set vsam type to KSDS
+        params->VSAMTYPE = 'K';
+
+        // set DDN
+        if (strlen(hcmdargvp[2]) >= 1 && strlen(hcmdargvp[2]) <= 8) {
+            strncpy(params->VSAMDDN, hcmdargvp[2], strlen(hcmdargvp[2]));
+        } else {
+            iErr = -1;
+        }
+
+        // call rxvsam
+        if (iErr == 0) {
+            if (vsamsubtSet) {
+                params->VSAMSUBTA = environment->VSAMSUBT;
+            }
+
+            iErr = call_rxvsam(params);
+
+            if (!vsamsubtSet) {
+                environment->VSAMSUBT = params->VSAMSUBTA;
+                vsamsubtSet = TRUE;
+            }
+        }
+
+    // WRITE
+    } else if (strcasecmp(hcmdargvp[1], "WRITE") == 0) {
+
+        unsigned char vname[19];
+        int pos;
+
+        PLstr plsValue;
+        bool useVar = FALSE;
+
+        LPMALLOC(plsValue)
+
+        // set function code
+        strcpy(params->VSAMFUNC, "WRITE");
+
+        pos = findcmd("KEY");
+        if (pos != -1) {
+            strcpy(params->VSAMKEY, hcmdargvp[++pos]);
+            params->VSAMKEYL = strlen(params->VSAMKEY);
+        } else {
+            FREE(params);
+            Lerror(ERR_INCORRECT_CALL,0);
+        }
+
+        // use var or queue
+        pos = findcmd("VAR");
+        if (pos != -1) {
+            useVar = TRUE;
+            strcpy(vname, hcmdargvp[++pos]);
+        }
+
+        // set vsam type to KSDS
+        params->VSAMTYPE = 'K';
+
+        // set DDN
+        if (strlen(hcmdargvp[2]) >= 1 && strlen(hcmdargvp[2]) <= 8) {
+            strncpy(params->VSAMDDN, hcmdargvp[2], strlen(hcmdargvp[2]));
+        } else {
+            iErr = -1;
+        }
+
+        // set record
+        if (useVar) {
+            getVariable(vname,plsValue);
+            params->VSAMREC = (unsigned *) plsValue->pstr;
+        } else {
+            params->VSAMREC = (unsigned *) rxpull();
+        }
+
+        params->VSAMRECL = strlen((char *)params->VSAMREC);
+
+        // call rxvsam
+        if (iErr == 0) {
+            if (vsamsubtSet) {
+                params->VSAMSUBTA = environment->VSAMSUBT;
+            }
+
+            iErr = call_rxvsam(params);
+
+            if (!vsamsubtSet) {
+                environment->VSAMSUBT = params->VSAMSUBTA;
+                vsamsubtSet = TRUE;
+            }
+        }
+
+        LPFREE(plsValue)
+
+    // INSERT
+    } else if (strcasecmp(hcmdargvp[1], "INSERT") == 0) {
+
+        unsigned char vname[19];
+        int pos;
+
+        PLstr plsValue;
+        bool useVar = FALSE;
+
+        LPMALLOC(plsValue)
+
+        // set function code
+        strcpy(params->VSAMFUNC, "INSERT");
+
+        pos = findcmd("KEY");
+        if (pos != -1) {
+            strcpy(params->VSAMKEY, hcmdargvp[++pos]);
+            params->VSAMKEYL = strlen(params->VSAMKEY);
+        } else {
+            FREE(params);
+            Lerror(ERR_INCORRECT_CALL,0);
+        }
+
+        // use var or queue
+        pos = findcmd("VAR");
+        if (pos != -1) {
+            useVar = TRUE;
+            strcpy(vname, hcmdargvp[++pos]);
+        }
+
+        // set vsam type to KSDS
+        params->VSAMTYPE = 'K';
+
+        // set DDN
+        if (strlen(hcmdargvp[2]) >= 1 && strlen(hcmdargvp[2]) <= 8) {
+            strncpy(params->VSAMDDN, hcmdargvp[2], strlen(hcmdargvp[2]));
+        } else {
+            iErr = -1;
+        }
+
+        // set record
+        if (useVar) {
+            getVariable(vname,plsValue);
+            params->VSAMREC = (unsigned *) plsValue->pstr;
+        } else {
+            params->VSAMREC = (unsigned *) rxpull();
+        }
+
+        params->VSAMRECL = strlen((char *)params->VSAMREC);
+
+        // call rxvsam
+        if (iErr == 0) {
+            if (vsamsubtSet) {
+                params->VSAMSUBTA = environment->VSAMSUBT;
+            }
+
+            iErr = call_rxvsam(params);
+
+            if (!vsamsubtSet) {
+                environment->VSAMSUBT = params->VSAMSUBTA;
+                vsamsubtSet = TRUE;
+            }
+        }
+
+        LPFREE(plsValue)
+
+    // DELETE
+    } else if (strcasecmp(hcmdargvp[1], "DELETE") == 0) {
+
+        int pos;
+
+        // set function code
+        strcpy(params->VSAMFUNC, "DELETE");
+
+        pos = findcmd("KEY");
+        if (pos != -1) {
+            strcpy(params->VSAMKEY, hcmdargvp[++pos]);
+            params->VSAMKEYL = strlen(params->VSAMKEY);
+        } else {
+            FREE(params);
+            Lerror(ERR_INCORRECT_CALL,0);
+        }
+
+        // set vsam type to KSDS
+        params->VSAMTYPE = 'K';
+
+        // set DDN
+        if (strlen(hcmdargvp[2]) >= 1 && strlen(hcmdargvp[2]) <= 8) {
+            strncpy(params->VSAMDDN, hcmdargvp[2], strlen(hcmdargvp[2]));
+        } else {
+            iErr = -1;
+        }
+
+        // call rxvsam
+        if (iErr == 0) {
+            if (vsamsubtSet) {
+                params->VSAMSUBTA = environment->VSAMSUBT;
+            }
+
+            iErr = call_rxvsam(params);
+
+            if (!vsamsubtSet) {
+                environment->VSAMSUBT = params->VSAMSUBTA;
+                vsamsubtSet = TRUE;
+            }
+        }
+
+    // CLOSE
+    } else if (strcasecmp(hcmdargvp[1], "CLOSE") == 0) {
+
+        // set function code
+        if (strcasecmp(hcmdargvp[2], "ALL") == 0) {
+            strcpy(params->VSAMFUNC,"CLOSEA");
+        } else {
+            strcpy(params->VSAMFUNC,"CLOSE");
+
+            // set DDN
+            if (strlen(hcmdargvp[2]) >= 1 && strlen(hcmdargvp[2]) <= 8) {
+                strncpy(params->VSAMDDN, hcmdargvp[2], strlen(hcmdargvp[2]));
+            } else {
+                iErr = -1;
+            }
+        }
+
+        // set vsam type to KSDS
+        params->VSAMTYPE = 'K';
+
+        // call rxvsam
+        if (iErr == 0) {
+            if (vsamsubtSet) {
+                params->VSAMSUBTA = environment->VSAMSUBT;
+            }
+
+            iErr = call_rxvsam(params);
+
+            if (!vsamsubtSet) {
+                environment->VSAMSUBT = params->VSAMSUBTA;
+                vsamsubtSet = TRUE;
+            }
+        }
+
+    } else {
+        FREE(params);
+        Lerror(ERR_INCORRECT_CALL,0);
+    }
+
+    FREE(params);
+
+    return (RxForceRC(iErr));
 }
 
 int
@@ -332,53 +767,6 @@ RxFSS_FIELD()
     // check attr is numeric
     if (fssIsNumeric(hcmdargvp[3])) {
         attr = atoi(hcmdargvp[3]);
-    } else {
-        if (strstr(hcmdargvp[3], "#ATTR") != NULL) {
-            attr = getIntegerVariable("#ATTR");
-        } else {
-            if(strstr(hcmdargvp[3], "#PROT") != NULL){
-                attr = attr + fssPROT;
-            }
-            if(strstr(hcmdargvp[3], "#NUM") != NULL){
-                attr = attr + fssNUM;
-            }
-            if(strstr(hcmdargvp[3], "#HI") != NULL){
-                attr = attr + fssHI;
-            }
-            if(strstr(hcmdargvp[3], "#NON") != NULL){
-                attr = attr + fssNON;
-            }
-            if(strstr(hcmdargvp[3], "#BLUE") != NULL){
-                attr = attr + fssBLUE;
-            }
-            if(strstr(hcmdargvp[3], "#RED") != NULL){
-                attr = attr + fssRED;
-            }
-            if(strstr(hcmdargvp[3], "#PINK") != NULL){
-                attr = attr + fssPINK;
-            }
-            if(strstr(hcmdargvp[3], "#GREEN") != NULL){
-                attr = attr + fssGREEN;
-            }
-            if(strstr(hcmdargvp[3], "#TURQ") != NULL){
-                attr = attr + fssTURQ;
-            }
-            if(strstr(hcmdargvp[3], "#YELLOW") != NULL){
-                attr = attr + fssYELLOW;
-            }
-            if(strstr(hcmdargvp[3], "#WHITE") != NULL){
-                attr = attr + fssWHITE;
-            }
-            if(strstr(hcmdargvp[3], "#BLINK") != NULL){
-                attr = attr + fssBLINK;
-            }
-            if(strstr(hcmdargvp[3], "#REVERSE") != NULL){
-                attr = attr + fssREVERSE;
-            }
-            if(strstr(hcmdargvp[3], "#USCORE") != NULL){
-                attr = attr + fssUSCORE;
-            }
-        }
     }
 
     // check len is numeric
@@ -514,7 +902,8 @@ RxFSS_SET()
         if (fssIsNumeric(hcmdargvp[3]))
         {
             color = atoi(hcmdargvp[3]);
-        } else
+        }
+        else
         {
             if(strstr(hcmdargvp[3], "#BLUE") != NULL)
             {
@@ -600,8 +989,6 @@ rxqueue(char *s)
 
     Lscpy(pstr, s);
     Queue2Stack(pstr);
-
-    LPFREE(pstr)
 }
 
 long
