@@ -94,13 +94,14 @@ typedef  struct trx_vsam_params
     char            VSAMDDN[8];
     char            VSAMKEY[255];
     unsigned char   VSAMKEYL;
-    unsigned char   ALLIGN1[3];
+    char            VSAMMOD;
+    unsigned char   ALLIGN1[2];
     unsigned       *VSAMREC;
     unsigned short  VSAMRECL;
     unsigned char   ALLIGN2[2];
     unsigned       *VSAMSUBTA;
     unsigned        VSAMRCODE;
-    unsigned        VSAMFILL[2];
+    char            VSAMEXTRC[10];
     char            VSAMMSG[81];
     char            VSAMTRC[81];
 } RX_VSAM_PARAMS, *RX_VSAM_PARAMS_PTR;
@@ -139,7 +140,7 @@ typedef struct t_rx_wto_params
 } RX_WTO_PARAMS, *RX_WTO_PARAMS_PTR;
 
 /* ---------------------------------------------------------- */
-/* assembler module RXWAIT                                     */
+/* assembler module RXWAIT                                    */
 /* ---------------------------------------------------------- */
 typedef struct t_rx_wait_params
 {

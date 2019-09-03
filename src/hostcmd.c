@@ -159,6 +159,14 @@ RxVSAMIO()
         // set vsam type to KSDS
         params->VSAMTYPE = 'K';
 
+#ifdef __DEBUG__
+        // enable tracing via WTOs
+        params->VSAMMOD = 'T';
+#else
+        // disable tracing
+        params->VSAMMOD = 'N';
+#endif
+
         // set DDN
         if (strlen(hcmdargvp[2]) >= 1 && strlen(hcmdargvp[2]) <= 8) {
             strncpy(params->VSAMDDN, hcmdargvp[2], strlen(hcmdargvp[2]));
@@ -173,6 +181,7 @@ RxVSAMIO()
             }
 
             iErr = call_rxvsam(params);
+            setVariable("RCX", params->VSAMEXTRC);
 
             if (!vsamsubtSet) {
                 environment->VSAMSUBT = params->VSAMSUBTA;
@@ -232,6 +241,7 @@ RxVSAMIO()
             }
 
             iErr = call_rxvsam(params);
+            setVariable("RCX", params->VSAMEXTRC);
 
             if (!vsamsubtSet) {
                 environment->VSAMSUBT = params->VSAMSUBTA;
@@ -290,6 +300,7 @@ RxVSAMIO()
             }
 
             iErr = call_rxvsam(params);
+            setVariable("RCX", params->VSAMEXTRC);
 
             if (!vsamsubtSet) {
                 environment->VSAMSUBT = params->VSAMSUBTA;
@@ -331,6 +342,7 @@ RxVSAMIO()
             }
 
             iErr = call_rxvsam(params);
+            setVariable("RCX", params->VSAMEXTRC);
 
             if (!vsamsubtSet) {
                 environment->VSAMSUBT = params->VSAMSUBTA;
@@ -349,13 +361,15 @@ RxVSAMIO()
 
         LPMALLOC(plsValue)
 
-        // set function code
-        strcpy(params->VSAMFUNC, "WRITE");
-
         pos = findcmd("KEY");
         if (pos != -1) {
+            // set function code
+            strcpy(params->VSAMFUNC, "WRITEK");
             strcpy(params->VSAMKEY, hcmdargvp[++pos]);
             params->VSAMKEYL = strlen(params->VSAMKEY);
+        } else if (findcmd("NEXT") != -1) {
+            // set function code
+            strcpy(params->VSAMFUNC, "WRITEN");
         } else {
             FREE(params);
             Lerror(ERR_INCORRECT_CALL,0);
@@ -395,6 +409,7 @@ RxVSAMIO()
             }
 
             iErr = call_rxvsam(params);
+            setVariable("RCX", params->VSAMEXTRC);
 
             if (!vsamsubtSet) {
                 environment->VSAMSUBT = params->VSAMSUBTA;
@@ -461,6 +476,7 @@ RxVSAMIO()
             }
 
             iErr = call_rxvsam(params);
+            setVariable("RCX", params->VSAMEXTRC);
 
             if (!vsamsubtSet) {
                 environment->VSAMSUBT = params->VSAMSUBTA;
@@ -504,6 +520,7 @@ RxVSAMIO()
             }
 
             iErr = call_rxvsam(params);
+            setVariable("RCX", params->VSAMEXTRC);
 
             if (!vsamsubtSet) {
                 environment->VSAMSUBT = params->VSAMSUBTA;
@@ -538,6 +555,7 @@ RxVSAMIO()
             }
 
             iErr = call_rxvsam(params);
+            setVariable("RCX", params->VSAMEXTRC);
 
             if (!vsamsubtSet) {
                 environment->VSAMSUBT = params->VSAMSUBTA;
