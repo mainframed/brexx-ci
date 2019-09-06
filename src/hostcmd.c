@@ -492,12 +492,15 @@ RxVSAMIO()
         int pos;
 
         // set function code
-        strcpy(params->VSAMFUNC, "DELETE");
+        strcpy(params->VSAMFUNC, "DELETEK");
 
         pos = findcmd("KEY");
         if (pos != -1) {
             strcpy(params->VSAMKEY, hcmdargvp[++pos]);
             params->VSAMKEYL = strlen(params->VSAMKEY);
+        } else if (findcmd("NEXT") != -1) {
+            // set function code
+            strcpy(params->VSAMFUNC, "DELETEN");
         } else {
             FREE(params);
             Lerror(ERR_INCORRECT_CALL,0);
