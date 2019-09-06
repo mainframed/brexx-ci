@@ -210,7 +210,6 @@ enum mnemonic_type {
 	,OP_MOD
 	,OP_POW
 
-	,OP_UPD_CLIST_VAR
 };
 
 /* ------- function prototypes ----- */

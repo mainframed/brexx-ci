@@ -1021,12 +1021,6 @@ outofcmd:
 			RxStckTop -= *(Rxcip++);
 			goto main_loop;
 
-                /* UPD_CLIST_VAR */
-	    case OP_UPD_CLIST_VAR:
-	        DEBUGDISPLAY("UPD_CLIST_VAR");
-	        *Rxcip++;
-	        goto main_loop;
-
 				/* DUP b[rel]			*/
 				/* duplicate RELative stck item	*/
 		case OP_DUP:
