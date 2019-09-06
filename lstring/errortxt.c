@@ -350,7 +350,8 @@ ErrorMsg	errortext[] = {
 	{ ERRNUM(58,0),	"File not found" },
 	{ ERRNUM(59,0),	"File not opened" },
 	{ ERRNUM(60,0),	"Memory allocation failed." },
-	{ ERRNUM(61,0),	"Memory reallocation failed." }
+	{ ERRNUM(61,0),	"Memory reallocation failed." },
+	{ ERRNUM(62,0),	"Illegal DD name <value> " }
 
 };
 

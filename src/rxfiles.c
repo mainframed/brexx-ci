@@ -55,6 +55,8 @@
 
 #include "rexx.h"
 #include "rxdefs.h"
+#include "util.h"
+#include "rxmvsext.h"
 
 #define	FSTDIN	0
 #define	FSTDOUT	1
@@ -81,6 +83,8 @@ extern char* _style;
 #else
 char* _style;
 #endif
+
+extern RX_ENVIRONMENT_CTX_PTR environment;
 
 /* ------------------------* RxInitFiles *------------------------ */
 void __CDECL
@@ -219,36 +223,162 @@ find_empty( void )
 
 /* -------------------------* open_file *------------------------- */
 static int
-open_file( const PLstr fn, const char *mode, char *style)
+open_file( const PLstr fn, const char *mode)
 {
 	int	i;
 	Lstr	str;
+    QuotationType quotationType;
 
 	char* _style_old = _style;
 
 	i = find_empty();
 
-	_style = style;
+    quotationType = CheckQuotation((char *)fn->pstr);
+    switch (quotationType) {
+        case UNQUOTED:
 
-	LINITSTR(str); Lfx(&str,LLEN(*fn));
-	Lstrcpy(&str,fn);
+            if (environment->SYSPREF[0] != '\0') {
 
-	LASCIIZ(str);
+                LINITSTR(str)
+                Lcat(&str, environment->SYSPREF);
+                Lcat(&str, ".");
+                Lcat(&str, (char *)fn->pstr);
+                LASCIIZ(str)
 
-	if ((file[i].f=FOPEN((char*)LSTR(str),mode))==NULL) {
-		LFREESTR(str);
-		return -1;
-	}
+                _style = "//DSN:";
+                if ((file[i].f=FOPEN((char*)LSTR(str),mode))==NULL) {
+
+                    LFREESTR(str)
+                    LINITSTR(str)
+                    Lfx(&str,LLEN(*fn));
+                    Lcat(&str, (char *)fn->pstr);
+                    LASCIIZ(str)
+
+                    if ((strchr((const char *)LSTR(str), '.') == 0) &&
+                        (strchr((const char *)LSTR(str), '(') == 0) &&
+                        (strchr((const char *)LSTR(str), ')') == 0)) {
+
+                        _style = "//DDN:";
+                        if ((file[i].f=FOPEN((char*)LSTR(str),mode))==NULL) {
+                            LFREESTR(str);
+                            return -1;
+                        }
+                    } else {
+                        LFREESTR(str)
+                        Lerror(ERR_ILLEGAL_DDN, 0, fn);
+                    }
+
+                }
+            } else {
+
+                LINITSTR(str)
+                Lfx(&str,LLEN(*fn));
+                Lcat(&str, (char *)fn->pstr);
+                LASCIIZ(str)
+
+                if ((strchr((const char *)LSTR(str), '.') == 0) &&
+                    (strchr((const char *)LSTR(str), '(') == 0) &&
+                    (strchr((const char *)LSTR(str), ')') == 0)) {
+
+                    _style = "//DDN:";
+                    if ((file[i].f=FOPEN((char*)LSTR(str),mode))==NULL) {
+                        LFREESTR(str);
+                        return -1;
+                    }
+
+                } else {
+                    LFREESTR(str)
+                    Lerror(ERR_ILLEGAL_DDN, 0, fn);
+                }
+            }
+            break;
+        case FULL_QUOTED:
+
+            LINITSTR(str)
+            Lfx(&str,LLEN(*fn)-2);
+            memcpy(str.pstr, (fn->pstr) + 1, fn->len - 2);
+            str.len = fn->len - 2;
+
+            LASCIIZ(str)
+
+            _style = "//DSN:";
+            if ((file[i].f=FOPEN((char*)LSTR(str),mode))==NULL) {
+                LFREESTR(str);
+                return -1;
+            }
+
+            break;
+        default:
+            Lerror(ERR_DATA_NOT_SPEC, 0);
+    }
+
 	LPMALLOC(file[i].name);
 
-	Lstrcpy(file[i].name,&str);
+	//Lstrcpy(file[i].name, &str);
+	Lstrcpy(file[i].name, fn);
 	file[i].line = 1;
+
 	LFREESTR(str);
 
 	_style = _style_old;
 
 	return i;
 } /* open_file */
+
+open_vio_file( const PLstr fn, const char *mode)
+{
+    int	i;
+    Lstr	str;
+    QuotationType quotationType;
+
+    char* _style_old = _style;
+
+    i = find_empty();
+
+    quotationType = CheckQuotation((char *)fn->pstr);
+    switch (quotationType) {
+        case UNQUOTED:
+
+            LINITSTR(str)
+            Lfx(&str,LLEN(*fn));
+            Lcat(&str, (char *)fn->pstr);
+            LASCIIZ(str)
+
+            if ((strchr((const char *)LSTR(str), '.') == 0) &&
+                (strchr((const char *)LSTR(str), '(') == 0) &&
+                (strchr((const char *)LSTR(str), ')') == 0)) {
+
+                _style = "//MEM:";
+                if ((file[i].f=FOPEN((char*)LSTR(str),mode))==NULL) {
+                    LFREESTR(str);
+                    return -1;
+                }
+
+            } else {
+                LFREESTR(str)
+                Lerror(ERR_ILLEGAL_DDN, 0, fn);
+            }
+            break;
+        case FULL_QUOTED:
+
+            printf("FOO> FQ NAMES NOT ALLOWED FOR VIO\n");
+
+            break;
+        default:
+            Lerror(ERR_DATA_NOT_SPEC, 0);
+    }
+
+    LPMALLOC(file[i].name);
+
+    Lstrcpy(file[i].name, fn);
+    file[i].line = 1;
+
+    LFREESTR(str);
+
+    _style = _style_old;
+
+    return i;
+} /* open_vio_file */
 
 /* -------------------------* close_file *------------------------ */
 static int
@@ -277,18 +407,15 @@ R_open( )
 		L2STR(ARG3);
 		Lupper(ARG3); LASCIIZ(*ARG3);
 
-		if (strcmp((char *)LSTR(*ARG3),"DSN") == 0) {
-			Licpy(ARGR, open_file(ARG1,(char *)LSTR(*ARG2), "//DSN:"));
-		} else if (strcmp((char *)LSTR(*ARG3),"VIO") == 0) {
-			Licpy(ARGR, open_file(ARG1,(char *)LSTR(*ARG2), "//MEM:"));
-		} else if (strcmp((char *)LSTR(*ARG3),"DDN") == 0) {
-			Licpy(ARGR, open_file(ARG1,(char *)LSTR(*ARG2), "//DDN:"));
+		if (strcmp((char *)LSTR(*ARG3),"VIO") == 0) {
+			Licpy(ARGR, open_vio_file(ARG1,(char *)LSTR(*ARG2)));
 		} else {
-			Lerror(ERR_INCORRECT_CALL, 0);
+            Licpy(ARGR, open_file(ARG1,(char *)LSTR(*ARG2)));
+			//Lerror(ERR_INCORRECT_CALL, 0);
 		}
 
 	} else {
-		Licpy(ARGR, open_file(ARG1,(char *)LSTR(*ARG2), "//DDN:"));
+		Licpy(ARGR, open_file(ARG1,(char *)LSTR(*ARG2)));
 	}
 } /* R_open */
 
@@ -355,7 +482,6 @@ R_stream( )
 
 	must_exist(1);
 	i = find_file(ARG1);
-
 	if (exist(2)) {
 		L2STR(ARG2);
 		option = l2u[(byte)LSTR(*ARG2)[0]];
@@ -376,52 +502,52 @@ R_stream( )
 
 			if (!Lcmp(&cmd,"READ")) {
 				if (i>=0) close_file(i);
-				i = open_file(ARG1,"r", "//DDN:");
+				i = open_file(ARG1,"r");
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
 			if (!Lcmp(&cmd,"READBINARY")) {
 				if (i>=0) close_file(i);
-				i = open_file(ARG1,"rb", "//DDN:");
+				i = open_file(ARG1,"rb");
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
 			if (!Lcmp(&cmd,"WRITE")) {
 				if (i>=0) close_file(i);
-				i = open_file(ARG1,"w", "//DDN:");
+				i = open_file(ARG1,"w");
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
 			if (!Lcmp(&cmd,"WRITEBINARY")) {
 				if (i>=0) close_file(i);
-				i = open_file(ARG1,"wb", "//DDN:");
+				i = open_file(ARG1,"wb");
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
 			if (!Lcmp(&cmd,"APPEND")) {
 				if (i>=0) close_file(i);
-				i = open_file(ARG1,"a+", "//DDN:");
+				i = open_file(ARG1,"a+");
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
 			if (!Lcmp(&cmd,"APPENDBINARY")) {
 				if (i>=0) close_file(i);
-				i = open_file(ARG1,"ab+", "//DDN:");
+				i = open_file(ARG1,"ab+");
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
 			if (!Lcmp(&cmd,"UPDATE")) {
 				if (i>=0) close_file(i);
-				i = open_file(ARG1,"r+", "//DDN:");
+				i = open_file(ARG1,"r+");
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
 			if (!Lcmp(&cmd,"UPDATEBINARY")) {
 				if (i>=0) close_file(i);
-				i = open_file(ARG1,"rb+", "//DDN:");
+				i = open_file(ARG1,"rb+");
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
 			if (!Lcmp(&cmd,"CREATE")) {
 				if (i>=0) close_file(i);
-				i = open_file(ARG1,"w+", "//DDN:");
+				i = open_file(ARG1,"w+");
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
 			if (!Lcmp(&cmd,"CREATEBINARY")) {
 				if (i>=0) close_file(i);
-				i = open_file(ARG1,"wb+", "//DDN:");
+				i = open_file(ARG1,"wb+");
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
 			if (!Lcmp(&cmd,"CLOSE")) {
@@ -453,6 +579,7 @@ R_stream( )
 		default:
 			Lerror(ERR_INCORRECT_CALL, 0);
 	}
+
 } /* R_stream */
 
 /* --------------------------------------------------------------- */
@@ -470,7 +597,7 @@ R_charslines( const int func )
 	i = FSTDIN;
 	if (exist(1))
 		if (LLEN(*ARG1)) i = find_file(ARG1);
-	if (i==-1) i = open_file(ARG1,"r+", "//DDN:");
+	if (i==-1) i = open_file(ARG1,"r+");
 	if (i==-1)
 		Lerror(ERR_CANT_OPEN_FILE,0);
 
@@ -497,7 +624,7 @@ R_charlinein( const int func )
 	i = FSTDIN;
 	if (exist(1))
 		if (LLEN(*ARG1)) i = find_file(ARG1);
-	if (i==-1) i = open_file(ARG1,"r+", "//DDN:");
+	if (i==-1) i = open_file(ARG1,"r+");
 	if (i==-1)
 		Lerror(ERR_CANT_OPEN_FILE,0);
 	get_oiv(2,start,LSTARTPOS);
@@ -531,8 +658,8 @@ R_charlineout( const int func )
 	if (exist(1))
 		if (LLEN(*ARG1)) i = find_file(ARG1);
 	if (i==-1) {
-		i = open_file(ARG1,"r+", "//DDN:");
-		if (i==-1) i = open_file(ARG1,"w+", "//DDN:");
+		i = open_file(ARG1,"r+");
+		if (i==-1) i = open_file(ARG1,"w+");
 	}
 	if (i==-1)
 		Lerror(ERR_CANT_OPEN_FILE,0);
@@ -567,7 +694,7 @@ R_write( )
 	i = FSTDOUT;
 	if (exist(1))
 		if (LLEN(*ARG1)) i = find_file(ARG1);
-	if (i==-1) i = open_file(ARG1,"w", "//DDN:");
+	if (i==-1) i = open_file(ARG1,"w");
 	if (i==-1)
 		Lerror(ERR_CANT_OPEN_FILE,0);
 	if (exist(2)) {
@@ -599,7 +726,7 @@ R_read( )
 	i = FSTDIN;
 	if (exist(1))
 		if (LLEN(*ARG1)) i = find_file(ARG1);
-	if (i==-1) i = open_file(ARG1,"r", "//DDN:");
+	if (i==-1) i = open_file(ARG1,"r");
 	if (i==-1)
 		Lerror(ERR_CANT_OPEN_FILE,0);
 

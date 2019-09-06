@@ -91,6 +91,8 @@
 #define ERR_MALLOC_FAILED   60
 #define ERR_REALLOC_FAILED  61
 
+#define ERR_ILLEGAL_DDN     62
+
 /*#define ERR_PARADOX_ERROR	23*/
 /*#define ERR_FULL_CTRL_STACK	11*/
 /*#define ERR_TOO_LONG_LINE	12*/
