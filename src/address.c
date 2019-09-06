@@ -130,7 +130,7 @@ RxRedirectCmd(PLstr cmd, int in, int out, PLstr outputstr, PLstr env)
 	/* --- Execute the command --- */
 	LASCIIZ(*cmd);
 
-	if (strcmp(LSTR(*env) , "TSO") == 0) {
+	if (env != NULL && strcmp(LSTR(*env) , "TSO") == 0) {
 #ifdef __MVS__
 		rxReturnCode = systemTSO(LSTR(*cmd));
 #endif
