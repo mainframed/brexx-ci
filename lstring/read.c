@@ -1,3 +1,9 @@
+#ifdef JCC
+#include <mvsutils.h>
+#include <io.h>
+#endif
+
+#include <stdio.h>
 #include "lstring.h"
 
 /* ---------------- Lread ------------------- */
@@ -22,19 +28,35 @@ Lread( FILEP f, const PLstr line, long size )
 	if (size==0) {			/* Read a single line */
 		Lfx(line,LREADINCSIZE);
 		l = 0;
-		while ((ci=FGETC(f))!='\n') {
-			if (ci==EOF) break;
-			c = LSTR(*line) + l;
-			*c = ci;
-			if (++l >= LMAXLEN(*line))
-				Lfx(line, (size_t)l+LREADINCSIZE);
+
+#ifdef JCC
+		if(isatty(fileno(f))) {  // use tget to read from terminal
+		    char * input;
+		    input = _getline();
+		    if (input) {
+		        c = LSTR(*line);
+                strcpy(c, input);
+                l = strlen(c);
+                free(input);
+		    }
+        } else { // read old way
+#endif
+            while ((ci=FGETC(f))!='\n') {
+                if (ci==EOF) break;
+                c = LSTR(*line) + l;
+                *c = ci;
+                if (++l >= LMAXLEN(*line))
+                    Lfx(line, (size_t)l+LREADINCSIZE);
+            }
+#ifdef JCC
 		}
+#endif
 	} else {			/* Read entire file */
 #ifndef WCE
 #	if defined(__CMS__) || defined(__MVS__)
 		size = 0; /* Always do it the slow way: so no-seek (JCL inline) files work. */
 #	else
-		l = FTELL(f);
+        l = FTELL(f);
 		if (l>=0) {
 			FSEEK(f,0L,SEEK_END);
 			size = FTELL(f) - l + 1;
