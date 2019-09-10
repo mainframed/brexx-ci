@@ -583,50 +583,14 @@ I_CallFunction( void )
 			LINITSTR(cmd);
 			Lstrcpy(&cmd,&leaf->key);
 			func->type = FT_SYSTEM;
-			if (!RxLoadLibrary(&cmd,FALSE))
-				goto ICF_LOADED;
-			/* Try in lowercase */
-			Llower(&cmd);
-			if (!RxLoadLibrary(&cmd,FALSE))
-				goto ICF_LOADED;
-			if (rxFileList->filetype) {
-				Lcat(&cmd,rxFileList->filetype);
-				if (!RxLoadLibrary(&cmd,FALSE))
-					goto ICF_LOADED;
-				Lupper(&cmd);
-				if (!RxLoadLibrary(&cmd,FALSE))
-					goto ICF_LOADED;
-			}
-		ICF_LOADED:
-			LFREESTR(cmd);
+
+            RxLoadLibrary(&cmd,FALSE);
+            LFREESTR(cmd)
 		}
+
 		if (func->type == FT_SYSTEM) {
-#ifndef WIN
-			/* try an external function */
-/***
-/// First check to see if this prg exist with
-/// the extension of the calling program
-/// but this should be done in compiling time..
-***/
-			st = RxStckTop-realarg;
-			res = RxStck[st++];
-			LINITSTR(cmd);
-			Lstrcpy(&cmd,&(leaf->key));
-			while (st<=RxStckTop) {
-				Lcat(&cmd," \"");
-				Lstrcat(&cmd,RxStck[st++]);
-				Lcat(&cmd,"\"");
-			}
-			RxRedirectCmd(&cmd,FALSE,TRUE,res, NULL);
-			LFREESTR(cmd);
-			RxStckTop -= realarg;
-#else
-			Lerror(ERR_INVALID_FUNCTION,0);
-#endif
-			if (ct==CT_PROCEDURE) {
-				RxVarSet(VarScope,resultStr,res);
-				RxStckTop--;
-			}
+            RxStckTop=-1;
+            Lerror(ERR_INVALID_FUNCTION,0);
 			return TRUE;
 		} else {
 			Rxcip++;
