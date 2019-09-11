@@ -4,6 +4,7 @@
 typedef enum quotation { UNQUOTED, PARTIALLY_QUOTED, FULL_QUOTED } QuotationType;
 
 QuotationType CheckQuotation(char *sDSName);
+int IsNumber(char * input);
 void DumpHex(const unsigned char* data, size_t size);
 
 #endif //BREXX_UTIL_H

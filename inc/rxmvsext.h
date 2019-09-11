@@ -157,10 +157,22 @@ typedef struct trx_abend_params
     int         ucc;
 } RX_ABEND_PARAMS, *RX_ABEND_PARAMS_PTR;
 
+/* ---------------------------------------------------------- */
+/* parameters for BLDL macro                                  */
+/* ---------------------------------------------------------- */
+typedef struct trx_bldl_params
+{
+    unsigned short BLDLF;
+    unsigned short BLDLL;
+    char           BLDLN[8];
+    unsigned char  BLDLD[68];
+} RX_BLDL_PARAMS, *RX_BLDL_PARAMS_PTR;
+
 void getVariable(char *sName, PLstr plsValue);
 int  getIntegerVariable(char *sName);
 void setVariable(char *sName, char *sValue);
 void setIntegerVariable(char *sName, int iValue);
+int findLoadModule(char moduleName[8]);
 
 #ifdef __CROSS__
 int  call_rxinit(RX_INIT_PARAMS_PTR params);

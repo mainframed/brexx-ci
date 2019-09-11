@@ -8,6 +8,7 @@
 #include "compile.h"
 #include "interpre.h"
 #include "hostcmd.h"
+#include "rxmvsext.h"
 
 #ifndef WIN
 #if defined(MSDOS) || defined(__WIN32__)
@@ -33,7 +34,7 @@
 #	include <sys/stat.h>
 #endif
 #include <string.h>
-
+#include "util.h"
 #ifndef S_IREAD
 #	define S_IREAD 0
 #	define S_IWRITE 1
@@ -96,6 +97,16 @@ RxRedirectCmd(PLstr cmd, int in, int out, PLstr outputstr, PLstr env)
 	FILE	*f;
 	PLstr	str;
 
+    LASCIIZ(*cmd);
+
+	if (IsNumber((char *)LSTR(*cmd))) {
+        return 0x123456;
+	}
+
+    if (!findLoadModule((char *)LSTR(*cmd))) {
+        return 0x806000;
+    }
+
 	/* --- redirect input --- */
 	if (in) {
 		// mkfntemp(fnin,sizeof(fnin));  // make filename
@@ -128,8 +139,6 @@ RxRedirectCmd(PLstr cmd, int in, int out, PLstr outputstr, PLstr env)
 	}
 
 	/* --- Execute the command --- */
-	LASCIIZ(*cmd);
-
 	if (env != NULL && strcmp(LSTR(*env) , "TSO") == 0) {
 #ifdef __MVS__
 		rxReturnCode = systemTSO(LSTR(*cmd));
@@ -209,12 +218,16 @@ RxExecuteCmd( PLstr cmd, PLstr env )
         chkcmd4stack(&cmdN,&in,&out);
         rxReturnCode = RxRedirectCmd(&cmdN,in,out,FALSE, env);
 
-        /* free string */
-        LFREESTR(cmdN)
-
-        if (rxReturnCode == 0x806000) {
+        if (rxReturnCode == 0x123456) {
+            fprintf(STDERR, "Error: Invalid command name syntax\n");
+            rxReturnCode = -3;
+        } else if (rxReturnCode == 0x806000) {
+            fprintf(STDERR, "Error: Command %s not found\n", LSTR(cmdN));
             rxReturnCode = -3;
         }
+
+        /* free string */
+        LFREESTR(cmdN)
 
         RxSetSpecialVar(RCVAR,rxReturnCode);
         if (rxReturnCode && !(_proc[_rx_proc].trace & off_trace)) {

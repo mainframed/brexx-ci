@@ -7,6 +7,21 @@
 
 const unsigned char *getA2ETable();
 
+int IsNumber(char * input) {
+    int iRet = 0;
+    int iPos = 0;
+    int iLength = (int) strlen(input);
+
+    for (iPos=0; iPos < iLength; iPos++) {
+        if (isdigit(input[iPos])) {
+            iRet = 1;
+            break;
+        }
+    }
+
+    return iRet;
+}
+
 QuotationType CheckQuotation(char *sDSName)
 {
     bool bQuotationMarkAtBeginning  = FALSE;

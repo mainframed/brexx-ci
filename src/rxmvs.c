@@ -498,7 +498,7 @@ int RxMvsInitialize()
 
     free(init_parameter);
 
-#ifdef __DEBUG__
+#ifdef __DEBUG2__
     printf("DBG> RXENVCTX:\n");
     DumpHex((unsigned char*)environment, sizeof(RX_ENVIRONMENT_CTX));
     printf("\n");
@@ -731,7 +731,7 @@ getStemVariable(char *sName)
     LFREESTR(lsName)
     LFREESTR(lsValue)
 
-    return sValue;
+    return (char *)sValue[0];
 }
 
 int
@@ -785,6 +785,43 @@ setIntegerVariable(char *sName, int iValue)
     sprintf(sValue,"%d",iValue);
     setVariable(sName,sValue);
 }
+
+//----------------------------------------
+// BLDL/FIND
+//----------------------------------------
+int findLoadModule(char *moduleName)
+{
+    int iRet = 0;
+    char sTemp[8];
+    char *sToken;
+
+    RX_BLDL_PARAMS bldlParams;
+    RX_SVC_PARAMS svcParams;
+
+    memset(&bldlParams, 0, sizeof(RX_BLDL_PARAMS));
+    memset(&bldlParams.BLDLN, ' ', 8);
+
+    strncpy(sTemp, moduleName, 8);
+
+    sToken = strtok(sTemp, " ");
+    strncpy(bldlParams.BLDLN, sToken, strlen(sToken));
+
+    bldlParams.BLDLF = 1;
+    bldlParams.BLDLL = 50;
+
+    svcParams.SVC = 18;
+    svcParams.R0  = (unsigned)&bldlParams;
+    svcParams.R1  = 0;
+
+    call_rxsvc(&svcParams);
+
+    if (svcParams.R15 == 0) {
+        iRet = 1;
+    }
+
+    return iRet;
+}
+
 /* internal functions */
 
 /* dummy implementations for cross development */
@@ -847,6 +884,9 @@ void call_rxsvc (RX_SVC_PARAMS_PTR params)
         } else if (params->SVC == 94) {
             RX_GTTERM_PARAMS_PTR paramsPtr = params->R1;
             memcpy((void *)*paramsPtr->primadr,0x1850,2);
+        } else if (params->SVC == 18) {
+            RX_GTTERM_PARAMS_PTR paramsPtr = params->R1;
+            params->R15 = 4;
         }
     }
         printf("DBG> DUMMY RXSVC for svc %d .\n", params->SVC);
