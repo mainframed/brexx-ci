@@ -99,7 +99,7 @@ RxRedirectCmd(PLstr cmd, int in, int out, PLstr outputstr, PLstr env)
 
     LASCIIZ(*cmd);
 
-	if (IsNumber((char *)LSTR(*cmd))) {
+	if (IsReturnCode((char *) LSTR(*cmd))) {
         return 0x123456;
 	}
 

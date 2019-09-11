@@ -7,16 +7,13 @@
 
 const unsigned char *getA2ETable();
 
-int IsNumber(char * input) {
+int IsReturnCode(char * input) {
     int iRet = 0;
-    int iPos = 0;
-    int iLength = (int) strlen(input);
 
-    for (iPos=0; iPos < iLength; iPos++) {
-        if (isdigit(input[iPos])) {
-            iRet = 1;
-            break;
-        }
+    if (isdigit(input[0])) {
+        iRet = 1;
+    } else if (input[0] == '-' && isdigit(input[1])) {
+        iRet = 1;
     }
 
     return iRet;
