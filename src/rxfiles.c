@@ -401,6 +401,7 @@ R_open( )
 	if ((ARGN < 2) || (ARGN > 3)) Lerror(ERR_INCORRECT_CALL, 0 );
 	must_exist(1); L2STR(ARG1);
 	must_exist(2); L2STR(ARG2);
+	Llower(ARG1); LASCIIZ(*ARG1);
 	Llower(ARG2); LASCIIZ(*ARG2);
 
 	if (exist(3)) {
