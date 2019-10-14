@@ -306,45 +306,6 @@ void R_sysdsn(int func)
     _style = _style_old;
 }
 
-void R_qualify(int func)
-{
-    char sFileName[45];
-
-    QuotationType quotationType;
-
-    char* _style_old = _style;
-
-    memset(sFileName,0,45);
-
-    if (ARGN != 1)
-        Lerror(ERR_INCORRECT_CALL,0);
-
-    LASCIIZ(*ARG1);
-    get_s(1);
-    Lupper(ARG1);
-
-    _style = "//DSN:";
-    quotationType = CheckQuotation((char *)ARG1->pstr);
-    switch (quotationType) {
-        case UNQUOTED:
-            if (environment->SYSPREF[0] != '\0') {
-                strcat(sFileName, environment->SYSPREF);
-                strcat(sFileName, ".");
-                strcat(sFileName, (const char *) LSTR(*ARG1));
-            }
-            break;
-        case FULL_QUOTED:
-            strncpy(sFileName, (const char *) (LSTR(*ARG1)) + 1, ARG1->len - 2);
-            break;
-        default:
-            Lerror(ERR_DATA_NOT_SPEC, 0);
-    }
-
-    Lscpy(ARGR,sFileName);
-
-    _style = _style_old;
-}
-
 void R_sysvar(int func)
 {
     extern unsigned long long ullInstrCount;
@@ -570,7 +531,6 @@ void RxMvsRegFunctions()
     RxRegFunction("USERID",  R_userid, 0);
     RxRegFunction("LISTDSI", R_listdsi, 0);
     RxRegFunction("SYSDSN",  R_sysdsn, 0);
-    RxRegFunction("QUALIFY", R_qualify, 0);
     RxRegFunction("SYSVAR",  R_sysvar, 0);
 
 #ifdef __DEBUG__
