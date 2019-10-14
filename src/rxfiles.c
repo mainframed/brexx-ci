@@ -501,52 +501,52 @@ R_stream( )
 			Lstrip(&cmd,ARG3,LBOTH,' ');
 			Lupper(&cmd);
 
-			if (!Lcmp(&cmd,"READ")) {
+			if (Lcmp(&cmd,"READ") == 0 || Lcmp(&cmd, "OPEN") == 0 || Lcmp(&cmd, "OPEN READ") == 0) {
 				if (i>=0) close_file(i);
 				i = open_file(ARG1,"r");
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
-			if (!Lcmp(&cmd,"READBINARY")) {
+            if (Lcmp(&cmd,"READBINARY") == 0 || Lcmp(&cmd, "OPEN BINARY") == 0 || Lcmp(&cmd, "OPEN READ BINARY") == 0) {
 				if (i>=0) close_file(i);
 				i = open_file(ARG1,"rb");
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
-			if (!Lcmp(&cmd,"WRITE")) {
+            if (Lcmp(&cmd,"WRITE") == 0 || Lcmp(&cmd, "OPEN WRITE") == 0) {
 				if (i>=0) close_file(i);
 				i = open_file(ARG1,"w");
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
-			if (!Lcmp(&cmd,"WRITEBINARY")) {
+            if (Lcmp(&cmd,"WRITEBINARY") == 0 || Lcmp(&cmd, "OPEN WRITE BINARY") == 0) {
 				if (i>=0) close_file(i);
 				i = open_file(ARG1,"wb");
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
-			if (!Lcmp(&cmd,"APPEND")) {
+            if (Lcmp(&cmd,"APPEND") == 0 || Lcmp(&cmd, "OPEN WRITE APPEND") == 0 ) {
 				if (i>=0) close_file(i);
 				i = open_file(ARG1,"a+");
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
-			if (!Lcmp(&cmd,"APPENDBINARY")) {
+            if (Lcmp(&cmd,"APPENDBINARY") == 0 || Lcmp(&cmd, "OPEN WRITE APPEND BINARY") == 0 ) {
 				if (i>=0) close_file(i);
 				i = open_file(ARG1,"ab+");
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
-			if (!Lcmp(&cmd,"UPDATE")) {
+            if (Lcmp(&cmd,"UPDATE") == 0 || Lcmp(&cmd, "OPEN BOTH") == 0 ) {
 				if (i>=0) close_file(i);
 				i = open_file(ARG1,"r+");
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
-			if (!Lcmp(&cmd,"UPDATEBINARY")) {
+            if (Lcmp(&cmd,"UPDATEBINARY") == 0 || Lcmp(&cmd, "OPEN BOTH BINARY") == 0 ) {
 				if (i>=0) close_file(i);
 				i = open_file(ARG1,"rb+");
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
-			if (!Lcmp(&cmd,"CREATE")) {
+            if (Lcmp(&cmd,"CREATE") == 0 || Lcmp(&cmd, "OPEN WRITE REPLACE") == 0 ) {
 				if (i>=0) close_file(i);
 				i = open_file(ARG1,"w+");
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
 			} else
-			if (!Lcmp(&cmd,"CREATEBINARY")) {
+            if (Lcmp(&cmd,"CREATEBINARY") == 0 || Lcmp(&cmd, "OPEN WRITE REPLACE BINARY") == 0 ) {
 				if (i>=0) close_file(i);
 				i = open_file(ARG1,"wb+");
 				if (i==-1) Lerror(ERR_CANT_OPEN_FILE,0);
