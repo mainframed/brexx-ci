@@ -160,7 +160,7 @@ rexx_routine[] = {
 	{ "FORM",	R_O		,f_form		},
 	{ "FORMAT",	R_format	,f_format	},
 	{ "FUZZ",	R_O		,f_fuzz		},
-#ifndef WCE
+#if !defined(__MVS__) && !defined(WCE)
 	{ "GETENV",	R_S		,f_getenv	},
 #endif
 	{ "HASHVALUE",	R_S		,f_hashvalue	},
