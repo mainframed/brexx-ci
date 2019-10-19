@@ -37,22 +37,26 @@ void __CDECL
 Ltrunc( const PLstr to, const PLstr from, long n)
 {
 	char	*buf[50];
+    int  ta ;
+    double r;
 
 	if (n<0) n = 0;
 
-	if (!n) {
-		Lstrcpy(to,from);
-		L2REAL(to);
-		LINT(*to)  = (long)LREAL(*to);
-		LTYPE(*to) = LINTEGER_TY;
-		LLEN(*to)  = sizeof(long);
-	} else {
-		L2REAL(from);
-		Lfx(to,n+15);
-		/* trunc doesn't round. therefore add one extra digit */
-		snprintf(LSTR(*to), LMAXLEN(*to), "%.*f", (int)n+1, LREAL(*from));
-		LTYPE(*to) = LSTRING_TY;
-		/* ... and remove it later */
-		LLEN(*to)  = STRLEN(LSTR(*to))-1;
-	}
+    L2REAL(from);
+    Lfx(to,n+15);
+
+/* trunc doesn't round. therefore add one extra digit */
+   snprintf(LSTR(*to), LMAXLEN(*to), "%.*f", (int)n+1, LREAL(*from));
+/* ... and remove it later */
+   if (n>0) {
+      LTYPE(*to) = LSTRING_TY;
+      LLEN(*to)  = STRLEN(LSTR(*to))-1;
+   } else {
+     LLEN(*to)  = STRLEN(LSTR(*to))-2;
+     ta=_Lisnum(to);
+     r=lLastScannedNumber;
+     LINT(*to)  = (long)r;
+     LTYPE(*to) = LINTEGER_TY;
+     LLEN(*to)  = sizeof(long);
+   }
 } /* R_trunc */
