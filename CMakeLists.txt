@@ -139,3 +139,6 @@ add_executable(brexx
         src/trace.c
         src/util.c
         src/variable.c)
+if(UNIX AND NOT APPLE)
+   target_link_libraries(brexx m)
+endif()
