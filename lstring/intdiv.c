@@ -22,13 +22,20 @@
 void __CDECL
 Lintdiv( const PLstr to, const PLstr A, const PLstr B )
 {
-	double	b;
+    double    d1,d2,r;
+    long      s;
+    int       ta;
+    d2 = Lrdreal(B);
 
-	b = Lrdreal(B);
+    if (d2 == 0) Lerror(ERR_ARITH_OVERFLOW,0);
 
-	if (b == 0) Lerror(ERR_ARITH_OVERFLOW,0);
-
-	LINT(*to)  = (long) (Lrdreal(A) / b);
+    d1 = Lrdreal(A);
+    r = d1/d2;
+    snprintf(LSTR(*to), LMAXLEN(*to), "%.*f", (int)1, r);
+    LLEN(*to)  = STRLEN(LSTR(*to))-2;
+    ta=_Lisnum(to);
+    s=lLastScannedNumber;
+    LINT(*to)  = (long)s;
 	LTYPE(*to) = LINTEGER_TY;
 	LLEN(*to)  = sizeof(long);
 } /* Lintdiv */
