@@ -12,7 +12,6 @@ include_directories(mvs)
 add_executable(brexx
         inc/bintree.h
         inc/bmem.h
-        inc/bstr.h
         inc/compile.h
         inc/config.h
         inc/dbginfo.h

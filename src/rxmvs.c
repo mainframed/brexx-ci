@@ -15,9 +15,11 @@
 
 RX_ENVIRONMENT_CTX_PTR environment = NULL;
 
+#ifdef JCC
 extern FILE * stdin;
 extern FILE * stdout;
 extern FILE * stderr;
+#endif
 
 /* FLAG2 */
 const unsigned char _TSOFG  = 0x1; // hex for 0000 0001

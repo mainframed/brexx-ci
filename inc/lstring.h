@@ -1,68 +1,3 @@
-/*
- * $Id: lstring.h,v 1.20 2011/06/29 08:32:12 bnv Exp $
- * $Log: lstring.h,v $
- * Revision 1.20  2011/06/29 08:32:12  bnv
- * Added android
- *
- * Revision 1.19  2011/06/20 08:32:49  bnv
- * Added android and global SMALL number
- *
- * Revision 1.18  2011/05/17 06:53:00  bnv
- * Added sqlite
- *
- * Revision 1.17  2009/06/02 09:41:43  bnv
- * MVS/CMS corrections
- *
- * Revision 1.16  2008/07/15 14:57:11  bnv
- * Added include to lmvs.h
- *
- * Revision 1.15  2008/07/15 07:40:07  bnv
- * MVS, CMS support
- *
- * Revision 1.14  2008/07/14 13:09:21  bnv
- * MVS,CMS support
- *
- * Revision 1.13  2006/01/26 10:29:39  bnv
- * Corrected windows CE support
- *
- * Revision 1.12  2004/08/16 15:32:27  bnv
- * PACKAGE
- *
- * Revision 1.11  2004/03/27 08:35:51  bnv
- * Changed: Max Numeric digits for numbers on unix
- *
- * Revision 1.10  2003/02/26 16:31:22  bnv
- * Added: LMKCONST
- *
- * Revision 1.9  2003/02/12 16:38:39  bnv
- * Added: Lhashvalue
- *
- * Revision 1.8  2002/06/11 12:37:56  bnv
- * Added: CDECL
- *
- * Revision 1.7  2001/06/25 18:52:04  bnv
- * Header -> Id
- *
- * Revision 1.6  2000/12/15 16:44:02  bnv
- * Changed: LMAXNUMERICDIGITS from 15 to 14. To avoid overflow
- *
- * Revision 1.5  1999/11/29 14:58:00  bnv
- * Changed: Some defines
- *
- * Revision 1.4  1999/05/14 13:06:01  bnv
- * Minor corrections
- *
- * Revision 1.3  1999/03/10 16:57:31  bnv
- * Changed: from __GREEK__ to GREEK
- *
- * Revision 1.2  1998/09/09 08:44:59  bnv
- * Removed somed "const" in function calls
- *
- * Revision 1.1  1998/07/02 17:35:50  bnv
- * Initial revision
- *
- */
-
 #ifndef __LSTRING_H__
 #define __LSTRING_H__
 
@@ -71,8 +6,8 @@
 
 #if defined(WIN)
 #	include <windows.h>
-#	include "winio.h"
-#	include	"bio.h"
+//#	include "winio.h"
+//#	include	"bio.h"
 //#	ifndef PACKAGE_STRING
 //#		define PACKAGE_NAME "brexx"
 //#		define PACKAGE_STRING PACKAGE_NAME " V2.1"
@@ -192,11 +127,8 @@ typedef Lstr	*PLstr;
 #define LICPY(s,i)	{	LINT(s)  = (i); \
                 LLEN(s)  = sizeof(long); \
                 LTYPE(s) = LINTEGER_TY; }
-#ifdef UNICODE
-#	define LWSCPY	Lwscpy
-#else
-#	define LWSCPY	Lscpy
-#endif
+
+#define LWSCPY	Lscpy
 
 /* --- word --- */
 #define LSKIPBLANKS(S,P) {while (((P)<LLEN(S)) && ISSPACE(LSTR(S)[P])) (P)++;}
