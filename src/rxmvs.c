@@ -740,6 +740,30 @@ setVariable(char *sName, char *sValue)
 }
 
 void
+setVariable2(char *sName, char *sValue, int lValue)
+{
+    Lstr lsScope,lsName,lsValue;
+
+    LINITSTR(lsScope)
+    LINITSTR(lsName)
+    LINITSTR(lsValue)
+
+    Lfx(&lsScope,sizeof(dword));
+    Lfx(&lsName, strlen(sName));
+    Lfx(&lsValue, lValue);
+
+    Licpy(&lsScope,_rx_proc);
+    Lscpy(&lsName, sName);
+    Lscpy(&lsValue, sValue);
+
+    RxPoolSet(&lsScope, &lsName, &lsValue);
+
+    LFREESTR(lsScope)
+    LFREESTR(lsName)
+    LFREESTR(lsValue)
+}
+
+void
 setIntegerVariable(char *sName, int iValue)
 {
     char sValue[19];

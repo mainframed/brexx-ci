@@ -255,10 +255,12 @@ RxVSAMIO()
 
             record = MALLOC(params->VSAMRECL + 1, "VSAM RECORD");
             memset(record, 0,  params->VSAMRECL + 1);
-            strncpy(record,(char *)params->VSAMREC, params->VSAMRECL);
+            memcpy(record,(char *)params->VSAMREC, params->VSAMRECL);
+            printf("FOO> params->VSAMRECL=%d",params->VSAMRECL);
+            //strncpy(record,(char *)params->VSAMREC, params->VSAMRECL);
 
             if (useVar){
-                setVariable(vname, record);
+                setVariable2(vname, record, params->VSAMRECL);
             } else {
                 rxqueue(record);
             }

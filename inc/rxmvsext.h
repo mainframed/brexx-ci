@@ -171,6 +171,7 @@ typedef struct trx_bldl_params
 void getVariable(char *sName, PLstr plsValue);
 int  getIntegerVariable(char *sName);
 void setVariable(char *sName, char *sValue);
+void setVariable2(char *sName, char *sValue, int lValue);
 void setIntegerVariable(char *sName, int iValue);
 int findLoadModule(char moduleName[8]);
 
