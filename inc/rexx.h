@@ -29,7 +29,7 @@
 
 /* ------------ some defines ------------------ */
 #define PACKAGE         "BREXX/370"
-#define VERSION         "V2R1M0"
+#define VERSION         "V2R1M1"
 #define	VERSIONSTR	PACKAGE" "VERSION" ("__DATE__")"
 #define	AUTHOR		"Vasilis.Vlachoudis@cern.ch"
 #define MAINTAINER  "PeterJ, mgrossmann"
