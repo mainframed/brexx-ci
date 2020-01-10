@@ -197,6 +197,26 @@ Lscpy( const PLstr to, const char *from )
     LTYPE(*to) = LSTRING_TY;
 } /* Lscpy */
 
+void __CDECL
+Lscpy2( const PLstr to, const char *from, int lFrom )
+{
+    size_t	len;
+
+    UPDATE_DBG_INFO(("Lscpy2",2,from,to));
+
+    if (!from)
+        Lfx(to,len=0);
+    else {
+        Lfx(to,len = lFrom);
+        MEMCPY( LSTR(*to), from, len );
+    }
+    LLEN(*to) = len;
+    LTYPE(*to) = LSTRING_TY;
+} /* Lscpy */
+
+
+
+
 #if !defined(__CMS__) && !defined(__MVS__)
 /* ---------------- Lwscpy ------------------ */
 void __CDECL

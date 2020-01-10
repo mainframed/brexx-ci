@@ -754,7 +754,7 @@ setVariable2(char *sName, char *sValue, int lValue)
 
     Licpy(&lsScope,_rx_proc);
     Lscpy(&lsName, sName);
-    Lscpy(&lsValue, sValue);
+    Lscpy2(&lsValue, sValue, lValue);
 
     RxPoolSet(&lsScope, &lsName, &lsValue);
 
