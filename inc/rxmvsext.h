@@ -64,6 +64,19 @@ typedef struct trx_init_params
 } RX_INIT_PARAMS, *RX_INIT_PARAMS_PTR;
 
 /* ---------------------------------------------------------- */
+/* assembler module RXIKJ441                                  */
+/* ---------------------------------------------------------- */
+typedef struct trx_ikjct441_params
+{
+    unsigned    ecode;
+    size_t      namelen;
+    char       *nameadr;
+    size_t      valuelen;
+    char       *valueadr;
+    unsigned   *wkadr;
+} RX_IKJCT441_PARAMS, *RX_IKJCT441_PARAMS_PTR;
+
+/* ---------------------------------------------------------- */
 /* assembler module RXTSO                                  */
 /* ---------------------------------------------------------- */
 typedef struct trx_tso_params
@@ -180,6 +193,7 @@ int  call_rxinit(RX_INIT_PARAMS_PTR params);
 int  call_rxtso(RX_TSO_PARAMS_PTR params);
 void call_rxsvc(RX_SVC_PARAMS_PTR params);
 int  call_rxvsam(RX_VSAM_PARAMS_PTR params);
+unsigned int call_rxikj441 (RX_IKJCT441_PARAMS_PTR params);
 int  call_rxptime (RX_PTIME_PARAMS_PTR params);
 int  call_rxstime (RX_STIME_PARAMS_PTR params);
 int  call_rxwto (RX_WTO_PARAMS_PTR params);

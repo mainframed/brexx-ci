@@ -42,14 +42,23 @@ long __libc_tso_status;
 #endif
 
 /* internal function prototypes */
+int GetClistVar(PLstr name, PLstr value);
+int SetClistVar(PLstr name, PLstr value);
+
 void parseArgs(char **array, char *str);
 void parseDCB(FILE *pFile);
+int checkNameLength(long lName);
+int checkValueLength(long lValue);
+int checkVariableBlacklist(PLstr name);
 int reopen(int fp);
 
 #ifdef __CROSS__
 int __get_ddndsnmemb (int handle, char * ddn, char * dsn,
                       char * member, char * serial, unsigned char * flags);
 #endif
+
+#define BLACKLIST_SIZE 8
+char *RX_VAR_BLACKLIST[BLACKLIST_SIZE] = {"RC", "LASTCC", "SIGL", "RESULT", "SYSPREF", "SYSUID", "SYSENV", "SYSISPF"};
 
 void R_wto(int func)
 {
@@ -336,6 +345,58 @@ void R_sysvar(int func)
     }
 }
 
+void R_vxget(int func)
+{
+    PLstr plsValue;
+
+    if (ARGN != 1) {
+        Lerror(ERR_INCORRECT_CALL,0);
+    }
+
+    if ((environment->flags2 & _EXEC) == _EXEC &&
+        (environment->flags2 & _ISPF) == _ISPF) {
+
+        LPMALLOC(plsValue)
+        LASCIIZ(*ARG1);
+
+        get_s(1);
+        Lupper(ARG1);
+
+        GetClistVar(ARG1, plsValue);
+        setVariable(LSTR(*ARG1), LSTR(*plsValue));
+
+        LPFREE(plsValue);
+    } else {
+        Lerror(ERR_ROUTINE_NOT_FOUND,0);
+    }
+}
+
+void R_vxput(int func)
+{
+    PLstr plsValue;
+
+    if (ARGN != 1) {
+        Lerror(ERR_INCORRECT_CALL,0);
+    }
+
+    if ((environment->flags2 & _EXEC) == _EXEC &&
+        (environment->flags2 & _ISPF) == _ISPF) {
+
+        LPMALLOC(plsValue)
+        LASCIIZ(*ARG1);
+
+        get_s(1);
+        Lupper(ARG1);
+
+        getVariable(LSTR(*ARG1), plsValue);
+        SetClistVar(ARG1, plsValue);
+
+        LPFREE(plsValue);
+    } else {
+        Lerror(ERR_ROUTINE_NOT_FOUND,0);
+    }
+}
+
 #ifdef __DEBUG__
 void R_magic(int func)
 {
@@ -402,7 +463,7 @@ int RxMvsInitialize()
 
         cppl = entry_R13[6];
 
-#ifdef __DEBUG__
+#ifdef __DEBUG2__
         printf("DBG> TSO environment found\n");
         printf("DBG> SA at %08X\n", (unsigned) entry_R13);
         printf("DBG> CPPL (R1) at %08X\n\n", (short) entry_R13[6]);
@@ -527,13 +588,15 @@ int reopen(int fp) {
 void RxMvsRegFunctions()
 {
     /* MVS specific functions */
-    RxRegFunction("WAIT",    R_wait,   0);
-    RxRegFunction("WTO",     R_wto ,   0);
-    RxRegFunction("ABEND",   R_abend , 0);
-    RxRegFunction("USERID",  R_userid, 0);
+    RxRegFunction("WAIT",    R_wait,    0);
+    RxRegFunction("WTO",     R_wto ,    0);
+    RxRegFunction("ABEND",   R_abend ,  0);
+    RxRegFunction("USERID",  R_userid,  0);
     RxRegFunction("LISTDSI", R_listdsi, 0);
-    RxRegFunction("SYSDSN",  R_sysdsn, 0);
-    RxRegFunction("SYSVAR",  R_sysvar, 0);
+    RxRegFunction("SYSDSN",  R_sysdsn,  0);
+    RxRegFunction("SYSVAR",  R_sysvar,  0);
+    RxRegFunction("VXGET",   R_vxget,   0);
+    RxRegFunction("VXPUT",   R_vxput,   0);
 
 #ifdef __DEBUG__
     RxRegFunction("MAGIC",  R_magic,  0);
@@ -772,6 +835,104 @@ setIntegerVariable(char *sName, int iValue)
     setVariable(sName,sValue);
 }
 
+int
+GetClistVar(PLstr name, PLstr value)
+{
+    int rc = 0;
+    void *wk;
+
+    RX_IKJCT441_PARAMS_PTR params;
+
+    /* do not handle special vars here */
+    if (checkVariableBlacklist(name) != 0)
+        return -1;
+
+    /* NAME LENGTH < 1 OR > 252 */
+    if (checkNameLength(name->len) != 0)
+        return -2;
+
+    params = malloc(sizeof(RX_IKJCT441_PARAMS));
+    wk     = malloc(256);
+
+    memset(wk,     0, sizeof(wk));
+    memset(params, 0, sizeof(RX_IKJCT441_PARAMS));
+
+    params->ecode    = 18;
+    params->nameadr  = (char *)name->pstr;
+    params->namelen  = name->len;
+    params->valueadr = 0;
+    params->valuelen = 0;
+    params->wkadr    = wk;
+
+    rc = call_rxikj441 (params);
+
+    if (value->maxlen < params->valuelen) {
+        Lfx(value,params->valuelen);
+    }
+    if (value->pstr != params->valueadr) {
+        strncpy((char *)value->pstr,params->valueadr,params->valuelen);
+    }
+
+    value->len    = params->valuelen;
+    value->maxlen = params->valuelen;
+    value->type   = LSTRING_TY;
+
+    free(wk);
+    free(params);
+
+    return rc;
+}
+
+int
+SetClistVar(PLstr name, PLstr value)
+{
+    int rc = 0;
+    void *wk;
+
+    RX_IKJCT441_PARAMS_PTR params;
+
+    /* convert numeric values to a string */
+    if (value->type != LSTRING_TY) {
+        L2str(value);
+    }
+
+    /* terminate all strings with a binary zero */
+    LASCIIZ(*name);
+    LASCIIZ(*value);
+
+    /* do not handle special vars here */
+    if (checkVariableBlacklist(name) != 0)
+        return -1;
+
+    /* NAME LENGTH < 1 OR > 252 */
+    if (checkNameLength(name->len) != 0)
+        return -2;
+
+    /* VALUE LENGTH < 0 OR > 32767 */
+    if (checkValueLength(value->len) != 0)
+        return -3;
+
+    params = malloc(sizeof(RX_IKJCT441_PARAMS));
+    wk     = malloc(256);
+
+    memset(wk,     0, sizeof(wk));
+    memset(params, 0, sizeof(RX_IKJCT441_PARAMS)),
+
+            params->ecode    = 2;
+    params->nameadr  = (char *)name->pstr;
+    params->namelen  = name->len;
+    params->valueadr = (char *)value->pstr;
+    params->valuelen = value->len;
+    params->wkadr    = wk;
+
+    rc = call_rxikj441(params);
+
+    free(wk);
+    free(params);
+
+    return rc;
+}
+
 //----------------------------------------
 // BLDL/FIND
 //----------------------------------------
@@ -809,6 +970,43 @@ int findLoadModule(char *moduleName)
 }
 
 /* internal functions */
+int checkNameLength(long lName)
+{
+    int rc = 0;
+    if (lName < 1)
+        rc = -1;
+    if (lName > 252)
+        rc =  1;
+
+    return rc;
+}
+
+int checkValueLength(long lValue)
+{
+    int rc = 0;
+
+    if (lValue == 0)
+        rc = -1;
+    if (lValue > 32767)
+        rc =  1;
+
+    return rc;
+}
+
+int checkVariableBlacklist(PLstr name)
+{
+    int rc = 0;
+    int i  = 0;
+
+    Lupper(name);
+
+    for (i = 0; i < BLACKLIST_SIZE; ++i) {
+        if (strcmp((char *)name->pstr,RX_VAR_BLACKLIST[i]) == 0)
+            return -1;
+    }
+
+    return rc;
+}
 
 /* dummy implementations for cross development */
 #ifdef __CROSS__
@@ -840,6 +1038,13 @@ int call_rxinit(RX_INIT_PARAMS_PTR params)
         rc = -43;
     }
     return rc;
+}
+
+unsigned int call_rxikj441 (RX_IKJCT441_PARAMS_PTR params)
+{
+    printf("DBG> DUMMY RXIKJ441 ...\n");
+
+    return 0;
 }
 
 int call_rxtso(RX_TSO_PARAMS_PTR params)
