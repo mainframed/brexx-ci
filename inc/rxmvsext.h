@@ -2,6 +2,7 @@
 #define __RXMVSEXT_H
 
 #include "lstring.h"
+#include "irx.h"
 
 /* TODO: should be moved to rxmvs.h */
 int  isTSO();
@@ -9,6 +10,11 @@ int  isTSOFG();
 int  isTSOBG();
 int  isEXEC();
 int  isIPSF();
+
+/* ---------------------------------------------------------- */
+/* environment block RXENVBLK                                 */
+/* ---------------------------------------------------------- */
+typedef  struct envblock RX_ENVIRONMENT_BLK, *RX_ENVIRONMENT_BLK_PTR;
 
 /* ---------------------------------------------------------- */
 /* environment context RXENVCTX                               */
@@ -181,6 +187,8 @@ typedef struct trx_bldl_params
     unsigned char  BLDLD[68];
 } RX_BLDL_PARAMS, *RX_BLDL_PARAMS_PTR;
 
+void *getEnvBlock();
+void setEnvBlock(void *envblk);
 void getVariable(char *sName, PLstr plsValue);
 int  getIntegerVariable(char *sName);
 void setVariable(char *sName, char *sValue);

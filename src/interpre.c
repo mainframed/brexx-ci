@@ -1,95 +1,10 @@
-/*
- * $Id: interpre.c,v 1.25 2013/09/03 20:02:21 bnv Exp $
- * $Log: interpre.c,v $
- * Revision 1.25  2013/09/03 20:02:21  bnv
- * Invert ENG and SCI on numeric form
- *
- * Revision 1.24  2011/06/29 08:32:25  bnv
- * Corrected error on interpret with nested import
- *
- * Revision 1.23  2009/09/14 14:00:56  bnv
- * Correction of the OP_DROP. Removed the trace
- *
- * Revision 1.22  2009/06/02 09:41:27  bnv
- * MVS/CMS corrections
- *
- * Revision 1.21  2009/02/02 09:25:52  bnv
- * Modifications for CMS/MVS
- *
- * Revision 1.20  2008/07/15 07:40:25  bnv
- * #include changed from <> to ""
- *
- * Revision 1.19  2008/07/14 13:08:42  bnv
- * MVS,CMS support
- *
- * Revision 1.18  2006/01/26 10:25:11  bnv
- * Added: Indirect exposure to variables
- *
- * Revision 1.17  2004/08/16 15:28:54  bnv
- * Changed: name of mnemonic operands from xxx_mn to O_XXX
- *
- * Revision 1.16  2004/04/30 15:27:19  bnv
- * Type changes
- *
- * Revision 1.15  2004/03/27 08:34:21  bnv
- * Corrected: SIGNAL VALUE was cleaning the stack before the call
- *
- * Revision 1.14  2003/10/30 13:16:28  bnv
- * Variable name change
- *
- * Revision 1.13  2002/08/22 12:31:28  bnv
- * Removed CR's
- *
- * Revision 1.12  2002/07/03 13:15:08  bnv
- * Changed: Version define
- *
- * Revision 1.11  2002/06/11 12:37:38  bnv
- * Added: CDECL
- *
- * Revision 1.10  2001/09/28 10:00:39  bnv
- * Added: Quotes arround the arguments of a system-function call
- *
- * Revision 1.9  2001/06/25 18:50:56  bnv
- * Added: Memory check in debug version at the end of Interpretation
- *
- * Revision 1.8  1999/11/26 13:13:47  bnv
- * Added: Windows CE support
- * Changed: To use the new macros.
- *
- * Revision 1.7  1999/06/10 14:08:35  bnv
- * When a called procedure with local variables returne a variable
- * the variable contents was freed first before copied to the RESULT.
- *
- * Revision 1.6  1999/05/14 12:31:22  bnv
- * Minor changes
- *
- * Revision 1.5  1999/03/15 15:21:36  bnv
- * Corrected to handle the error_trace
- *
- * Revision 1.4  1999/03/15 09:01:57  bnv
- * Corrected: error_trace
- *
- * Revision 1.3  1999/03/10 16:53:32  bnv
- * Added MSC support
- *
- * Revision 1.2  1999/03/01 10:54:37  bnv
- * Corrected: To clean correctly the RxStck after an interpret_mn
- *
- * Revision 1.1  1998/07/02 17:34:50  bnv
- * Initial revision
- *
- */
-
 #define __INTERPRET_C__
 
-#ifndef WCE
-#	include <stdio.h>
-#	include <signal.h>
-#endif
+#include <stdio.h>
+#include <signal.h>
 
 #include "lerror.h"
 #include "lstring.h"
-
 #include "rexx.h"
 #include "stack.h"
 #include "trace.h"
@@ -99,10 +14,6 @@
 
 #if defined(__MVS__) && defined(JCC) || defined(__CROSS__)
 #include "rxmvsext.h"
-#endif
-
-#ifdef WCE
-#	define	MAX_EVENT_COUNT	50
 #endif
 
 /* ---------------- global variables ------------------ */
@@ -126,6 +37,8 @@ static	int	DataStart,
 
 
 static	jmp_buf  old_error;	/* keep old value of errortrap */
+
+static RX_ENVIRONMENT_BLK_PTR envBlock;
 
 extern Lstr	stemvaluenotfound;	/* from variable.c */
 
@@ -616,7 +529,10 @@ I_CallFunction( void )
 				DEBUGDISPLAY0nl("PROC ");
 				Rxcip++;
 				_proc[_rx_proc].scope = RxScopeMalloc();
-				VarScope = _proc[_rx_proc].scope;
+                VarScope = _proc[_rx_proc].scope;
+                if (envBlock != NULL) {
+	                envBlock->envblock_userfield = VarScope;
+	            }
 
 				/* handle exposed variables */
 				exposed = *(Rxcip++);
@@ -693,10 +609,14 @@ I_ReturnProc( void )
 	}
 
 		/* load previous data and exit */
-	_rx_proc--;
-	Rx_id = _proc[_rx_proc].id;
-	VarScope = _proc[_rx_proc].scope;
-	lNumericDigits = _proc[_rx_proc].digits;
+    _rx_proc--;
+    Rx_id = _proc[_rx_proc].id;
+    VarScope = _proc[_rx_proc].scope;
+    if (envBlock != NULL) {
+	    envBlock->envblock_userfield = VarScope;
+	}
+
+    lNumericDigits = _proc[_rx_proc].digits;
 
 	if (_proc[_rx_proc].trace & (normal_trace | off_trace | error_trace))
 		_trace = FALSE;
@@ -815,6 +735,8 @@ RxInitInterpret( void )
 		Lfx(&(_tmpstr[i]),0);
 		if (!LSTR(_tmpstr[i])) Lerror(ERR_STORAGE_EXHAUSTED,0);
 	}
+    envBlock = getEnvBlock();
+
 } /* RxInitInterpret */
 
 /* ---------------- RxDoneInterpret --------------- */
@@ -850,6 +772,9 @@ RxDoneInterpret( void )
 #endif
 		LFREESTR(_tmpstr[i]);
 	}
+
+	setEnvBlock(0);
+
 } /* RxDoneInterpret */
 
 /* ---------------- RxInterpret --------------- */
@@ -874,6 +799,10 @@ RxInterpret( void )
 
 	Rxcodestart = (CIPTYPE*)LSTR(*_code);
 	VarScope = _proc[_rx_proc].scope;
+	if (envBlock != NULL) {
+	    envBlock->envblock_userfield = VarScope;
+	}
+
 	Rxcip   = (CIPTYPE*)((byte huge *)Rxcodestart + _proc[_rx_proc].ip);
 	_proc[_rx_proc].stack = RxStckTop;
 

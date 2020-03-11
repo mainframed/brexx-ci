@@ -4,6 +4,8 @@
 #ifdef JCC
 #include <io.h>
 #endif
+
+#include "irx.h"
 #include "rexx.h"
 #include "rxdefs.h"
 #include "rxmvsext.h"
@@ -34,12 +36,12 @@ const unsigned char _STDERR = 0x4; // hex for 0000 0100
 #ifdef JCC
 extern char* _style;
 extern void ** entry_R13;
-extern long __libc_tso_status;
 #else
 char* _style;
 void ** entry_R13;
-long __libc_tso_status;
 #endif
+
+static int i;
 
 /* internal function prototypes */
 int GetClistVar(PLstr name, PLstr value);
@@ -349,6 +351,16 @@ void R_vxget(int func)
 {
     PLstr plsValue;
 
+    /*
+    void *nextPtr = 0x020000;
+
+    do {
+        printf("FOO> %s\n", getNextVar(&nextPtr));
+    }
+    while (nextPtr != NULL);
+*/
+
+
     if (ARGN != 1) {
         Lerror(ERR_INCORRECT_CALL,0);
     }
@@ -443,44 +455,17 @@ int RxMvsInitialize()
 {
     RX_INIT_PARAMS_PTR init_parameter;
     RX_TSO_PARAMS_PTR  tso_parameter;
+    RX_ENVIRONMENT_BLK_PTR env_block;
 
-    void ** cppl;
-#ifdef __DEBUG__
-    void ** buf;
-    void ** upt;
-    void ** pscb;
-    void ** ect;
-    void ** iowa;
-    void ** iostelm;
-    void ** lsd;
-    void ** execdata;
-#endif
+    void ** pEnvBlock;
+
 
     int      rc     = 0;
 
-
-    if (__libc_tso_status == 1 && entry_R13 [6] != 0) {
-
-        cppl = entry_R13[6];
-
-#ifdef __DEBUG2__
-        printf("DBG> TSO environment found\n");
+#ifdef __DEBUG__
+    if (entry_R13 != 0) {
         printf("DBG> SA at %08X\n", (unsigned) entry_R13);
-        printf("DBG> CPPL (R1) at %08X\n\n", (short) entry_R13[6]);
-
-        ect      = cppl[3];
-        iowa     = ect[1];
-        iostelm  = iowa[0];
-        lsd      = iostelm[0];
-        execdata = lsd[3];
-
-        printf("DBG> ECT:      %08X\n", (unsigned)ect);
-        printf("DBG> IOWA:     %08X\n", (unsigned)iowa);
-        printf("DBG> IOSTELM:  %08X\n", (unsigned)iostelm);
-        printf("DBG> LSD:      %08X\n", (unsigned)lsd);
-        printf("DBG> EXECDATA: %08X\n", (unsigned)execdata);
-
-        printf("\n");
+    }
 #endif
 
 #ifdef ___NEW___
@@ -498,15 +483,13 @@ int RxMvsInitialize()
 #endif
 #endif
 
-    }
-
     init_parameter   = malloc(sizeof(RX_INIT_PARAMS));
-    memset(init_parameter,00, sizeof(RX_INIT_PARAMS));
+    memset(init_parameter, 0, sizeof(RX_INIT_PARAMS));
 
-    environment   = malloc(sizeof(RX_ENVIRONMENT_CTX));
-    memset(environment,00, sizeof(RX_ENVIRONMENT_CTX));
+    environment      = malloc(sizeof(RX_ENVIRONMENT_CTX));
+    memset(environment, 0, sizeof(RX_ENVIRONMENT_CTX));
 
-    init_parameter->rxctxadr     = (unsigned *)environment;
+    init_parameter->rxctxadr = (unsigned *)environment;
 
     rc = call_rxinit(init_parameter);
 
@@ -522,11 +505,21 @@ int RxMvsInitialize()
 
     free(init_parameter);
 
-#ifdef __DEBUG2__
-    printf("DBG> RXENVCTX:\n");
+#ifdef __DEBUG__
+    printf("DBG> ENVIRONMENT CONTEXT AT 0x%08X:\n", (unsigned)environment);
     DumpHex((unsigned char*)environment, sizeof(RX_ENVIRONMENT_CTX));
     printf("\n");
 #endif
+
+    env_block = malloc(sizeof(RX_ENVIRONMENT_BLK));
+    memset((env_block), 0, sizeof(RX_ENVIRONMENT_BLK));
+    memcpy(env_block->envblock_id, "ENVBLOCK", 8);
+    memcpy(env_block->envblock_version, "0100", 4);
+    env_block->envblock_length = 320;
+
+    if (isTSO()) {
+        setEnvBlock(env_block);
+    }
 
     return rc;
 }
@@ -697,6 +690,70 @@ void parseDCB(FILE *pFile)
     setVariable("SYSLRECL", (char *)sLrecl);
 
     free(flags);
+}
+
+void *_getEctEnvBk()
+{
+    void ** psa;           // PAS      =>   0 / 0x00
+    void ** ascb;          // PSAAOLD  => 548 / 0x224
+    void ** asxb;          // ASCBASXB => 108 / 0x6C
+    void ** lwa;           // ASXBLWA  =>  20 / 0x14
+    void ** ect;           // LWAPECT  =>  32 / 0x20
+    void ** ectenvbk;      // ECTENVBK =>  48 / 0x30
+
+    if (isTSO()) {
+        psa  = 0;
+        ascb = psa[137];
+        asxb = ascb[27];
+        lwa  = asxb[5];
+        ect  = lwa[8];
+
+        ectenvbk = ect + 48;
+
+    } else {
+        ectenvbk = NULL;
+    }
+
+    return ectenvbk;
+}
+void *
+getEnvBlock()
+{
+    void **ectenvbk;
+    void  *envblock;
+
+    ectenvbk = _getEctEnvBk();
+
+    if (ectenvbk != NULL) {
+        envblock = *ectenvbk;
+    } else {
+        envblock = NULL;
+    }
+
+#ifdef __DEBUG__
+    if (envblock != NULL) {
+        printf("DBG> ENVIRONMENT BLOCK AT 0x%08X:\n", (unsigned) envblock);
+        DumpHex((unsigned char *) envblock, sizeof(RX_ENVIRONMENT_BLK));
+        printf("\n");
+    } else {
+        printf("DBG> NO ENVIRONMENT BLOCK\n");
+        printf("\n");
+    }
+#endif
+
+    return envblock;
+}
+
+void
+setEnvBlock(void *envblk)
+{
+    void ** ectenvbk;
+
+    ectenvbk  = _getEctEnvBk();
+
+    if (ectenvbk != NULL) {
+        *ectenvbk = envblk;
+    }
 }
 
 void
@@ -1024,7 +1081,7 @@ int call_rxinit(RX_INIT_PARAMS_PTR params)
         if (params->rxctxadr != NULL) {
             env = (RX_ENVIRONMENT_CTX_PTR)params->rxctxadr;
             env->flags1 = 0x0F;
-            env->flags2 = 0x07;
+            env->flags2 = 0x01;
             env->flags3 = 0x00;
 
             strncpy(env->SYSENV,  "DEVEL",   5);

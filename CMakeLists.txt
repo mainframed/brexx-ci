@@ -18,6 +18,7 @@ add_executable(brexx
         inc/dqueue.h
         inc/hostcmd.h
         inc/interpre.h
+        inc/irx.h
         inc/ldefs.h
         inc/lerror.h
         inc/lmvs.h
