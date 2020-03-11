@@ -33,6 +33,7 @@ typedef struct binleaf_st {
 	Lstr	key;
 	struct binleaf_st  *left, *right;
 	void	*value;
+    bool     isThreaded;
 } BinLeaf;
 
 typedef BinLeaf	*PBinLeaf;

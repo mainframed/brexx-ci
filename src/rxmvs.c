@@ -62,6 +62,187 @@ int __get_ddndsnmemb (int handle, char * ddn, char * dsn,
 #define BLACKLIST_SIZE 8
 char *RX_VAR_BLACKLIST[BLACKLIST_SIZE] = {"RC", "LASTCC", "SIGL", "RESULT", "SYSPREF", "SYSUID", "SYSENV", "SYSISPF"};
 
+#ifdef __CROSS__
+/* ------------------------------------------------------------------------------------*/
+BinLeaf*
+BinMin( BinLeaf *node )
+{
+    if (node == NULL) {
+        return NULL;
+    }
+
+    while (node -> left != NULL) {
+        node = node -> left;
+    }
+
+    return node;
+}
+
+BinLeaf*
+BinSuccessor( BinLeaf *node )
+{
+    if (node == NULL)
+    {
+        return NULL;
+    }
+
+    // if isThreaded is set, we can quickly find
+    if (node->isThreaded == TRUE)
+    {
+        return node->right;
+    }
+
+    // else return leftmost child of right subtree
+    node = node -> right;
+    while (node && node->left && node->isThreaded == FALSE)  // why?? thought of while node -> left != NULL
+    {
+        node = node->left;
+    }
+    return node;
+}
+
+void
+populateNext(BinLeaf *curr, BinLeaf** prev)
+{
+    // base case: empty tree
+    if (curr == NULL) {
+        return;
+    }
+
+    // recur for left subtree
+    populateNext(curr->left, prev);
+
+    // if current node is not the root node of binary tree
+    // and it has null right child
+    if (prev  && (*prev) && ! (*prev)->right)
+    {
+        // set right child of previous node to point to the current node
+        (*prev)->right = curr;
+
+        // set thread flag to true
+        (*prev)->isThreaded = TRUE;
+    }
+
+    // update previous node
+    *prev = curr;
+
+    // recur for right subtree
+    populateNext(curr->right, prev);
+}
+
+// Convert a binary tree to threaded binary tree
+void
+convertToThreaded(BinLeaf* root)
+{
+    // stores previous visited node
+    BinLeaf* prev = NULL;
+    populateNext(root, &prev);
+}
+
+static int
+scandepth( BinLeaf *leaf, int depth )
+{
+    int left, right;
+    if (leaf==NULL)
+        return depth;
+    left =  scandepth(leaf->left,depth+1);
+    right =	scandepth(leaf->right,depth+1);
+    return MAX(left,right);
+} /* scandepth */
+
+// Printing the threaded tree
+void printTTree(BinLeaf *root)
+{
+    if (root == NULL)
+        printf("Tree is empty");
+
+    // Reach leftmost node
+    BinLeaf *ptr = root;
+    while (ptr->left != NULL)
+        ptr = ptr -> left;
+
+    // One by one print successors
+    while (ptr != NULL)
+    {
+        printf(" %s \n",LSTR((Lstr )(ptr->key)));
+        ptr = BinSuccessor(ptr);
+    }
+}
+
+char*
+getNextVar(void** nextPtr)
+{
+    BinTree *currentTree = NULL;
+    BinLeaf *leaf  = NULL;
+    PLstr    value = NULL;
+
+    int currentTreeNumber = 0;
+    if (*nextPtr != NULL) {
+        currentTreeNumber = (unsigned int)*nextPtr >> 16;
+    }
+
+    currentTree = &(_proc[_rx_proc].scope[currentTreeNumber]);
+    BinBalance(currentTree);
+    convertToThreaded(currentTree->parent);
+
+    printTTree(currentTree->parent);
+
+    leaf = BinMin(currentTree->parent);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    leaf = BinSuccessor(leaf);
+    BinPrint(leaf);
+
+
+    /*
+    while (leaf == NULL && i < VARTREES) {
+        if (nextPtr == NULL) {
+            leaf = BinMin(_proc[_rx_proc].scope[i].parent);
+        } else {
+            leaf = BinSuccessor(nextPtr);
+        }
+
+        if (leaf != NULL) {
+            value = (PLstr) leaf->value;
+            leaf = BinSuccessor(leaf);
+            if (leaf != NULL) {
+                nextPtr = BinSuccessor(leaf);
+            } else {
+                nextPtr = 0;
+            }
+        } else {
+            i++;
+        }
+    }
+
+    return LSTR(*value);
+    */
+}
+/* ------------------------------------------------------------------------------------*/
+#endif
+
 void R_wto(int func)
 {
     RX_WTO_PARAMS_PTR params;
@@ -358,8 +539,7 @@ void R_vxget(int func)
         printf("FOO> %s\n", getNextVar(&nextPtr));
     }
     while (nextPtr != NULL);
-*/
-
+    */
 
     if (ARGN != 1) {
         Lerror(ERR_INCORRECT_CALL,0);
@@ -507,7 +687,7 @@ int RxMvsInitialize()
 
 #ifdef __DEBUG__
     printf("DBG> ENVIRONMENT CONTEXT AT 0x%08X:\n", (unsigned)environment);
-    DumpHex((unsigned char*)environment, sizeof(RX_ENVIRONMENT_CTX));
+    DumpHex((unsigned char*)environment, sizeof(RX_ENVIRONMENT_CTX) - (64*4));
     printf("\n");
 #endif
 
@@ -692,7 +872,8 @@ void parseDCB(FILE *pFile)
     free(flags);
 }
 
-void *_getEctEnvBk()
+void *
+_getEctEnvBk()
 {
     void ** psa;           // PAS      =>   0 / 0x00
     void ** ascb;          // PSAAOLD  => 548 / 0x224
@@ -716,6 +897,7 @@ void *_getEctEnvBk()
 
     return ectenvbk;
 }
+
 void *
 getEnvBlock()
 {
@@ -729,17 +911,6 @@ getEnvBlock()
     } else {
         envblock = NULL;
     }
-
-#ifdef __DEBUG__
-    if (envblock != NULL) {
-        printf("DBG> ENVIRONMENT BLOCK AT 0x%08X:\n", (unsigned) envblock);
-        DumpHex((unsigned char *) envblock, sizeof(RX_ENVIRONMENT_BLK));
-        printf("\n");
-    } else {
-        printf("DBG> NO ENVIRONMENT BLOCK\n");
-        printf("\n");
-    }
-#endif
 
     return envblock;
 }
@@ -1081,7 +1252,7 @@ int call_rxinit(RX_INIT_PARAMS_PTR params)
         if (params->rxctxadr != NULL) {
             env = (RX_ENVIRONMENT_CTX_PTR)params->rxctxadr;
             env->flags1 = 0x0F;
-            env->flags2 = 0x01;
+            env->flags2 = 0x00;
             env->flags3 = 0x00;
 
             strncpy(env->SYSENV,  "DEVEL",   5);

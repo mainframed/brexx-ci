@@ -54,6 +54,7 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
+#include "util.h"
 
 #if !defined(__CMS__) && !defined(__MVS__) && !defined(__MACH__)
 #	include <malloc.h>
@@ -248,13 +249,19 @@ mem_free(void *ptr)
 
     if (mem->magic != MAGIC1) {
         fprintf(STDERR,"mem_free: PREFIX Magic number doesn't match of object %p!\n",ptr);
-        mem_list();
-        raise(SIGSEGV);
+        DumpHex(ptr,32);
+
+        //mem_list();
+        //raise(SIGSEGV);
+        return;
     }
     if (*(dword *)(mem->data+mem->size) != MAGIC2) {
         fprintf(STDERR,"mem_free: SUFFIX Magic number doesn't match!\n");
-        mem_list();
-        raise(SIGSEGV);
+        DumpHex(ptr,32);
+
+        //mem_list();
+        //raise(SIGSEGV);
+        return;
     }
 
     /* Remove the MAGIC number, just to catch invalid entries */
@@ -324,7 +331,6 @@ mem_chk( void )
 {
     Memory	*mem;
     int	i=0;
-
     for (mem=mem_head; mem; mem = mem->prev,i++) {
         if (mem->magic != MAGIC1) {
             fprintf(STDERR,"mem_chk: PREFIX Magic number doesn't match! ID=%d\n",i);
