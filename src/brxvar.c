@@ -205,6 +205,8 @@ getEnvBlock()
         } else {
             return NULL;
         }
+    } else {
+        return NULL;
     }
 }
 
@@ -331,23 +333,25 @@ _Lstrcmp( const PLstr a, const PLstr b )
 
 /* ---------------- _getmain --------------- */
 void *
-_getmain(size_t length)
-{
-    void *ptr;
+_getmain(size_t length) {
+    long *ptr;
 
     struct SVCREGS registers;
-    registers.R0  = length;
-    registers.R1  = -1;
+    registers.R0 = (unsigned) (length + 12);
+    registers.R1 = -1;
     registers.R15 = 0;
 
     BRXSVC(10, &registers);
 
     if (registers.R15 == 0) {
         ptr = (void *) registers.R1;
+        ptr[0] = 0xDEADBEAF;
+        ptr[1] = (((long)(ptr)) + 12);
+        ptr[2] = length;
     } else {
         ptr = NULL;
     }
-    return ptr;
+    return (void *) (((int)(ptr)) + 12);
 } /* _getmain */
 
 /* -------------- malloc_or_die ---------------- */
@@ -588,22 +592,6 @@ void _tput(const char *data, int length)
 
     BRXSVC(93, &registers);
 }
-
-/* ---------------- RxVar2Str ------------------- */
-void __CDECL
-RxVar2Str( PLstr result, PBinLeaf leaf, int option )
-{
-    Lstr	aux;
-    Variable	*var;
-
-    Lstrcat(result,&(leaf->key));
-    Lcat(result,"=\"");
-
-    var = (Variable*)(leaf->value);
-    if (!LISNULL(var->value))
-        Lstrcat(result,&(var->value));
-    Lcat(result,"\"");
-} /* RxVar2Str */
 
 #ifdef __CROSS__
 void BRXSVC(int svc, struct SVCREGS *regs) {
