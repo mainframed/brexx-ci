@@ -52,7 +52,7 @@
 #else
 #	define	MALLOC(s,d)	    malloc_or_die(s,d)
 #	define	REALLOC(p,s)    realloc_or_die(p,s)
-#	define	FREE		    free
+#	define	FREE		    free_or_die
 #endif
 
 /* ------ function prototypes --------- */
@@ -69,6 +69,7 @@ int     __CDECL mem_count(void);
 #else
 void	__CDECL *malloc_or_die(size_t size, char *desc);
 void	__CDECL *realloc_or_die(void *ptr, size_t size);
+void	__CDECL free_or_die(void *ptr);
 #endif
 
 #endif

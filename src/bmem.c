@@ -1,60 +1,14 @@
-/*
- * $Id: bmem.c,v 1.11 2009/09/14 14:00:56 bnv Exp $
- * $Log: bmem.c,v $
- * Revision 1.11  2009/09/14 14:00:56  bnv
- * Correction to work with 64bit intel
- * l.
- *
- * Revision 1.10  2009/06/02 09:41:27  bnv
- * MVS/CMS corrections
- *
- * Revision 1.9  2008/07/15 07:40:25  bnv
- * #include changed from <> to ""
- *
- * Revision 1.8  2008/07/14 13:08:42  bnv
- * MVS,CMS support
- *
- * Revision 1.7  2004/08/16 15:27:58  bnv
- * Error message if the WCE version is compiled with bmem
- *
- * Revision 1.6  2003/10/30 13:15:29  bnv
- * Create a coredump in case of error
- *
- * Revision 1.5  2002/06/11 12:37:38  bnv
- * Added: CDECL
- *
- * Revision 1.4  2001/06/25 18:50:28  bnv
- * Changed: Some minor changes at mem_chk and mem_list, mem_print
- *
- * Revision 1.3  1999/11/26 14:30:27  bnv
- * Added: A dummy int, at Memory structure for 8-byte alignment on 32-bit machines
- *
- * Revision 1.2  1999/11/26 13:13:47  bnv
- * Changed: Added MAGIC number also to the end.
- * Chanted: Modified to work with 64-bit computers.
- *
- * Revision 1.1  1998/07/02 17:34:50  bnv
- * Initial revision
- *
- */
-
 #define __BMEM_C__
-
-#ifdef WCE
-#	error "bmem.c: should not be included in the CE version"
-
-#endif
 
 #include "lerror.h"
 #include "lstring.h"
-#include "rexx.h"
+#include "util.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include "util.h"
 
 #if !defined(__CMS__) && !defined(__MVS__) && !defined(__MACH__)
 #	include <malloc.h>
@@ -62,8 +16,32 @@
 
 #include "signal.h"
 
-#ifndef __DEBUG__
+#define MAGIC	0xDEADBEAF
+bool
+isAuxiliaryMemory(void *ptr)
+{
+    bool isAuxMem;
 
+    dword *tmp = (dword *)((byte *)ptr - 12);
+
+    if (tmp[0] == MAGIC) {
+        if ((void *)tmp[1] == ptr && tmp[2] > 12) {
+#ifdef __DEBUG__
+            printf("DBG> %d BYTES OF AUXILIARY MEMORY FOUND AT %p\n", (int) (tmp[2]), (void *) tmp[1]);
+#endif
+            isAuxMem = TRUE;
+        } else {
+            printf("MEMORY ERROR - FOUND CORRUPTED AUXILIARY MEMORY\n");
+            isAuxMem = FALSE;
+            raise(SIGSEGV);
+        }
+    } else {
+        isAuxMem = FALSE;
+    }
+    return isAuxMem;
+}
+
+#ifndef __DEBUG__
 /* -------------- malloc_or_die ---------------- */
 void *
 malloc_or_die(size_t size, char *desc)
@@ -91,7 +69,6 @@ malloc_or_die(size_t size, char *desc)
 void *
 realloc_or_die(void *ptr, size_t size)
 {
-    /* TODO: added beacause get rid of failed realloc's */
     size++;
 
     ptr = realloc(ptr,size);
@@ -114,6 +91,15 @@ realloc_or_die(void *ptr, size_t size)
     return ptr;
 }
 
+void
+free_or_die(void *ptr)
+{
+    if (isAuxiliaryMemory(ptr)) {
+        printf("TBD> FREE AUXILIARY MEMORY\n");
+    } else {
+        free(ptr);
+    }
+}
 #else
 #define MAGIC1	0xDECAFFEE
 #define MAGIC2	0xDECAFFFF
@@ -244,23 +230,24 @@ mem_free(void *ptr)
     Memory	*mem, *mem_prev, *mem_next;
     int	head;
 
+    if (isAuxiliaryMemory(ptr)) {
+        printf("TBD> FREE AUXILIARY MEMORY\n");
+        return;
+    }
+
     /* find our header */
     mem = (Memory *)((char *)ptr - (sizeof(Memory)-sizeof(dword)));
 
     if (mem->magic != MAGIC1) {
         fprintf(STDERR,"mem_free: PREFIX Magic number doesn't match of object %p!\n",ptr);
-        DumpHex(ptr,32);
-
-        //mem_list();
-        //raise(SIGSEGV);
+        mem_list();
+        raise(SIGSEGV);
         return;
     }
     if (*(dword *)(mem->data+mem->size) != MAGIC2) {
         fprintf(STDERR,"mem_free: SUFFIX Magic number doesn't match!\n");
-        DumpHex(ptr,32);
-
-        //mem_list();
-        //raise(SIGSEGV);
+        mem_list();
+        raise(SIGSEGV);
         return;
     }
 
