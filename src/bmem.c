@@ -21,13 +21,23 @@ bool
 isAuxiliaryMemory(void *ptr)
 {
     bool isAuxMem;
+    dword *tmp;
 
-    dword *tmp = (dword *)((byte *)ptr - 12);
+    tmp = (dword *)((byte *)ptr - 12);
+
+    if ((dword)tmp / 4096 != (dword)ptr / 4096) {
+/* JUST TO AVOID ABEND 0C4 WHILE SEEKING FOR THE MAGIC */
+#ifdef __DEBUG__
+        printf("TBD> PTR AND PTR-12 ARE NOT AT THE SAME PAGE\n");
+#endif
+        return FALSE;
+    }
 
     if (tmp[0] == MAGIC) {
         if ((void *)tmp[1] == ptr && tmp[2] > 12) {
 #ifdef __DEBUG__
             printf("DBG> %d BYTES OF AUXILIARY MEMORY FOUND AT %p\n", (int) (tmp[2]), (void *) tmp[1]);
+            DumpHex((void *)tmp, tmp[2] + 12);
 #endif
             isAuxMem = TRUE;
         } else {
@@ -95,7 +105,9 @@ void
 free_or_die(void *ptr)
 {
     if (isAuxiliaryMemory(ptr)) {
+#ifdef __DEBUG__
         printf("TBD> FREE AUXILIARY MEMORY\n");
+#endif
     } else {
         free(ptr);
     }
@@ -231,7 +243,9 @@ mem_free(void *ptr)
     int	head;
 
     if (isAuxiliaryMemory(ptr)) {
+#ifdef __DEBUG__
         printf("TBD> FREE AUXILIARY MEMORY\n");
+#endif
         return;
     }
 
