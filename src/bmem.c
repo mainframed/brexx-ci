@@ -1,5 +1,4 @@
 #define __BMEM_C__
-
 #include "lerror.h"
 #include "lstring.h"
 #include "util.h"
@@ -22,32 +21,34 @@ isAuxiliaryMemory(void *ptr)
 {
     bool isAuxMem;
     dword *tmp;
+    int a = 0;
 
-    tmp = (dword *)((byte *)ptr - 12);
-
-    if ((dword)tmp / 4096 != (dword)ptr / 4096) {
-/* JUST TO AVOID ABEND 0C4 WHILE SEEKING FOR THE MAGIC */
-#ifdef __DEBUG__
-        printf("TBD> PTR AND PTR-12 ARE NOT AT THE SAME PAGE\n");
+#ifdef JCC
+    a = _msize(ptr);
 #endif
-        return FALSE;
-    }
 
-    if (tmp[0] == MAGIC) {
-        if ((void *)tmp[1] == ptr && tmp[2] > 12) {
+    if (a == 0) {
+        tmp = (dword *)((byte *)ptr - 12);
+
+        if (tmp[0] == MAGIC) {
+            if ((void *)tmp[1] == ptr && tmp[2] > 12) {
 #ifdef __DEBUG__
-            printf("DBG> %d BYTES OF AUXILIARY MEMORY FOUND AT %p\n", (int) (tmp[2]), (void *) tmp[1]);
-            DumpHex((void *)tmp, tmp[2] + 12);
+                printf("DBG> %d BYTES OF AUXILIARY MEMORY FOUND AT %p\n", (int) (tmp[2]), (void *) tmp[1]);
+                DumpHex((void *)tmp, tmp[2] + 12);
 #endif
-            isAuxMem = TRUE;
+                isAuxMem = TRUE;
+            } else {
+                printf("MEMORY ERROR - FOUND CORRUPTED AUXILIARY MEMORY\n");
+                isAuxMem = FALSE;
+                raise(SIGSEGV);
+            }
         } else {
-            printf("MEMORY ERROR - FOUND CORRUPTED AUXILIARY MEMORY\n");
             isAuxMem = FALSE;
-            raise(SIGSEGV);
         }
     } else {
         isAuxMem = FALSE;
     }
+
     return isAuxMem;
 }
 
