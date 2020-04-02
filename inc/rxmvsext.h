@@ -142,9 +142,6 @@ typedef struct trx_ptime_params
 typedef struct t_rx_stime_params
 {
     unsigned    *wstmadr;
-    unsigned    *wstladr;
-    unsigned    *wstccadr;
-    unsigned    *wstwkadr;
 } RX_STIME_PARAMS, *RX_STIME_PARAMS_PTR;
 
 /* ---------------------------------------------------------- */
