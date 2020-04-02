@@ -532,15 +532,6 @@ void R_vxget(int func)
 {
     PLstr plsValue;
 
-    /*
-    void *nextPtr = 0x020000;
-
-    do {
-        printf("FOO> %s\n", getNextVar(&nextPtr));
-    }
-    while (nextPtr != NULL);
-    */
-
     if (ARGN != 1) {
         Lerror(ERR_INCORRECT_CALL,0);
     }
@@ -629,6 +620,18 @@ void R_magic(int func)
 
     Lscpy(ARGR,magicstr);
 }
+
+void R_dummy(int func)
+{
+    void *nextPtr = 0x00;
+
+    do {
+        printf("FOO> %s\n", getNextVar(&nextPtr));
+    }
+    while (nextPtr != NULL);
+
+}
+
 #endif
 
 int RxMvsInitialize()
@@ -773,6 +776,7 @@ void RxMvsRegFunctions()
 
 #ifdef __DEBUG__
     RxRegFunction("MAGIC",  R_magic,  0);
+    RxRegFunction("DUMMY", R_dummy, 0);
 #endif
 }
 
