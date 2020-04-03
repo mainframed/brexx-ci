@@ -54,13 +54,13 @@ void DumpHex(const unsigned char* data, size_t size)
 {
     char ascii[17];
     size_t i, j;
+    bool padded = FALSE;
 
     const unsigned char *A2ETbl = getA2ETable();
 
     ascii[16] = '\0';
 
-    printf("DBG> Dumping %d bytes starting at %08X\n", (int)size, (void*)data);
-    printf("%08X | %08X | ", &data[0], 0);
+    printf("%08X (+%08X) ", &data[0], 0);
     for (i = 0; i < size; ++i) {
         printf("%02X", data[i]);
 
@@ -71,21 +71,28 @@ void DumpHex(const unsigned char* data, size_t size)
         }
 
         if ((i+1) % 4 == 0 || i+1 == size) {
-            printf(" ");
+            if ((i+1) % 4 == 0) {
+                printf(" ");
+            }
+
             if ((i+1) % 16 == 0) {
                 printf("| %s \n", ascii);
                 if (i+1 != size) {
-                    printf("%08X | %08X | ", &data[i+1], i+1);
+                    printf("%08X (+%08X) ", &data[i+1], i+1);
                 }
             } else if (i+1 == size) {
                 ascii[(i+1) % 16] = '\0';
-                if ((i+1) % 16 <= 8) {
-                    printf("  ");
-                }
+
                 for (j = (i+1) % 16; j < 16; ++j) {
+                    if ((j) % 4 == 0) {
+                        if (padded) {
+                            printf(" ");
+                        }
+                    }
                     printf("  ");
+                    padded = TRUE;
                 }
-                printf("| %s \n", ascii);
+                printf(" | %s \n", ascii);
             }
         }
     }
