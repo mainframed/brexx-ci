@@ -59,17 +59,10 @@ malloc_or_die(size_t size, char *desc)
 {
     void *ptr = malloc(size);
     if (!ptr) {
-        Lstr lerrno;
-
-        LINITSTR(lerrno)
-        Lfx(&lerrno,31);
-
-        Lscpy(&lerrno,strerror(errno));
+        fprintf(STDERR,"Not enough memory to allocate %zu bytes \n", size);
 
         Lerror(ERR_MALLOC_FAILED,0);
-        fprintf(stderr, "errno: %s\n",strerror(errno));
 
-        LFREESTR(lerrno);
         raise(SIGSEGV);
     }
 
@@ -85,17 +78,11 @@ realloc_or_die(void *ptr, size_t size)
     ptr = realloc(ptr,size);
 
     if (!ptr) {
-        Lstr lerrno;
 
-        LINITSTR(lerrno)
-        Lfx(&lerrno,31);
+        fprintf(STDERR,"Not enough memory to allocate %zu bytes \n", size);
 
-        Lscpy(&lerrno,strerror(errno));
+        Lerror(ERR_REALLOC_FAILED, 0);
 
-        Lerror(ERR_REALLOC_FAILED,0);
-        fprintf(stderr, "errno: %s\n",strerror(errno));
-
-        LFREESTR(lerrno);
         raise(SIGSEGV);
     }
 
