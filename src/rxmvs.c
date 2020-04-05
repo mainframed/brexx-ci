@@ -634,7 +634,7 @@ void R_dummy(int func)
         printf("FOO> %s\n", getNextVar(&nextPtr));
     }
     while (nextPtr != NULL);
-^#endif
+#endif
 
 }
 
