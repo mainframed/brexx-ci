@@ -18,6 +18,11 @@
 #	endif
 #endif
 
+
+#define INT32_MAX        2147483647
+#define INT32_MIN        (-INT32_MAX-1)
+#define UINT32_MAX        4294967295U
+
 #ifdef WCE
 #	include "bstr.h"
 #else

@@ -176,44 +176,20 @@ getNextVar(void** nextPtr)
     BinLeaf *leaf  = NULL;
     PLstr    value = NULL;
 
-    int currentTreeNumber = 0;
-    if (*nextPtr != NULL) {
-        currentTreeNumber = (unsigned int)*nextPtr >> 16;
-    }
-
-    currentTree = &(_proc[_rx_proc].scope[currentTreeNumber]);
+    currentTree = &(_proc[_rx_proc].scope[0]);
     BinBalance(currentTree);
     convertToThreaded(currentTree->parent);
 
-    printTTree(currentTree->parent);
+    //printTTree(currentTree->parent);
 
-    leaf = BinMin(currentTree->parent);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    leaf = BinSuccessor(leaf);
-    BinPrint(leaf);
+    if (*nextPtr == 0) {
+        leaf = BinMin(currentTree->parent);
+    }
+    else {
+        leaf = BinSuccessor(leaf);
+    }
+
+    return ((PLstr)leaf->value)->pstr;
 
 
     /*
@@ -242,6 +218,34 @@ getNextVar(void** nextPtr)
 }
 /* ------------------------------------------------------------------------------------*/
 #endif
+
+void R_dumpIt(int func)
+{
+    void *ptr  = 0;
+    int   size = 0;
+    long  adr  = 0;
+
+    if (ARGN > 2 || ARGN < 1) {
+        Lerror(ERR_INCORRECT_CALL,0);
+    }
+
+    if (ARGN == 1) {
+
+    } else {
+        Lx2d(ARGR,ARG1,0);    /* using ARGR as temp field for conversion */
+        adr = Lrdint(ARGR);
+        if (adr < 0) {
+            Lerror(ERR_INCORRECT_CALL, 0);
+        }
+
+        ptr = (void *)adr;
+        size = Lrdint(ARG2);
+    }
+
+
+
+    DumpHex((unsigned char *)ptr, size);
+}
 
 void R_wto(int func)
 {
@@ -625,10 +629,12 @@ void R_dummy(int func)
 {
     void *nextPtr = 0x00;
 
+#ifdef __CROSS__
     do {
         printf("FOO> %s\n", getNextVar(&nextPtr));
     }
     while (nextPtr != NULL);
+^#endif
 
 }
 
@@ -689,7 +695,7 @@ int RxMvsInitialize()
     free(init_parameter);
 
 #ifdef __DEBUG__
-    printf("DBG> ENVIRONMENT CONTEXT AT 0x%08X:\n", (unsigned)environment);
+    printf("DBG> ENVIRONMENT CONTEXT AT %08X\n", (unsigned)environment);
     DumpHex((unsigned char*)environment, sizeof(RX_ENVIRONMENT_CTX) - (64*4));
     printf("\n");
 #endif
@@ -764,6 +770,7 @@ int reopen(int fp) {
 void RxMvsRegFunctions()
 {
     /* MVS specific functions */
+    RxRegFunction("DUMPIT",  R_dumpIt,  0);
     RxRegFunction("WAIT",    R_wait,    0);
     RxRegFunction("WTO",     R_wto ,    0);
     RxRegFunction("ABEND",   R_abend ,  0);

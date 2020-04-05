@@ -28,7 +28,7 @@
 #include "bintree.h"
 
 /* ------------ some defines ------------------ */
-#define VARTREES	7
+#define VARTREES	1
 #define NO_CACHE	-1
 #define NO_PROC		-1
 
