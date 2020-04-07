@@ -1,17 +1,66 @@
-#include "../inc/bnv.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "bintree.h"
+#include "dbginfo.h"
 
-void main()
+P_DebugInfo debugInfo;
+
+BinLeaf*
+leftMostLeaf( BinLeaf *node )
 {
-	int	i,c,r;
+    if (node == NULL) {
+        return NULL;
+    }
 
-	c = 0;
-	for (i=0; i<10000000; i++) {
-		r = random()%256;
-//		if (IN_RANGE('0',r,'9')) c++;
-		if (isdigit(r)) c++;
-	}
-	printf("count = %d\n",c);
+    while (node -> left != NULL) {
+        node = node -> left;
+    }
+
+    return node;
+}
+
+BinLeaf*
+nextLeaf( BinLeaf *node )
+{
+    if (node == NULL)
+    {
+        return NULL;
+    }
+
+    // if isThreaded is set, we can quickly find
+    if (node->isThreaded == TRUE)
+    {
+        return node->right;
+    }
+
+    // else return leftmost child of right subtree
+    node = node -> right;
+    while (node && node->left)  // why?? thought of while node -> left != NULL
+    {
+        node = node->left;
+    }
+    return node;
+}
+
+void
+printBinTree(BinLeaf *root)
+{
+    if (root == NULL)
+        printf("Tree is empty");
+
+    // Reach leftmost node
+    BinLeaf *ptr = leftMostLeaf(root);
+
+    // One by one print successors
+    while (ptr != NULL)
+    {
+        printf(" %s \n",LSTR((Lstr )(ptr->key)));
+        ptr = nextLeaf(ptr);
+    }
+}
+
+int main()
+{
+    printf("FOO> A test function!");
 }
