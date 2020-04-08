@@ -173,7 +173,6 @@ RxVarAdd(Scope scope, PLstr name, int hasdot, PBinLeaf stemleaf )
 
         if (var->stem==NULL)
             var->stem = RxScopeMalloc();
-
         { /* do a small hashing */
             register unsigned char	*s;
             unsigned char	*se;
@@ -189,7 +188,8 @@ RxVarAdd(Scope scope, PLstr name, int hasdot, PBinLeaf stemleaf )
             sum %= VARTREES;
             tree = var->stem + sum;
         }
-/*//		tree = var->stem + hashchar[ (byte)LSTR(varidx)[0] ];*/
+
+		//tree = var->stem + hashchar[ (byte)LSTR(varidx)[0] ];
         var2 = (Variable *)MALLOC(sizeof(Variable),"IdxVar");
         LINITSTR(var2->value);
         if (LLEN(var->value))
@@ -241,8 +241,13 @@ RxVarFind(const Scope scope, const PBinLeaf litleaf, bool *found)
             if (cmp < 0)
                 leaf = leaf->left;
             else
-            if (cmp > 0)
-                leaf = leaf->right;
+            if (cmp > 0) {
+                if (leaf->isThreaded == FALSE) {
+                    leaf = leaf->right;
+                } else {
+                    leaf = NULL;
+                }
+            }
             else
                 break;
         }
@@ -271,8 +276,13 @@ RxVarFind(const Scope scope, const PBinLeaf litleaf, bool *found)
                 if (cmp < 0)
                     leaf = leaf->left;
                 else
-                if (cmp > 0)
-                    leaf = leaf->right;
+                if (cmp > 0) {
+                    if (leaf->isThreaded == FALSE) {
+                        leaf = leaf->right;
+                    } else {
+                        break;
+                    }
+                }
                 else
                     break;
             }
@@ -325,8 +335,14 @@ RxVarFind(const Scope scope, const PBinLeaf litleaf, bool *found)
                     if (cmp < 0)
                         leafidx = leafidx->left;
                     else
-                    if (cmp > 0)
-                        leafidx = leafidx->right;
+                    if (cmp > 0) {
+                        if (leafidx->isThreaded == FALSE) {
+                            leafidx = leafidx->right;
+                        } else {
+                            //leafidx = NULL;
+                            break;
+                        }
+                    }
                     else
                         break;
                 }
@@ -394,7 +410,7 @@ RxVarFind(const Scope scope, const PBinLeaf litleaf, bool *found)
             sum %= VARTREES;
             tree = stemscope + sum;
         }
-/*//		tree = stemscope + hashchar[ (byte)LSTR(varidx)[0] ];*/
+		//tree = stemscope + hashchar[ (byte)LSTR(varidx)[0] ];
         /* inline version of BinFind */
         /* leafidx = BinFind(tree,&varidx); */
         leafidx = tree->parent;
@@ -420,8 +436,14 @@ RxVarFind(const Scope scope, const PBinLeaf litleaf, bool *found)
             if (cmp < 0)
                 leafidx = leafidx->left;
             else
-            if (cmp > 0)
-                leafidx = leafidx->right;
+            if (cmp > 0) {
+                if (leafidx->isThreaded == FALSE) {
+                    leafidx = leafidx->right;
+                } else {
+                    //leafidx = NULL;
+                    break;
+                }
+            }
             else
                 break;
         }

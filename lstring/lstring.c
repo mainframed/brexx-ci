@@ -214,9 +214,6 @@ Lscpy2( const PLstr to, const char *from, int lFrom )
     LTYPE(*to) = LSTRING_TY;
 } /* Lscpy */
 
-
-
-
 #if !defined(__CMS__) && !defined(__MVS__)
 /* ---------------- Lwscpy ------------------ */
 void __CDECL
@@ -281,6 +278,25 @@ Lcmp( const PLstr a, const char *b )
             return -1;
     }
 } /* Lcmp */
+
+/* ---------------- Lstrbeg ----------------- */
+int __CDECL
+Lstrbeg(const PLstr str, const PLstr pre)
+{
+    size_t lenpre = pre->len,
+           lenstr = str->len;
+
+    return lenstr < lenpre ? FALSE : memcmp(pre->pstr, str->pstr, lenpre) == 0;
+} /* Lstrbeg
+
+/* ---------------- Lbeg -------------------- */
+int __CDECL
+Lbeg(const PLstr str, const char *pre)
+{
+    size_t lenpre = strlen(pre),
+            lenstr = str->len;
+    return lenstr < lenpre ? FALSE : memcmp(pre, str->pstr, lenpre) == 0;
+} /* Lbeg */
 
 /* ---------------- Lstrcpy ----------------- */
 void __CDECL

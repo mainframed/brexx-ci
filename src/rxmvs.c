@@ -64,110 +64,10 @@ char *RX_VAR_BLACKLIST[BLACKLIST_SIZE] = {"RC", "LASTCC", "SIGL", "RESULT", "SYS
 
 #ifdef __CROSS__
 /* ------------------------------------------------------------------------------------*/
-BinLeaf*
-BinMin( BinLeaf *node )
-{
-    if (node == NULL) {
-        return NULL;
-    }
 
-    while (node -> left != NULL) {
-        node = node -> left;
-    }
 
-    return node;
-}
 
-BinLeaf*
-BinSuccessor( BinLeaf *node )
-{
-    if (node == NULL)
-    {
-        return NULL;
-    }
 
-    // if isThreaded is set, we can quickly find
-    if (node->isThreaded == TRUE)
-    {
-        return node->right;
-    }
-
-    // else return leftmost child of right subtree
-    node = node -> right;
-    while (node && node->left && node->isThreaded == FALSE)  // why?? thought of while node -> left != NULL
-    {
-        node = node->left;
-    }
-    return node;
-}
-
-void
-populateNext(BinLeaf *curr, BinLeaf** prev)
-{
-    // base case: empty tree
-    if (curr == NULL) {
-        return;
-    }
-
-    // recur for left subtree
-    populateNext(curr->left, prev);
-
-    // if current node is not the root node of binary tree
-    // and it has null right child
-    if (prev  && (*prev) && ! (*prev)->right)
-    {
-        // set right child of previous node to point to the current node
-        (*prev)->right = curr;
-
-        // set thread flag to true
-        (*prev)->isThreaded = TRUE;
-    }
-
-    // update previous node
-    *prev = curr;
-
-    // recur for right subtree
-    populateNext(curr->right, prev);
-}
-
-// Convert a binary tree to threaded binary tree
-void
-convertToThreaded(BinLeaf* root)
-{
-    // stores previous visited node
-    BinLeaf* prev = NULL;
-    populateNext(root, &prev);
-}
-
-static int
-scandepth( BinLeaf *leaf, int depth )
-{
-    int left, right;
-    if (leaf==NULL)
-        return depth;
-    left =  scandepth(leaf->left,depth+1);
-    right =	scandepth(leaf->right,depth+1);
-    return MAX(left,right);
-} /* scandepth */
-
-// Printing the threaded tree
-void printTTree(BinLeaf *root)
-{
-    if (root == NULL)
-        printf("Tree is empty");
-
-    // Reach leftmost node
-    BinLeaf *ptr = root;
-    while (ptr->left != NULL)
-        ptr = ptr -> left;
-
-    // One by one print successors
-    while (ptr != NULL)
-    {
-        printf(" %s \n",LSTR((Lstr )(ptr->key)));
-        ptr = BinSuccessor(ptr);
-    }
-}
 
 char*
 getNextVar(void** nextPtr)
@@ -177,10 +77,6 @@ getNextVar(void** nextPtr)
     PLstr    value = NULL;
 
     currentTree = &(_proc[_rx_proc].scope[0]);
-    BinBalance(currentTree);
-    convertToThreaded(currentTree->parent);
-
-    //printTTree(currentTree->parent);
 
     if (*nextPtr == 0) {
         leaf = BinMin(currentTree->parent);
@@ -245,6 +141,72 @@ void R_dumpIt(int func)
 
 
     DumpHex((unsigned char *)ptr, size);
+}
+
+void R_listIt(int func)
+{
+    BinTree tree;
+
+    if (ARGN > 1 ) {
+        Lerror(ERR_INCORRECT_CALL,0);
+    }
+
+    tree = _proc[_rx_proc].scope[0];
+
+    LASCIIZ(*ARG1)
+
+    if (LSTR(*ARG1)[0] == 0) {
+        BinPrint(tree.parent);
+    } else {
+
+        PBinLeaf    tmp   = NULL,
+                    first = NULL,
+                    next  = NULL;
+
+        int	cmp, j;
+
+        get_s(1)
+
+        Lupper(ARG1);
+
+        tmp = tree.parent;
+        while (tmp != NULL) {
+            cmp = _Lstrcmp(ARG1, &(tmp->key));
+            if (cmp < 0) {
+                if (Lstrbeg(&tmp->key, ARG1)) {
+                    first = tmp;
+                }
+                tmp = tmp->left;
+            }
+            else {
+                if (cmp > 0) {
+                    if (tmp->isThreaded == FALSE) {
+                        tmp = tmp->right;
+                        if (Lstrbeg(&tmp->key, ARG1)) {
+                            first = tmp;
+                        }
+                    }
+                    else {
+                        tmp = NULL;
+                    }
+                }
+            }
+        }
+
+        j = 0;
+        next = first;
+        while (next) {
+            unsigned char *key = LSTR(next->key);
+            unsigned char *value = LSTR(*(PLstr) next->value);
+            printf("[%04d] \"%s\" => \"%s\"\n",++j, key, value);
+            tmp = BinSuccessor(next);
+            if (Lstrbeg(&tmp->key, ARG1)) {
+                next = tmp;
+            } else {
+                next = NULL;
+            }
+        }
+    }
 }
 
 void R_wto(int func)
@@ -630,10 +592,15 @@ void R_dummy(int func)
     void *nextPtr = 0x00;
 
 #ifdef __CROSS__
+
+    BinTree tree = _proc[_rx_proc].scope[0];
+    BinPrint(tree.parent);
+    /*
     do {
         printf("FOO> %s\n", getNextVar(&nextPtr));
     }
     while (nextPtr != NULL);
+     */
 #endif
 
 }
@@ -771,6 +738,7 @@ void RxMvsRegFunctions()
 {
     /* MVS specific functions */
     RxRegFunction("DUMPIT",  R_dumpIt,  0);
+    RxRegFunction("LISTIT",  R_listIt,  0);
     RxRegFunction("WAIT",    R_wait,    0);
     RxRegFunction("WTO",     R_wto ,    0);
     RxRegFunction("ABEND",   R_abend ,  0);

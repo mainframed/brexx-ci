@@ -204,6 +204,8 @@ void  __CDECL Lwscpy(const PLstr to, const wchar_t *from );
 #endif
 void  __CDECL Lcat  (const PLstr to, const char *from );
 int   __CDECL Lcmp  (const PLstr  a, const char *b );
+int   __CDECL Lstrbeg(const PLstr str, const PLstr pre);
+int   __CDECL Lbeg   (const PLstr str, const char *pre);
 
 void  __CDECL Lstrcpy ( const PLstr to, const PLstr from );
 void  __CDECL Lstrcat ( const PLstr to, const PLstr from );

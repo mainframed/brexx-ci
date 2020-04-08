@@ -50,15 +50,18 @@ typedef struct {
 
 /* =================== function prototypes =================== */
 PBinLeaf __CDECL BinAdd( BinTree *tree, PLstr name, void *dat );
+PBinLeaf __CDECL BinMin( PBinLeaf leaf );
+PBinLeaf __CDECL BinMax( PBinLeaf leaf );
 PBinLeaf __CDECL BinFind( BinTree *tree, PLstr name );
-void	__CDECL BinDisposeLeaf( BinTree *tree, PBinLeaf leaf,
+PBinLeaf __CDECL BinSuccessor( PBinLeaf leaf );
+void	 __CDECL BinDisposeLeaf( BinTree *tree, PBinLeaf leaf,
 		void (__CDECL *BinFreeData)(void *) );
-void	__CDECL BinDisposeTree( BinTree *tree,
+void	 __CDECL BinDisposeTree( BinTree *tree,
 		void (__CDECL *BinFreeData)(void *) );
-void	__CDECL BinDel( BinTree *tree, PLstr name,
+void	 __CDECL BinDel( BinTree *tree, PLstr name,
 		void (__CDECL *BinFreeData)(void *) );
-void	__CDECL BinPrint( PBinLeaf leaf );
-void	__CDECL BinBalance( BinTree *tree );
+void	 __CDECL BinPrint( PBinLeaf leaf );
+void	 __CDECL BinBalance( BinTree *tree );
 
 #undef EXTERN
 #endif
