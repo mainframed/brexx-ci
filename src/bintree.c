@@ -13,11 +13,11 @@
  * and the value.
  */
 
-#include "os.h"
-#include "bmem.h"
 #include <stdio.h>
 #include <string.h>
-#include <variable.h>
+#include "os.h"
+#include "bmem.h"
+#include "variable.h"
 #include "bintree.h"
 
 /* ------------------ BinAdd ------------------ */
@@ -463,11 +463,10 @@ BinPrint(PBinLeaf leaf )
 
         if (ptr->value) {
 
-            /* search for dot except last character */
-            int	hasdot = (MEMCHR(LSTR(ptr->key),'.',LLEN(ptr->key)-1)!=NULL);
-
-            if (hasdot) {
-              BinPrint(((Variable *)ptr->value)->stem->parent);
+            Variable *var = (Variable *)ptr->value;
+            if (var->stem) {
+                printf("\n");
+                BinPrint(var->stem->parent);
             } else {
                 switch (LTYPE(*(Lstr *)ptr->value)) {
                     case LINTEGER_TY:

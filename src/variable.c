@@ -66,7 +66,6 @@ struct	tpoolfunc {
 
 extern	int	_trace;		/* from interpret.c		*/
 
-static	int	hashchar[256];	/* use the first char as hash value */
 static	PLstr	varname;	/* variable name of prev find	*/
 static	Lstr	varidx;		/* index of previous find	*/
 static	Lstr	int_varname;	/* used for the old RxFindVar	*/
@@ -84,13 +83,11 @@ RxInitVariables(void)
 {
     int	i;
 
-    /* initialise hash table */
-    for (i=0; i<255; i++)
-        hashchar[i] = i % VARTREES;
-
-    LINITSTR(int_varname);
-    LINITSTR(varidx);	Lfx(&varidx,250);
+    LINITSTR(int_varname)
+    LINITSTR(varidx)
     LINITSTR(stemvaluenotfound);
+    Lfx(&varidx,250);
+
     BINTREEINIT(PoolTree);
 
     RxRegPool("SYSTEM",SystemPoolGet,SystemPoolSet);
@@ -142,7 +139,7 @@ RxVarAdd(Scope scope, PLstr name, int hasdot, PBinLeaf stemleaf )
         LINITSTR(aux);		/* create memory */
         Lstrcpy(&aux,name);
         LASCIIZ(aux);
-        tree = scope + hashchar[ (byte)LSTR(aux)[0] ];
+        tree = scope;
         var = (Variable *)MALLOC(sizeof(Variable),"Var");
         LINITSTR(var->value);
         Lfx(&(var->value),1);
@@ -158,7 +155,7 @@ RxVarAdd(Scope scope, PLstr name, int hasdot, PBinLeaf stemleaf )
             LINITSTR(aux);
             Lstrcpy(&aux,varname);
             LASCIIZ(aux);
-            tree = scope + hashchar[ (byte)LSTR(*varname)[0] ];
+            tree = scope;
             var = (Variable *)MALLOC(sizeof(Variable),"StemVar");
             LINITSTR(var->value);
             var->exposed = NO_PROC;
@@ -173,23 +170,7 @@ RxVarAdd(Scope scope, PLstr name, int hasdot, PBinLeaf stemleaf )
 
         if (var->stem==NULL)
             var->stem = RxScopeMalloc();
-        { /* do a small hashing */
-            register unsigned char	*s;
-            unsigned char	*se;
-            int	sum=0;
-
-            s = LSTR(varidx);
-            /* use only first 10 chars */
-            if (LLEN(varidx)<10)
-                se = s + LLEN(varidx);
-            else
-                se = s + 10;
-            while (s<se) sum += *(s++);
-            sum %= VARTREES;
-            tree = var->stem + sum;
-        }
-
-		//tree = var->stem + hashchar[ (byte)LSTR(varidx)[0] ];
+        tree = var->stem;
         var2 = (Variable *)MALLOC(sizeof(Variable),"IdxVar");
         LINITSTR(var2->value);
         if (LLEN(var->value))
@@ -231,7 +212,7 @@ RxVarFind(const Scope scope, const PBinLeaf litleaf, bool *found)
     name = &(litleaf->key);
     inf = (IdentInfo*)(litleaf->value);
 
-    tree = scope + hashchar[ (byte)LSTR(*name)[0] ];
+    tree = scope;
     if (!inf->stem) {		/* simple variable */
         /* inline version of BinFind */
         /* leaf = BinFind(tree,name); */
@@ -280,7 +261,7 @@ RxVarFind(const Scope scope, const PBinLeaf litleaf, bool *found)
                     if (leaf->isThreaded == FALSE) {
                         leaf = leaf->right;
                     } else {
-                        break;
+                        leaf = NULL;
                     }
                 }
                 else
@@ -325,7 +306,7 @@ RxVarFind(const Scope scope, const PBinLeaf litleaf, bool *found)
                 LLEN(varidx) = l;
             } else {
                 /* search for aux-variable */
-                tree = curscope+hashchar[ (byte)LSTR(*aux)[0] ];
+                tree = curscope;
 
                 /* inline version of BinFind */
                 /* leafidx = BinFind(tree,&aux); */
@@ -339,8 +320,7 @@ RxVarFind(const Scope scope, const PBinLeaf litleaf, bool *found)
                         if (leafidx->isThreaded == FALSE) {
                             leafidx = leafidx->right;
                         } else {
-                            //leafidx = NULL;
-                            break;
+                            leafidx = NULL;
                         }
                     }
                     else
@@ -395,22 +375,7 @@ RxVarFind(const Scope scope, const PBinLeaf litleaf, bool *found)
             return leaf;
         }
 
-        { /* do a small hashing */
-            register unsigned char	*s;
-            unsigned char	*se;
-            int	sum=0;
-
-            s = LSTR(varidx);
-            /* use only first 10 chars */
-            if (LLEN(varidx)<10)
-                se = s + LLEN(varidx);
-            else
-                se = s + 10;
-            while (s<se) sum += *(s++);
-            sum %= VARTREES;
-            tree = stemscope + sum;
-        }
-		//tree = stemscope + hashchar[ (byte)LSTR(varidx)[0] ];
+        tree = stemscope;
         /* inline version of BinFind */
         /* leafidx = BinFind(tree,&varidx); */
         leafidx = tree->parent;
@@ -440,8 +405,7 @@ RxVarFind(const Scope scope, const PBinLeaf litleaf, bool *found)
                 if (leafidx->isThreaded == FALSE) {
                     leafidx = leafidx->right;
                 } else {
-                    //leafidx = NULL;
-                    break;
+                    leafidx = NULL;
                 }
             }
             else
@@ -482,7 +446,7 @@ RxVarFindName(Scope scope, PLstr name, bool *found)
     else
         hasdot = 0;
 
-    tree = scope + hashchar[ (byte)LSTR(*name)[0] ];
+    tree = scope;
     if (!hasdot) {		/* simple variable */
         leaf = BinFind(tree,name);
         *found = (leaf != NULL);
@@ -513,7 +477,7 @@ RxVarFindName(Scope scope, PLstr name, bool *found)
             }
             _Lsubstr(&aux,name,start,stop-start);
             /* search for variable */
-            tree = scope + hashchar[ (byte)LSTR(aux)[0] ];
+            tree = scope;
             leafidx = BinFind(tree,&aux);
 
             if (leafidx)
@@ -546,22 +510,7 @@ RxVarFindName(Scope scope, PLstr name, bool *found)
             return leaf;
         }
 
-        { /* do a small hashing */
-            register unsigned char	*s;
-            unsigned char	*se;
-            int	sum=0;
-
-            s = LSTR(varidx);
-            /* use only first 10 chars */
-            if (LLEN(varidx)<10)
-                se = s + LLEN(varidx);
-            else
-                se = s + 10;
-            while (s<se) sum += *(s++);
-            sum %= VARTREES;
-            tree = stemscope + sum;
-        }
-/*//		tree = stemscope + hashchar[ (byte)LSTR(varidx)[0] ]; */
+        tree = stemscope;
         leafidx = BinFind(tree,&varidx);
 
         if (leafidx==NULL) {	/* not found */
@@ -603,7 +552,7 @@ RxVarDel(Scope scope, PBinLeaf litleaf, PBinLeaf varleaf)
             if (var->stem)
                 RxScopeFree(var->stem);
         } else {
-            tree = scope + hashchar[ (byte)LSTR(*name)[0] ];
+            tree = scope;
             BinDel(tree,name,RxVarFree);
             inf->id = NO_CACHE;
         }
@@ -658,7 +607,7 @@ RxVarDelName(Scope scope, PLstr name, PBinLeaf varleaf)
         Lstrcpy(&(var->value),varname);
         Lstrcat(&(var->value),&varidx);
     } else {
-        tree = scope + hashchar[ (byte)LSTR(*name)[0] ];
+        tree = scope;
         BinDel(tree,name,RxVarFree);
 
         /* Search in the litterals tree to see if it exist */
@@ -749,10 +698,10 @@ RxVarExpose(Scope scope, PBinLeaf litleaf)
         LINITSTR(aux);		/* create memory */
         Lstrcpy(&aux,&(litleaf->key));
         LASCIIZ(aux);
-        tree = scope + hashchar[ (byte)LSTR(aux)[0] ];
+        tree = scope;
         return BinAdd(tree,&aux,var);
     } else {
-        tree = scope + hashchar[ (byte)LSTR(*varname)[0] ];
+        tree = scope;
         stemleaf = BinFind(tree,varname);
         if (!stemleaf) {
             LINITSTR(aux);
@@ -773,7 +722,7 @@ RxVarExpose(Scope scope, PBinLeaf litleaf)
         if (stemvar->stem==NULL)
             stemvar->stem = RxScopeMalloc();
 
-        tree = stemvar->stem + hashchar[ (byte)LSTR(varidx)[0] ];
+        tree = stemvar->stem;
         return BinAdd(tree,&aux,var);
     }
 } /* RxVarExpose */
@@ -857,12 +806,10 @@ RxSetSpecialVar( int rcsigl, long num )
 Scope __CDECL
 RxScopeMalloc( void )
 {
-    int	i;
     static Scope	scope;
 
-    scope = (Scope)MALLOC(VARTREES*sizeof(BinTree),"Scope");
-    for (i=0; i<VARTREES; i++)
-        BINTREEINIT(scope[i]);
+    scope = (Scope)MALLOC(sizeof(BinTree),"Scope");
+    BINTREEINIT(scope[0]);
     return scope;
 } /* RxScopeMalloc */
 
@@ -872,8 +819,7 @@ RxScopeFree(Scope scope)
 {
     int	i;
     if (scope)
-        for (i=0; i<VARTREES; i++)
-            BinDisposeLeaf(&(scope[i]),scope[i].parent,RxVarFree);
+        BinDisposeLeaf(&(scope[0]),scope[0].parent,RxVarFree);
 } /* RxScopeFree */
 
 /* ================ VarTreeAssign ================ */
@@ -914,8 +860,7 @@ RxScopeAssign(PBinLeaf varleaf)
 
     /* determine minimum MAXLEN */
     mlen = LNORMALISE(LLEN(*str)) + LEXTRA;
-    for (i=0; i<VARTREES; i++)
-        VarTreeAssign(scope[i].parent,str,mlen);
+    VarTreeAssign(scope[0].parent,str,mlen);
 } /* RxScopeAssign */
 
 /* ---------------- RxVar2Str ------------------- */
@@ -978,9 +923,7 @@ RxScanVarTree( PLstr result, PBinLeaf leaf, PLstr head, int depth, int option )
 void __CDECL
 RxReadVarTree(PLstr result, Scope scope, PLstr head, int option)
 {
-    int	i;
-    for (i=0; i<VARTREES; i++)
-        RxScanVarTree(result,scope[i].parent,head,0,option);
+    RxScanVarTree(result,scope[0].parent,head,0,option);
 } /* RxReadVarTree */
 
 /* ================ POOL functions =================== */
