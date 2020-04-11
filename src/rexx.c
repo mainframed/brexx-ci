@@ -478,7 +478,7 @@ RxRun( char *filename, PLstr programstr,
 
 #ifdef __DEBUG__
     if (__debug__) {
-        printf("Litterals are:\n");
+        printf("Literals are:\n");
         BinPrint(rxLitterals.parent);
         getchar();
 
