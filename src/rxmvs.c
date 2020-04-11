@@ -153,12 +153,10 @@ void R_listIt(int func)
 
     tree = _proc[_rx_proc].scope[0];
 
-    LASCIIZ(*ARG1)
-
-    if (LSTR(*ARG1)[0] == 0) {
+    if (ARG1 == NULL || LSTR(*ARG1)[0] == 0) {
         BinPrint(tree.parent);
     } else {
-
+        LASCIIZ(*ARG1)
         PBinLeaf    tmp   = NULL,
                     first = NULL,
                     next  = NULL;
