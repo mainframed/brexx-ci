@@ -217,12 +217,12 @@ CreateClause( void )
 
 /* --------------- _mustbe -------------------- */
 void __CDECL
-_mustbe( enum symboltype sym, int errno, int subno )
+_mustbe( enum symboltype sym, int _errno, int subno )
 {
 	if (symbol==sym)
 		nextsymbol();
 	else
-		Lerror(errno,subno,&symbolstr);
+		Lerror(_errno,subno,&symbolstr);
 /*
 ///// This is not correct!!!!!
 */
