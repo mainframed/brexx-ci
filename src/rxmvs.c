@@ -146,6 +146,10 @@ void R_dumpIt(int func)
 void R_listIt(int func)
 {
     BinTree tree;
+    int	cmp, j;
+    PBinLeaf    tmp   = NULL,
+            first = NULL,
+            next  = NULL;
 
     if (ARGN > 1 ) {
         Lerror(ERR_INCORRECT_CALL,0);
@@ -156,12 +160,7 @@ void R_listIt(int func)
     if (ARG1 == NULL || LSTR(*ARG1)[0] == 0) {
         BinPrint(tree.parent);
     } else {
-        LASCIIZ(*ARG1)
-        PBinLeaf    tmp   = NULL,
-                    first = NULL,
-                    next  = NULL;
-
-        int	cmp, j;
+        LASCIIZ(*ARG1) ;
 
         get_s(1)
 
