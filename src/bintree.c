@@ -432,6 +432,7 @@ BinSuccessor( PBinLeaf leaf )
 } /* BinSuccessor */
 
 /* -------------------- BinPrint ------------------------ */
+static bool BinPrintStem=FALSE;
 void __CDECL
 BinPrint(PBinLeaf leaf )
 {
@@ -449,24 +450,39 @@ BinPrint(PBinLeaf leaf )
     // One by one print successors
     while (ptr != NULL)
     {
-        switch (LTYPE(ptr->key)) {
-            case LINTEGER_TY:
-                printf("[%04d] \"%ld\" => ",++i , LINT (ptr->key));
-                break;
-            case LREAL_TY:
-                printf("[%04d] \"%f\" => ",++i ,  LREAL(ptr->key));
-                break;
-            case LSTRING_TY:
-                printf("[%04d] \"%s\" => ",++i ,  LSTR (ptr->key));
-                break;
+        if (BinPrintStem == TRUE ) {
+           switch (LTYPE(ptr->key)) {
+               case LINTEGER_TY:
+                   printf("[%04d]  |.\"%ld\" => ", ++i, LINT (ptr->key));
+                   break;
+               case LREAL_TY:
+                   printf("[%04d]  |.\"%f\" => ", ++i, LREAL(ptr->key));
+                   break;
+               case LSTRING_TY:
+                   printf("[%04d]  |.\"%s\" => ", ++i, LSTR (ptr->key));
+                   break;
+           }
+        }  else {
+           switch (LTYPE(ptr->key)) {
+               case LINTEGER_TY:
+                  printf("[%04d] \"%ld\" => ", ++i, LINT (ptr->key));
+                  break;
+                  case LREAL_TY:
+                  printf("[%04d] \"%f\" => ", ++i, LREAL(ptr->key));
+                  break;
+               case LSTRING_TY:
+                  printf("[%04d] \"%s\" => ", ++i, LSTR (ptr->key));
+                  break;
+           }
         }
-
         if (ptr->value) {
 
             Variable *var = (Variable *)ptr->value;
             if (var->stem) {
                 printf("\n");
+                BinPrintStem=TRUE;
                 BinPrint(var->stem->parent);
+                BinPrintStem=FALSE;
             } else {
                 switch (LTYPE(*(Lstr *)ptr->value)) {
                     case LINTEGER_TY:
