@@ -143,7 +143,7 @@ void R_dumpIt(int func)
     DumpHex((unsigned char *)ptr, size);
 }
 
-void R_listIt(int func)
+void R_listItOld(int func)
 {
     BinTree tree;
     int	cmp, j;
@@ -241,6 +241,25 @@ void R_wto(int func)
         free(wk);
         free(params);
         free(msgptr);
+    }
+}
+void R_listIt(int func)
+{
+    BinTree tree;
+    int	cmp, j;
+    if (ARGN > 1 ) {
+        Lerror(ERR_INCORRECT_CALL,0);
+    }
+
+    tree = _proc[_rx_proc].scope[0];
+
+    if (ARG1 == NULL || LSTR(*ARG1)[0] == 0) {
+        BinPrint(tree.parent);
+    } else {
+        LASCIIZ(*ARG1) ;
+        get_s(1)
+        Lupper(ARG1);
+        BinPrint(tree.parent);
     }
 }
 
