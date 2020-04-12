@@ -453,13 +453,13 @@ BinPrint(PBinLeaf leaf )
         if (BinPrintStem == TRUE ) {
            switch (LTYPE(ptr->key)) {
                case LINTEGER_TY:
-                   printf("[%04d]  |.\"%ld\" => ", ++i, LINT (ptr->key));
+                   printf("[%04d]  \"|.%ld\" => ", ++i, LINT (ptr->key));
                    break;
                case LREAL_TY:
-                   printf("[%04d]  |.\"%f\" => ", ++i, LREAL(ptr->key));
+                   printf("[%04d]  \"|.%f\" => ", ++i, LREAL(ptr->key));
                    break;
                case LSTRING_TY:
-                   printf("[%04d]  |.\"%s\" => ", ++i, LSTR (ptr->key));
+                   printf("[%04d]  \"|.%s\" => ", ++i, LSTR (ptr->key));
                    break;
            }
         }  else {
