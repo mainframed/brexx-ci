@@ -183,7 +183,7 @@ void R_wto(int func)
 void R_listIt(int func)
 {
     BinTree tree;
-    int	cmp, j;
+    int	j;
     if (ARGN > 1 ) {
         printf("LISTIT: too many parameters\n");
         Lerror(ERR_INCORRECT_CALL,0);
@@ -197,11 +197,14 @@ void R_listIt(int func)
     tree = _proc[_rx_proc].scope[0];
 
     if (ARG1 == NULL || LSTR(*ARG1)[0] == 0) {
+        printf("List all Variables\n");
+        printf("------------------\n");
         BinPrint(tree.parent, NULL);
     } else {
         LASCIIZ(*ARG1) ;
-        get_s(1)
         Lupper(ARG1);
+        printf("List Variables with Prefix '%s'\n",ARG1->pstr);
+        printf("------------------------------\n");
         BinPrint(tree.parent, ARG1);
     }
 }
