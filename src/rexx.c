@@ -479,11 +479,11 @@ RxRun( char *filename, PLstr programstr,
 #ifdef __DEBUG__
     if (__debug__) {
         printf("Literals are:\n");
-        BinPrint(rxLitterals.parent);
+        BinPrint(rxLitterals.parent, NULL);
         getchar();
 
         printf("Labels(&functions) are:\n");
-        BinPrint(_labels.parent);
+        BinPrint(_labels.parent, NULL);
         printf("Code Size: %zd\n\n",LLEN(*_code));
         getchar();
     }
