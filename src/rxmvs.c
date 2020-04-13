@@ -143,69 +143,6 @@ void R_dumpIt(int func)
     DumpHex((unsigned char *)ptr, size);
 }
 
-void R_listItOld(int func)
-{
-    BinTree tree;
-    int	cmp, j;
-    PBinLeaf    tmp   = NULL,
-            first = NULL,
-            next  = NULL;
-
-    if (ARGN > 1 ) {
-        Lerror(ERR_INCORRECT_CALL,0);
-    }
-
-    tree = _proc[_rx_proc].scope[0];
-
-    if (ARG1 == NULL || LSTR(*ARG1)[0] == 0) {
-        BinPrint(tree.parent);
-    } else {
-        LASCIIZ(*ARG1) ;
-
-        get_s(1)
-
-        Lupper(ARG1);
-
-        tmp = tree.parent;
-        while (tmp != NULL) {
-            cmp = _Lstrcmp(ARG1, &(tmp->key));
-            if (cmp < 0) {
-                if (Lstrbeg(&tmp->key, ARG1)) {
-                    first = tmp;
-                }
-                tmp = tmp->left;
-            }
-            else {
-                if (cmp > 0) {
-                    if (tmp->isThreaded == FALSE) {
-                        tmp = tmp->right;
-                        if (Lstrbeg(&tmp->key, ARG1)) {
-                            first = tmp;
-                        }
-                    }
-                    else {
-                        tmp = NULL;
-                    }
-                }
-            }
-        }
-
-        j = 0;
-        next = first;
-        while (next) {
-            unsigned char *key = LSTR(next->key);
-            unsigned char *value = LSTR(*(PLstr) next->value);
-            printf("[%04d] \"%s\" => \"%s\"\n",++j, key, value);
-            tmp = BinSuccessor(next);
-            if (Lstrbeg(&tmp->key, ARG1)) {
-                next = tmp;
-            } else {
-                next = NULL;
-            }
-        }
-    }
-}
-
 void R_wto(int func)
 {
     RX_WTO_PARAMS_PTR params;
@@ -248,18 +185,24 @@ void R_listIt(int func)
     BinTree tree;
     int	cmp, j;
     if (ARGN > 1 ) {
+        printf("LISTIT: too many parameters\n");
+        Lerror(ERR_INCORRECT_CALL,0);
+    }
+
+    if (ARG1 != NULL && ARG1->pstr == NULL) {
+        printf("LISTIT: invalid parameters, maybe enclose in quotes\n");
         Lerror(ERR_INCORRECT_CALL,0);
     }
 
     tree = _proc[_rx_proc].scope[0];
 
     if (ARG1 == NULL || LSTR(*ARG1)[0] == 0) {
-        BinPrint(tree.parent);
+        BinPrint(tree.parent, NULL);
     } else {
         LASCIIZ(*ARG1) ;
         get_s(1)
         Lupper(ARG1);
-        BinPrint(tree.parent);
+        BinPrint(tree.parent, ARG1);
     }
 }
 
@@ -610,7 +553,7 @@ void R_dummy(int func)
 #ifdef __CROSS__
 
     BinTree tree = _proc[_rx_proc].scope[0];
-    BinPrint(tree.parent);
+    BinPrint(tree.parent, NULL);
     /*
     do {
         printf("FOO> %s\n", getNextVar(&nextPtr));
