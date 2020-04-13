@@ -204,7 +204,8 @@ void R_listIt(int func)
         LASCIIZ(*ARG1) ;
         Lupper(ARG1);
         printf("List Variables with Prefix '%s'\n",ARG1->pstr);
-        printf("------------------------------\n");
+        printf("%.*s\n", 29+ARG1->len,
+            "-------------------------------------------------------");
         BinPrint(tree.parent, ARG1);
     }
 }
