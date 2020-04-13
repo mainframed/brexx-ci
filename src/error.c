@@ -96,7 +96,7 @@ RxSignalCondition( int cnd )
 
 /* ------------------ Rerror ------------------- */
 void __CDECL
-Rerror( const int errno, const int subno, ... )
+Rerror( const int _errno, const int subno, ... )
 {
 	int	line;
 	RxFile	*rxf;
@@ -105,11 +105,11 @@ Rerror( const int errno, const int subno, ... )
 #endif
 
 	if (_proc[_rx_proc].condition & SC_SYNTAX) {
-		RxSetSpecialVar(RCVAR,errno);
+		RxSetSpecialVar(RCVAR,_errno);
 		if (symbolptr==NULL)	/* we are in intepret	*/
 			RxSignalCondition(SC_SYNTAX);
 		else {			/* we are in compile	*/
-			rxReturnCode = errno;
+			rxReturnCode = _errno;
 			longjmp(_error_trap,JMP_ERROR);
 		}
 	} else {
@@ -119,24 +119,24 @@ Rerror( const int errno, const int subno, ... )
 
 #ifndef WIN
 		va_start(ap,subno);
-		Lerrortext(&errmsg,errno,subno,&ap);
+		Lerrortext(&errmsg,_errno,subno,&ap);
 		va_end(ap);
 
 		if (LLEN(errmsg)==0)
-			fprintf(STDERR," +++ Ooops unknown error %d.%d +++\n",errno,subno);
+			fprintf(STDERR," +++ Ooops unknown error %d.%d +++\n",_errno,subno);
 		else {
 			LASCIIZ(errmsg);
 			if (subno==0)
 				fprintf(STDERR,
 					"Error %d running %s, line %d: %s\n",
-						errno,
+						_errno,
 						LSTR(rxf->name),
 						line,
 						LSTR(errmsg));
 			else
 				fprintf(STDERR,
 					"Error %d.%d running %s, line %d: %s\n",
-						errno,
+						_errno,
 						subno,
 						LSTR(rxf->name),
 						line,
@@ -145,18 +145,18 @@ Rerror( const int errno, const int subno, ... )
 #else
 		{
 			PUTS("Error ");
-			PUTINT(errno,0,10);
+			PUTINT(_errno,0,10);
 			PUTS(" running ");
 			PUTS(LSTR(rxf->name));
 			PUTS(" line ");
 			PUTINT(line,0,10);
 			PUTS(": ");
-			Lerrortext(&errmsg,errno,subno,NULL);
+			Lerrortext(&errmsg,_errno,subno,NULL);
 			Lprint(NULL,&errmsg);
 			PUTCHAR('\n');
 		}
 #endif
-		rxReturnCode = errno;
+		rxReturnCode = _errno;
 		longjmp(_exit_trap,JMP_EXIT);
 	}
 } /* Rerror */
