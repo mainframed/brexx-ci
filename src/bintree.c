@@ -432,76 +432,7 @@ BinSuccessor( PBinLeaf leaf )
 } /* BinSuccessor */
 
 /* -------------------- BinPrint ------------------------ */
-static bool BinPrintStem=FALSE;
-void __CDECL
-BinPrintOld(PBinLeaf leaf )
-{
-    PBinLeaf ptr;
-    int i = 0;
-
-    if (leaf == NULL) {
-        printf("Tree is empty");
-        return;
-    }
-
-    // Reach leftmost node
-    ptr = BinMin(leaf);
-
-    // One by one print successors
-    while (ptr != NULL)
-    {
-        if (BinPrintStem == TRUE ) {
-           switch (LTYPE(ptr->key)) {
-               case LINTEGER_TY:
-                   printf("[%04d]  \"|.%ld\" => ", ++i, LINT (ptr->key));
-                   break;
-               case LREAL_TY:
-                   printf("[%04d]  \"|.%f\" => ", ++i, LREAL(ptr->key));
-                   break;
-               case LSTRING_TY:
-                   printf("[%04d]  \"|.%s\" => ", ++i, LSTR (ptr->key));
-                   break;
-           }
-        }  else {
-           switch (LTYPE(ptr->key)) {
-               case LINTEGER_TY:
-                  printf("[%04d] \"%ld\" => ", ++i, LINT (ptr->key));
-                  break;
-                  case LREAL_TY:
-                  printf("[%04d] \"%f\" => ", ++i, LREAL(ptr->key));
-                  break;
-               case LSTRING_TY:
-                  printf("[%04d] \"%s\" => ", ++i, LSTR (ptr->key));
-                  break;
-           }
-        }
-        if (ptr->value) {
-
-            Variable *var = (Variable *)ptr->value;
-            if (var->stem) {
-                printf("\n");
-                BinPrintStem=TRUE;
-                BinPrintOld(var->stem->parent);
-                BinPrintStem=FALSE;
-            } else {
-                switch (LTYPE(*(Lstr *)ptr->value)) {
-                    case LINTEGER_TY:
-                        printf("\"%ld\" \n",LINT(*(PLstr) ptr->value));
-                        break;
-                    case LREAL_TY:
-                        printf("\"%f\" \n",LREAL(*(PLstr) ptr->value));
-                        break;
-                    case LSTRING_TY:
-                        printf("\"%s\" \n",LSTR (*(PLstr) ptr->value));
-                        break;
-                }
-            }
-
-        }
-
-        ptr = BinSuccessor(ptr);
-    }
-} /* BinPrintStem */
+/* BinPrintStem */
 void __CDECL
 BinPrintStemV(PBinLeaf leaf )
 {
@@ -536,23 +467,29 @@ BinPrintStemV(PBinLeaf leaf )
     }
 } /* BinPrintStem */
 void __CDECL
-BinPrint(PBinLeaf leaf)
+BinPrint(PBinLeaf leaf, PLstr filter)
 {
     PBinLeaf ptr;
+    int cmp;
     int i = 0;
 
     if (leaf == NULL) {
         printf("Tree is empty");
         return;
     }
-
     // Reach leftmost node
     ptr = BinMin(leaf);
 
     // One by one print successors
     while (ptr != NULL)
     {
-        printf("[%04d] \"%s\" => ", ++i, LSTR (ptr->key));
+        if (filter != NULL) {
+           if (Lstrbeg(&ptr->key, filter)==0) {
+              ptr = BinSuccessor(ptr);
+              continue;
+           }
+        }
+        printf("[%04d]  \"%s\" => ", ++i, LSTR (ptr->key));
         if (ptr->value) {
             Variable *var = (Variable *)ptr->value;
             if (var->stem) {
