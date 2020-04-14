@@ -185,13 +185,23 @@ void R_listIt(int func)
     BinTree tree;
     int	j;
     if (ARGN > 1 ) {
-        printf("LISTIT: too many parameters\n");
-        Lerror(ERR_INCORRECT_CALL,0);
+        Lstr lsFuncName,lsMaxArg;
+
+        LINITSTR(lsFuncName)
+        LINITSTR(lsMaxArg)
+
+        Lfx(&lsFuncName,6);
+        Lfx(&lsMaxArg, 4);
+
+        Lscpy(&lsFuncName, "ListIT");
+        Licpy(&lsMaxArg,1);
+
+        Lerror(ERR_INCORRECT_CALL,4,&lsFuncName, &lsMaxArg);
     }
 
     if (ARG1 != NULL && ARG1->pstr == NULL) {
         printf("LISTIT: invalid parameters, maybe enclose in quotes\n");
-        Lerror(ERR_INCORRECT_CALL,0);
+        Lerror(ERR_INCORRECT_CALL,4,1);
     }
 
     tree = _proc[_rx_proc].scope[0];

@@ -409,7 +409,7 @@ Lerrortext( const PLstr to, const int errn, const int subn, va_list *ap)
 
 			str = va_arg(*ap,PLstr);/* read next argument	*/
 			Lstrcat(to,str);	/* append it to string	*/
-
+            LFREESTR(*str)    /* do a freemain */
 			chstart = ch;
 			ch = STRCHR(chstart,'>');	/* find end	*/
 			chstart = ch+1;
