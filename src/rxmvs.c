@@ -519,6 +519,68 @@ void R_vxput(int func)
     }
 }
 
+void R_stemcopy(int func)
+{
+    PBinLeaf from, to, ptr ;
+    Lstr nameFrom, nameTo, tempKey, tempValue, sfrom, sto, nsto;
+    Variable *varFrom, *varTo, *varTemp;
+    if (ARGN!=2){
+        Lerror(ERR_INCORRECT_CALL,0);
+    }
+// transfer Compound string of STEM into Variables
+// target Compound
+    LINITSTR(nameFrom)
+    LINITSTR(nameTo)
+
+    LINITSTR(sto);
+    Lfx(&sto,LLEN(*ARG1));
+    Lstrcpy(&sto,ARG1);
+    Lupper(&sto);
+    LASCIIZ(sto);
+// Source compound
+    LINITSTR(sfrom);
+    Lfx(&sfrom,LLEN(*ARG2));
+    Lstrcpy(&sfrom,ARG2);
+    Lupper(&sfrom);
+    LASCIIZ(sfrom);
+
+    BinTree tree = _proc[_rx_proc].scope[0];
+//  look up Source stem
+    from = BinFind(&tree, &sfrom);
+    if (!from) {
+       printf("Invalid Stem %s\n",sfrom);
+       Lerror(ERR_INCORRECT_CALL,0);
+    }
+//  look up Target stem, must be available, later set it up
+    to   = BinFind(&tree, &sto);
+    if (!to) {
+        printf("Target Stem missing %s\n",sto);
+        Lerror(ERR_INCORRECT_CALL,0);
+    }
+    varFrom=(Variable *) from->value;
+    varTo  =(Variable *) to->value;
+
+    ptr=BinMin(varFrom->stem->parent);
+    while (ptr != NULL) {
+        LINITSTR(tempKey)
+        LINITSTR(tempValue)
+        Lstrcpy(&tempKey, &ptr->key);
+        Lstrcpy(&tempValue, &((Variable *)ptr->value)->value);
+        varTemp = (Variable *)MALLOC(sizeof(Variable),"Var");
+        varTemp->value=tempValue;
+        varTemp->exposed=((Variable *) ptr->value)->exposed;
+        BinAdd((BinTree *)varTo->stem, &tempKey, varTemp);
+
+        ptr = BinSuccessor(ptr);
+    }
+    LFREESTR(nameFrom)
+    LFREESTR(nameTo)
+    LFREESTR(tempKey)
+    LFREESTR(tempValue)
+    LFREESTR(sto)
+    LFREESTR(sfrom)
+}
+
 #ifdef __DEBUG__
 void R_magic(int func)
 {
@@ -710,21 +772,22 @@ int reopen(int fp) {
 void RxMvsRegFunctions()
 {
     /* MVS specific functions */
-    RxRegFunction("DUMPIT",  R_dumpIt,  0);
-    RxRegFunction("LISTIT",  R_listIt,  0);
-    RxRegFunction("WAIT",    R_wait,    0);
-    RxRegFunction("WTO",     R_wto ,    0);
-    RxRegFunction("ABEND",   R_abend ,  0);
-    RxRegFunction("USERID",  R_userid,  0);
-    RxRegFunction("LISTDSI", R_listdsi, 0);
-    RxRegFunction("SYSDSN",  R_sysdsn,  0);
-    RxRegFunction("SYSVAR",  R_sysvar,  0);
-    RxRegFunction("VXGET",   R_vxget,   0);
-    RxRegFunction("VXPUT",   R_vxput,   0);
+    RxRegFunction("DUMPIT",   R_dumpIt,  0);
+    RxRegFunction("LISTIT",   R_listIt,  0);
+    RxRegFunction("WAIT",     R_wait,    0);
+    RxRegFunction("WTO",      R_wto ,    0);
+    RxRegFunction("ABEND",    R_abend ,  0);
+    RxRegFunction("USERID",   R_userid,  0);
+    RxRegFunction("LISTDSI",  R_listdsi, 0);
+    RxRegFunction("SYSDSN",   R_sysdsn,  0);
+    RxRegFunction("SYSVAR",   R_sysvar,  0);
+    RxRegFunction("VXGET",    R_vxget,   0);
+    RxRegFunction("VXPUT",    R_vxput,   0);
+    RxRegFunction("STEMCOPY", R_stemcopy,0);
 
 #ifdef __DEBUG__
-    RxRegFunction("MAGIC",  R_magic,  0);
-    RxRegFunction("DUMMY", R_dummy, 0);
+    RxRegFunction("MAGIC",  R_magic, 0);
+    RxRegFunction("DUMMY",  R_dummy, 0);
 #endif
 }
 
