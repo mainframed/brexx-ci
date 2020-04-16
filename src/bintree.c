@@ -21,49 +21,46 @@
 #include "bintree.h"
 
 /* ------------------ BinAdd ------------------ */
-BinLeaf* __CDECL
-BinAdd( BinTree *tree, PLstr name, void *dat )
-{
-	BinLeaf	*thisEntry;
-	BinLeaf	*lastEntry;
-	BinLeaf	*leaf;
-	bool	leftTaken=FALSE;
-	int	cmp, dep=0;
+PBinLeaf __CDECL
+BinAdd(BinTree *tree, PLstr name, void *dat) {
+    BinLeaf *thisEntry;
+    BinLeaf *lastEntry;
+    BinLeaf *leaf;
+    bool leftTaken = FALSE;
+    int cmp, dep = 0;
 
-	/* If tree is NULL then it will produce an error */
-	thisEntry = tree->parent;
-	while (thisEntry != NULL) {
-		lastEntry = thisEntry;
-		cmp = _Lstrcmp(name,&(thisEntry->key));
-		if (cmp < 0) {
+    /* If tree is NULL then it will produce an error */
+    thisEntry = tree->parent;
+    while (thisEntry != NULL) {
+        lastEntry = thisEntry;
+        cmp = _Lstrcmp(name, &(thisEntry->key));
+        if (cmp < 0) {
             leftTaken = TRUE;
             thisEntry = thisEntry->left;
-		} else
-		if (cmp > 0) {
+        } else if (cmp > 0) {
             leftTaken = FALSE;
             if (thisEntry->isThreaded == FALSE) {
                 thisEntry = thisEntry->right;
-			} else {
+            } else {
                 thisEntry = NULL;
             }
-		} else {
+        } else {
             return thisEntry;
         }
-		dep++;
-	}
+        dep++;
+    }
 
-	/* Create a new entry */
-	leaf = (BinLeaf *) MALLOC( sizeof(BinLeaf),"BinLeaf" );
+    /* Create a new entry */
+    leaf = (BinLeaf *) MALLOC(sizeof(BinLeaf), "BinLeaf");
 
-	/* just move the data to the new Lstring */
-	/* and initialise the name LSTR(*name)=NULL */
-	LMOVESTR(leaf->key, *name);
+    /* just move the data to the new Lstring */
+    /* and initialise the name LSTR(*name)=NULL */
+    LMOVESTR(leaf->key, *name);
 
 	leaf->value = dat;
 	leaf->left = NULL;
 	leaf->right = NULL;
 	leaf->isThreaded = TRUE;
-
 	if (tree->parent==NULL)
 		tree->parent = leaf;
 	else {
@@ -431,8 +428,7 @@ BinSuccessor( PBinLeaf leaf )
     return leaf;
 } /* BinSuccessor */
 
-/* -------------------- BinPrint ------------------------ */
-/* BinPrintStem */
+/* -------------------- BinPrintStem -------------------- */
 void __CDECL
 BinPrintStemV(PBinLeaf leaf )
 {
@@ -466,6 +462,8 @@ BinPrintStemV(PBinLeaf leaf )
         ptr = BinSuccessor(ptr);
     }
 } /* BinPrintStem */
+
+/* ------------------ BinPrint ---------------- */
 void __CDECL
 BinPrint(PBinLeaf leaf, PLstr filter)
 {
