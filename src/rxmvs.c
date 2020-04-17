@@ -522,63 +522,59 @@ void R_vxput(int func)
 void R_stemcopy(int func)
 {
     PBinLeaf from, to, ptr ;
-    Lstr nameFrom, nameTo, tempKey, tempValue, sfrom, sto, nsto;
+    Lstr tempKey, tempValue;
     Variable *varFrom, *varTo, *varTemp;
-    if (ARGN!=2){
-        Lerror(ERR_INCORRECT_CALL,0);
-    }
-// transfer Compound string of STEM into Variables
-// target Compound
-    LINITSTR(nameFrom)
-    LINITSTR(nameTo)
 
-    LINITSTR(sto);
-    Lfx(&sto,LLEN(*ARG1));
-    Lstrcpy(&sto,ARG1);
-    Lupper(&sto);
-    LASCIIZ(sto);
-// Source compound
-    LINITSTR(sfrom);
-    Lfx(&sfrom,LLEN(*ARG2));
-    Lstrcpy(&sfrom,ARG2);
-    Lupper(&sfrom);
-    LASCIIZ(sfrom);
+    if (ARGN!=2){
+        Lerror(ERR_INCORRECT_CALL, 0);
+    }
+
+    // FROM
+    Lupper(ARG1);
+    LASCIIZ(*ARG1);
+
+    // TO
+    Lupper(ARG2);
+    LASCIIZ(*ARG2);
 
     BinTree tree = _proc[_rx_proc].scope[0];
-//  look up Source stem
-    from = BinFind(&tree, &sfrom);
+
+    // look up Source stem
+    from = BinFind(&tree, ARG2);
     if (!from) {
-       printf("Invalid Stem %s\n",sfrom);
+       printf("Invalid Stem %s\n", LSTR(*ARG2));
        Lerror(ERR_INCORRECT_CALL,0);
     }
-//  look up Target stem, must be available, later set it up
-    to   = BinFind(&tree, &sto);
+
+    //  look up Target stem, must be available, later set it up
+    to = BinFind(&tree, ARG1);
     if (!to) {
-        printf("Target Stem missing %s\n",sto);
+        printf("Target Stem missing %s\n", LSTR(*ARG1));
         Lerror(ERR_INCORRECT_CALL,0);
     }
-    varFrom=(Variable *) from->value;
-    varTo  =(Variable *) to->value;
 
-    ptr=BinMin(varFrom->stem->parent);
+    varFrom = (Variable *) from->value;
+    varTo   = (Variable *) to->value;
+
+    ptr = BinMin(varFrom->stem->parent);
     while (ptr != NULL) {
+
         LINITSTR(tempKey)
         LINITSTR(tempValue)
+
         Lstrcpy(&tempKey, &ptr->key);
-        Lstrcpy(&tempValue, &((Variable *)ptr->value)->value);
+        Lstrcpy(&tempValue, LEAFVAL(ptr));
+
         varTemp = (Variable *)MALLOC(sizeof(Variable),"Var");
-        varTemp->value=tempValue;
+        varTemp->value = tempValue;
         varTemp->exposed=((Variable *) ptr->value)->exposed;
+
         BinAdd((BinTree *)varTo->stem, &tempKey, varTemp);
 
         ptr = BinSuccessor(ptr);
     }
-    LFREESTR(nameFrom)
-    LFREESTR(nameTo)
+
     LFREESTR(tempKey)
-    LFREESTR(tempValue)
-    LFREESTR(sto)
-    LFREESTR(sfrom)
 }
 
 #ifdef __DEBUG__
