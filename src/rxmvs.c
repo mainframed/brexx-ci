@@ -521,6 +521,7 @@ void R_vxput(int func)
 
 void R_stemcopy(int func)
 {
+    BinTree *tree;
     PBinLeaf from, to, ptr ;
     Lstr tempKey, tempValue;
     Variable *varFrom, *varTo, *varTemp;
@@ -537,17 +538,17 @@ void R_stemcopy(int func)
     Lupper(ARG2);
     LASCIIZ(*ARG2);
 
-    BinTree tree = _proc[_rx_proc].scope[0];
+    tree = _proc[_rx_proc].scope;
 
     // look up Source stem
-    from = BinFind(&tree, ARG2);
+    from = BinFind(tree, ARG2);
     if (!from) {
        printf("Invalid Stem %s\n", LSTR(*ARG2));
        Lerror(ERR_INCORRECT_CALL,0);
     }
 
     //  look up Target stem, must be available, later set it up
-    to = BinFind(&tree, ARG1);
+    to = BinFind(tree, ARG1);
     if (!to) {
         printf("Target Stem missing %s\n", LSTR(*ARG1));
         Lerror(ERR_INCORRECT_CALL,0);
