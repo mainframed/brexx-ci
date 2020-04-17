@@ -18,13 +18,6 @@ extern int __libc_arch;
 int __libc_arch = 0;
 #endif
 
-#include "dbginfo.h"
-
-#ifdef __DEBUG__
-/* --------- global debug / trace structure -------- */
-P_DebugInfo debugInfo;
-#endif
-
 /* --------------------- main ---------------------- */
 int __CDECL
 main(int ac, char *av[])
@@ -70,13 +63,6 @@ main(int ac, char *av[])
     }
 #ifdef __DEBUG__
 	__debug__ = FALSE;
-#endif
-
-	/* --- Initialise --- */
-#ifdef __DEBUG__
-	debugInfo = malloc(sizeof(DebugInfo));
-	memset(debugInfo,0,sizeof(DebugInfo));
-	debugInfo->magic_eye = MAGIC_EYE;
 #endif
 
 	RxInitialize(av[0]);
@@ -182,9 +168,6 @@ main(int ac, char *av[])
 	if (mem_allocated()!=0) {
 		fprintf(STDERR,"\nMemory left allocated: %ld\n",mem_allocated());
 		mem_list();
-	}
-	if(debugInfo != NULL) {
-		free(debugInfo);
 	}
 #endif
 

@@ -15,7 +15,6 @@ add_executable(test
         inc/bmem.h
         inc/compile.h
         inc/config.h
-        inc/dbginfo.h
         inc/dqueue.h
         inc/hostcmd.h
         inc/interpre.h
@@ -145,7 +144,6 @@ add_executable(brexx
         inc/bmem.h
         inc/compile.h
         inc/config.h
-        inc/dbginfo.h
         inc/dqueue.h
         inc/hostcmd.h
         inc/interpre.h
