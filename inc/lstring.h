@@ -258,6 +258,7 @@ void  __CDECL Ldelstr ( const PLstr to, const PLstr str,
             long start, long length );
 void  __CDECL Ldelword( const PLstr to, const PLstr str, long start, long length );
 void  __CDECL Lerrortext( const PLstr to, const int errn, const int subn, va_list *ap);
+void  __CDECL Lfilter(const PLstr to, const PLstr from, const PLstr tablein);
 void  __CDECL Lformat ( const PLstr to, const PLstr num, long before,
             long after, long expp, long expt );
 dword __CDECL Lhashvalue( const PLstr s );
@@ -338,6 +339,8 @@ void  __CDECL Lneg  ( const PLstr to, const PLstr num );
 void  __CDECL Lsub  ( const PLstr to, const PLstr A, const PLstr B );
 
 void  __CDECL Labs  ( const PLstr result, const PLstr num );
+void  __CDECL Lceil  ( const PLstr result, const PLstr num );
+void  __CDECL Lfloor ( const PLstr result, const PLstr num );
 int   __CDECL Lsign ( const PLstr num );
 void  __CDECL Lpow  ( const PLstr result, const PLstr num, const PLstr p );
 #define DECLMATH( func )  void __CDECL L##func(const PLstr result, const PLstr num)
