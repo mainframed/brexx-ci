@@ -64,6 +64,7 @@ add_executable(test
         lstring/equal.c
         lstring/errortxt.c
         lstring/expose.c
+        lstring/filter.c
         lstring/format.c
         lstring/hashvalu.c
         lstring/inc.c
@@ -136,7 +137,8 @@ add_executable(test
         src/template.c
         src/trace.c
         src/util.c
-        src/variable.c)
+        src/variable.c
+        lstring/ceil.c lstring/floor.c)
 
 
 add_executable(brexx
@@ -175,6 +177,7 @@ add_executable(brexx
         lstring/c2d.c
         lstring/c2x.c
         lstring/center.c
+        lstring/ceil.c
         lstring/changest.c
         lstring/charin.c
         lstring/charout.c
@@ -193,6 +196,7 @@ add_executable(brexx
         lstring/equal.c
         lstring/errortxt.c
         lstring/expose.c
+        lstring/filter.c
         lstring/format.c
         lstring/hashvalu.c
         lstring/inc.c
@@ -267,7 +271,7 @@ add_executable(brexx
         src/template.c
         src/trace.c
         src/util.c
-        src/variable.c)
+        src/variable.c lstring/floor.c)
 if(UNIX AND NOT APPLE)
    target_link_libraries(brexx m)
 endif()
