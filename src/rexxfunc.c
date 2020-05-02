@@ -64,7 +64,7 @@ DECL( SS       )   DECL( SoSoS )
 
 DECL( arg       )  DECL( compare   )  DECL( copies    )  DECL( close     )
 DECL( datatype  )  DECL( eof       )  DECL( errortext )
-DECL( filesize  )  DECL( filter ) DECL( format    )  DECL( intr      )
+DECL( filesize  )  DECL( filter )     DECL( format    )  DECL( intr      )
 DECL( max       )  DECL( min       )  DECL( open      )  DECL( random    )
 DECL( read      )  DECL( seek      )  DECL( substr    )  DECL( sourceline)
 DECL( strip     )  DECL( storage   )  DECL( space     )  DECL( translate )
@@ -121,7 +121,7 @@ rexx_routine[] = {
 	{ "C2D",	R_SoI		,f_c2d		},
 	{ "C2X",	R_S		,f_c2x		},
 #endif
-    { "CEILING",	R_ceil  	,f_ceil	},
+    { "CEIL",	R_ceil  	,f_ceil	},
 	{ "CENTER",	R_SIoC		,f_center	},
 	{ "CENTRE",	R_SIoC		,f_center	},
 	{ "CHANGESTR",	R_changestr	,f_changestr	},

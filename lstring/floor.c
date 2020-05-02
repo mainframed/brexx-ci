@@ -19,6 +19,6 @@ Lfloor( const PLstr to, const PLstr num )
     LTYPE(*to) = _Lisnum(to);    // convert it to integer and set type (lLastScannedNumber is also set)
     s=lLastScannedNumber;           // s is created integer
     LLEN(*to)  = sizeof(long);
-    if (fnull!=48 && s < 0) { s--; } // +1 if first fraction was <> 0 and number is positive (CEILING)
+    if (fnull != '0' && s < 0) { s--; } // +1 if first fraction was <> 0 and number is positive (CEILING)
     LINT(*to)  = (long)s;
 } /* Floor */
