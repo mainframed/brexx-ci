@@ -440,6 +440,22 @@ R_strip( )
 } /* R_strip */
 
 /* --------------------------------------------------------------- */
+/*  FILTER(string,tablei)                                         */
+/* --------------------------------------------------------------- */
+void __CDECL
+R_filter( )
+{
+    PLstr	tablei;
+
+    if (ARGN != 2)
+       Lerror(ERR_INCORRECT_CALL,0);
+    must_exist(1);
+    must_exist(2);
+    tablei = ARG2;
+    Lfilter(ARGR,ARG1,tablei);
+} /* R_filter */
+
+/* --------------------------------------------------------------- */
 /*  TRANSLATE(string(,(tableo)(,(tablei)(,pad))))                  */
 /* --------------------------------------------------------------- */
 void __CDECL
