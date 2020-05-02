@@ -64,7 +64,7 @@ DECL( SS       )   DECL( SoSoS )
 
 DECL( arg       )  DECL( compare   )  DECL( copies    )  DECL( close     )
 DECL( datatype  )  DECL( eof       )  DECL( errortext )
-DECL( filesize  )  DECL( format    )  DECL( intr      )
+DECL( filesize  )  DECL( filter ) DECL( format    )  DECL( intr      )
 DECL( max       )  DECL( min       )  DECL( open      )  DECL( random    )
 DECL( read      )  DECL( seek      )  DECL( substr    )  DECL( sourceline)
 DECL( strip     )  DECL( storage   )  DECL( space     )  DECL( translate )
@@ -81,6 +81,8 @@ DECL( charlineout )
 DECL( stream )
 
 /* Math routines */
+DECL( ceil  )
+DECL( floor  )
 DECL( abs_sign  )
 DECL( math )
 DECL( atanpow )
@@ -119,6 +121,7 @@ rexx_routine[] = {
 	{ "C2D",	R_SoI		,f_c2d		},
 	{ "C2X",	R_S		,f_c2x		},
 #endif
+    { "CEILING",	R_ceil  	,f_ceil	},
 	{ "CENTER",	R_SIoC		,f_center	},
 	{ "CENTRE",	R_SIoC		,f_center	},
 	{ "CHANGESTR",	R_changestr	,f_changestr	},
@@ -155,8 +158,11 @@ rexx_routine[] = {
 	{ "EOF",	R_eof		,f_eof		},
 	{ "ERRORTEXT",	R_errortext	,f_errortext	},
 	{ "EXP",	R_math		,f_exp		},
+    { "FILTER",	R_filter	,f_filter	},
 	{ "FIND",	R_SSoI		,f_find		},
-	{ "FLUSH",	R_flush		,f_flush	},
+    { "FLOOR",	R_floor  	,f_floor	},
+
+    { "FLUSH",	R_flush		,f_flush	},
 	{ "FORM",	R_O		,f_form		},
 	{ "FORMAT",	R_format	,f_format	},
 	{ "FUZZ",	R_O		,f_fuzz		},
