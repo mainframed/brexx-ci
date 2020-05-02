@@ -91,7 +91,7 @@ enum functions {
  f_copies,        f_center,        f_close,         f_c2d,
  f_c2x,           f_date,          f_datatype,      f_delstr,
  f_delword,       f_d2c,           f_d2x,           f_digits,
- f_errortext,     f_eof,           f_getenv,        f_find,
+ f_errortext,     f_eof,           f_getenv,        f_find, f_filter,
  f_flush,         f_form,          f_format,        f_fuzz,
  f_justify,       f_index,         f_insert,        f_lastpos,
  f_left,          f_length,        f_load,          f_max,   f_makebuf,
@@ -122,7 +122,7 @@ enum functions {
  f_atan2,    f_cos  ,    f_cosh ,    f_exp  ,
  f_log  ,    f_log10,    f_pow  ,    f_pow10,
  f_sin  ,    f_sinh ,    f_sign ,    f_sqrt ,
- f_tan  ,    f_tanh ,
+ f_tan  ,    f_tanh ,    f_ceil,     f_floor,
 
  f_and  ,    f_or   ,    f_xor  ,    f_not  ,
  f_lasterror,	f_a2u,	f_u2a,
