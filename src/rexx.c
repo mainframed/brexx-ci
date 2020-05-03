@@ -262,7 +262,7 @@ void __CDECL RxFileLoadDSN(RxFile *rxf)
         #ifndef __CROSS__
            char finalName[60] = "";    // Clear Memory to avoid unwanted characters in file name pej/mig 3.May 20
         #else
-           char finalName[255] = "";
+           char finalName[255] = "";   // Clear Memory and increase length on PC side to 255 length pej/mig 3.May 20
         #endif
            if (strlen(rxf->dsn) > 0) {
               snprintf(finalName, 54, "%s%c%s%c", rxf->dsn, '(', LSTR(rxf->name), ')');
