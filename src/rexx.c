@@ -259,13 +259,19 @@ void __CDECL RxFileLoadDSN(RxFile *rxf)
         if((*rxFileList->dsn == '\0' && *rxf->dsn == '\0')  /* no dsn set means try loading the initial script */
            ||
            (strcmp(lastName, currentNamme) != 0)) {         /* do not load same member from the same po */
-
-            char finalName[60] = "";    // Clear Memory to avoid unwanted characters in file name pej/mig 3.May 20
-
-            if (strlen(rxf->dsn) > 0) {
-                snprintf(finalName, 54, "%s%c%s%c", rxf->dsn, '(', LSTR(rxf->name), ')');
-            } else {
-                snprintf(finalName, 54, "%s", LSTR(rxf->name));
+        #ifndef __CROSS__
+           char finalName[60] = "";    // Clear Memory to avoid unwanted characters in file name pej/mig 3.May 20
+        #else
+           char finalName[255] = "";
+        #endif
+           if (strlen(rxf->dsn) > 0) {
+              snprintf(finalName, 54, "%s%c%s%c", rxf->dsn, '(', LSTR(rxf->name), ')');
+           } else {
+           #ifndef __CROSS__
+              snprintf(finalName, 54, "%s", LSTR(rxf->name));
+           #else
+              snprintf(finalName, 250, "%s", LSTR(rxf->name));
+           #endif
             }
 
             _style = "//DSN:";
