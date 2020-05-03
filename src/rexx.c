@@ -260,7 +260,7 @@ void __CDECL RxFileLoadDSN(RxFile *rxf)
            ||
            (strcmp(lastName, currentNamme) != 0)) {         /* do not load same member from the same po */
 
-            char finalName[60];
+            char finalName[60] = "";    // Clear Memory to avoid unwanted characters in file name pej/mig 3.May 20
 
             if (strlen(rxf->dsn) > 0) {
                 snprintf(finalName, 54, "%s%c%s%c", rxf->dsn, '(', LSTR(rxf->name), ')');
