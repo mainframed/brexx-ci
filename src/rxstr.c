@@ -445,11 +445,17 @@ R_strip( )
 void __CDECL
 R_filter( )
 {
-     if (ARGN != 2)
-       Lerror(ERR_INCORRECT_CALL,0);
+    char  action='D';
+
+    if (!IN_RANGE(1,ARGN,3))
+        Lerror(ERR_INCORRECT_CALL,0);
     must_exist(1);
     must_exist(2);
-    Lfilter(ARGR,ARG1,ARG2);
+    if (exist(3)) {
+        Lupper(ARG3) ;
+        if ((l2u[(byte)LSTR(*ARG3)[0]])=='K') action='K';
+    }
+    Lfilter(ARGR, ARG1, ARG2,action);
 } /* R_filter */
 
 /* --------------------------------------------------------------- */
