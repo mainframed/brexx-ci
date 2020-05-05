@@ -123,7 +123,7 @@ enum functions {
  f_log  ,    f_log10,    f_pow  ,    f_pow10,
  f_sin  ,    f_sinh ,    f_sign ,    f_sqrt ,
  f_tan  ,    f_tanh ,    f_ceil,     f_floor,
-
+ f_round,
  f_and  ,    f_or   ,    f_xor  ,    f_not  ,
  f_lasterror,	f_a2u,	f_u2a,
 

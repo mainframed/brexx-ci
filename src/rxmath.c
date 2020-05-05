@@ -206,3 +206,18 @@ R_floor( )
     Lfloor(ARGR,ARG1);
 } /* R_floor */
 
+/* --------------------------------------------------------------- */
+/*  ROUND(number,number-fraction-digits)                                                  */
+/* --------------------------------------------------------------- */
+void __CDECL
+R_round( )
+{
+    long   n;
+    if (ARGN!=2) Lerror(ERR_INCORRECT_CALL,0);
+    must_exist(1);
+    must_exist(2);
+    get_oi0(2,n);
+
+    Lround(ARGR,ARG1,n);
+} /* R_floor */
+

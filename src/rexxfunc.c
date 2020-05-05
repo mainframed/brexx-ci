@@ -82,7 +82,8 @@ DECL( stream )
 
 /* Math routines */
 DECL( ceil  )
-DECL( floor  )
+DECL( floor )
+DECL( round )
 DECL( abs_sign  )
 DECL( math )
 DECL( atanpow )
@@ -215,6 +216,7 @@ rexx_routine[] = {
 	{ "READ",	R_read		,f_read		},
 	{ "REVERSE",	R_S		,f_reverse	},
 	{ "RIGHT",	R_SIoC		,f_right	},
+    { "ROUND",	R_round		,f_round	},
 	{ "SEEK",	R_seek		,f_seek		},
 #ifndef WCE
 	{ "SETENV",	R_SS		,f_putenv	},

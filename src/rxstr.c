@@ -445,14 +445,11 @@ R_strip( )
 void __CDECL
 R_filter( )
 {
-    PLstr	tablei;
-
-    if (ARGN != 2)
+     if (ARGN != 2)
        Lerror(ERR_INCORRECT_CALL,0);
     must_exist(1);
     must_exist(2);
-    tablei = ARG2;
-    Lfilter(ARGR,ARG1,tablei);
+    Lfilter(ARGR,ARG1,ARG2);
 } /* R_filter */
 
 /* --------------------------------------------------------------- */

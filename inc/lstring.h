@@ -279,6 +279,7 @@ void  __CDECL Lread   ( FILEP f, const PLstr line, long size );
 void  __CDECL Lreverse( const PLstr s);
 void  __CDECL Lright  ( const PLstr to, const PLstr str, const long length,
             const char pad);
+void  __CDECL Lround  ( const PLstr to, const PLstr from, long n );
 void  __CDECL Lsoundex( const PLstr to, const PLstr str );
 void  __CDECL Lstderr ( const int errno, const int subno, ... );
 void  __CDECL Lstrip  ( const PLstr to, const PLstr str, const char action,

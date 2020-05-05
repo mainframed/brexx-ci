@@ -46,6 +46,7 @@ add_executable(test
         lstring/c2d.c
         lstring/c2x.c
         lstring/center.c
+        lstring/ceil.c
         lstring/changest.c
         lstring/charin.c
         lstring/charout.c
@@ -65,6 +66,7 @@ add_executable(test
         lstring/errortxt.c
         lstring/expose.c
         lstring/filter.c
+        lstring/floor.c
         lstring/format.c
         lstring/hashvalu.c
         lstring/inc.c
@@ -89,6 +91,7 @@ add_executable(test
         lstring/reradix.c
         lstring/reverse.c
         lstring/right.c
+        lstring/round.c
         lstring/sign.c
         lstring/soundex.c
         lstring/space.c
@@ -112,10 +115,12 @@ add_executable(test
         lstring/x2c.c
         lstring/x2d.c
         lstring/xrange.c
+        fss/fss.h
         fss/fss.c
         src/address.c
         src/bintree.c
         src/bmem.c
+        src/brexx.c
         src/builtin.c
         src/compile.c
         src/dqueue.c
@@ -137,9 +142,7 @@ add_executable(test
         src/template.c
         src/trace.c
         src/util.c
-        src/variable.c
-        lstring/ceil.c lstring/floor.c)
-
+        src/variable.c)
 
 add_executable(brexx
         inc/bintree.h
@@ -197,6 +200,7 @@ add_executable(brexx
         lstring/errortxt.c
         lstring/expose.c
         lstring/filter.c
+        lstring/floor.c
         lstring/format.c
         lstring/hashvalu.c
         lstring/inc.c
@@ -221,6 +225,7 @@ add_executable(brexx
         lstring/reradix.c
         lstring/reverse.c
         lstring/right.c
+        lstring/round.c
         lstring/sign.c
         lstring/soundex.c
         lstring/space.c
@@ -271,7 +276,7 @@ add_executable(brexx
         src/template.c
         src/trace.c
         src/util.c
-        src/variable.c lstring/floor.c)
+        src/variable.c)
 if(UNIX AND NOT APPLE)
    target_link_libraries(brexx m)
 endif()
