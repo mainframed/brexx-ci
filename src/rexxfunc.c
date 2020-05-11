@@ -144,7 +144,6 @@ rexx_routine[] = {
 	{ "C2X",	R_S		,f_c2x		},
 #else
 	{ "D2C",	R_IoI		,f_d2c		},
-    { "D2P",	R_d2p		,f_d2p	},
 	{ "D2X",	R_IoI		,f_d2x		},
 #endif
 	{ "DATATYPE",	R_datatype	,f_datatype	},
@@ -156,6 +155,7 @@ rexx_routine[] = {
 	{ "DROPBUF",	R_dropbuf	,f_dropbuf	},
 #if defined(__CMS__) || defined(__MVS__)
 	{ "D2C",	R_IoI		,f_d2c		},
+    { "D2P",	R_d2p		,f_d2p	},
 	{ "D2X",	R_IoI		,f_d2x		},
 #endif
 	{ "EOF",	R_eof		,f_eof		},
