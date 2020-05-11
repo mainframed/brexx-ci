@@ -8,21 +8,17 @@ void __CDECL
 Ld2p( const PLstr to, const PLstr from, long plen, long n) {
     char *ch, *f, sign;
     int r = 0, j = 0 , i;
-    double add=1;
 
-    for (i=0;i<=n;i++) add=add/10;
     if (plen == 0) plen = 6;
     Lfx(to, n + 15);
 // Step 1 create STRING variable of given value
     if (LTYPE(*from)==LINTEGER_TY && n==0) {
        snprintf(LSTR(*to), LMAXLEN(*to), "%*i",0, LINT(*from));
     } else if (LTYPE(*from)==LREAL_TY) {
-        if (LREAL(*from)<0) add=-add;
-        snprintf(LSTR(*to), LMAXLEN(*to), "%.*f", n, LREAL(*from)+add);
+        snprintf(LSTR(*to), LMAXLEN(*to), "%.*f", n, LREAL(*from));
     } else {
         L2REAL(from);
-        if (LREAL(*from)<0) add=-add;
-        snprintf(LSTR(*to), LMAXLEN(*to), "%.*f", n, LREAL(*from)+add);
+        snprintf(LSTR(*to), LMAXLEN(*to), "%.*f", n, LREAL(*from));
     }
 // Step 2 Analyse string byte by byte, fetch sign, drop decimal point
     ch = LSTR(*to);
