@@ -142,7 +142,7 @@ add_executable(test
         src/template.c
         src/trace.c
         src/util.c
-        src/variable.c)
+        src/variable.c lstring/d2p.c lstring/p2d.c)
 
 add_executable(brexx
         inc/bintree.h
@@ -276,7 +276,7 @@ add_executable(brexx
         src/template.c
         src/trace.c
         src/util.c
-        src/variable.c)
+        src/variable.c lstring/d2p.c lstring/p2d.c)
 if(UNIX AND NOT APPLE)
    target_link_libraries(brexx m)
 endif()

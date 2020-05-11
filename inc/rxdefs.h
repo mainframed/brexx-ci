@@ -90,7 +90,7 @@ enum functions {
  f_bitand,        f_bitor,         f_bitxor,        f_compare,
  f_copies,        f_center,        f_close,         f_c2d,
  f_c2x,           f_date,          f_datatype,      f_delstr,
- f_delword,       f_d2c,           f_d2x,           f_digits,
+ f_delword,       f_d2c,           f_d2x,           f_d2p, f_p2d,   f_digits,
  f_errortext,     f_eof,           f_getenv,        f_find, f_filter,
  f_flush,         f_form,          f_format,        f_fuzz,
  f_justify,       f_index,         f_insert,        f_lastpos,

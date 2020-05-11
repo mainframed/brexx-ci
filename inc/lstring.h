@@ -252,6 +252,8 @@ long  __CDECL Lcompare( const PLstr A, const PLstr B, const char pad);
 void  __CDECL Lcopies ( const PLstr to, const PLstr str, long n );
 void  __CDECL Ld2c    ( const PLstr to, const PLstr from, long n );
 void  __CDECL Ld2x    ( const PLstr to, const PLstr from, long length );
+void  __CDECL Ld2p    ( const PLstr to, const PLstr from, long length, long fraction );
+
 int   __CDECL Ldatatype(const PLstr str, char type );
 void  __CDECL Ldate   ( const PLstr datestr, char option );
 void  __CDECL Ldelstr ( const PLstr to, const PLstr str,
@@ -274,6 +276,7 @@ long  __CDECL Llines  ( FILEP f );
 void  __CDECL Llower  ( const PLstr s );
 void  __CDECL Loverlay( const PLstr to, const PLstr str, const PLstr target,
             long n, long length, const char pad);
+void  __CDECL Lp2d    ( const PLstr to, const PLstr from, long dummy,long fraction );
 void  __CDECL Lprint  ( FILEP f, const PLstr str );
 void  __CDECL Lread   ( FILEP f, const PLstr line, long size );
 void  __CDECL Lreverse( const PLstr s);

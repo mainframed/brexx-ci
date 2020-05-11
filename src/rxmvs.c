@@ -619,6 +619,10 @@ void R_magic(int func)
     Lscpy(ARGR,magicstr);
 }
 
+void R_testf(int func) {
+
+}
+
 void R_dummy(int func)
 {
     void *nextPtr = 0x00;
@@ -781,6 +785,7 @@ void RxMvsRegFunctions()
     RxRegFunction("VXGET",    R_vxget,   0);
     RxRegFunction("VXPUT",    R_vxput,   0);
     RxRegFunction("STEMCOPY", R_stemcopy,0);
+    RxRegFunction("TESTF", R_testf,0);
 
 #ifdef __DEBUG__
     RxRegFunction("MAGIC",  R_magic, 0);

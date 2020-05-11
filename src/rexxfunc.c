@@ -69,7 +69,8 @@ DECL( max       )  DECL( min       )  DECL( open      )  DECL( random    )
 DECL( read      )  DECL( seek      )  DECL( substr    )  DECL( sourceline)
 DECL( strip     )  DECL( storage   )  DECL( space     )  DECL( translate )
 DECL( trunc     )  DECL( verify    )  DECL( write     )  DECL( xrange    )
-
+DECL( d2p       )
+DECL( p2d       )
 DECL( dropbuf   )
 DECL( changestr )
 DECL( flush     )
@@ -143,6 +144,7 @@ rexx_routine[] = {
 	{ "C2X",	R_S		,f_c2x		},
 #else
 	{ "D2C",	R_IoI		,f_d2c		},
+    { "D2P",	R_d2p		,f_d2p	},
 	{ "D2X",	R_IoI		,f_d2x		},
 #endif
 	{ "DATATYPE",	R_datatype	,f_datatype	},
@@ -202,6 +204,7 @@ rexx_routine[] = {
 	{ "MIN",	R_min		,f_min		},
 	{ "OPEN",	R_open		,f_open		},
 	{ "OVERLAY",	R_SSoIoIoC	,f_overlay	},
+    { "P2D",	R_p2d		,f_p2d	},
 #if defined(__BORLANDC__) && !defined(__WIN32__) && !defined(WCE)
 	{ "PORT",	R_port		,f_port		},
 #endif

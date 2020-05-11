@@ -457,6 +457,37 @@ R_filter( )
     }
     Lfilter(ARGR, ARG1, ARG2,action);
 } /* R_filter */
+/* --------------------------------------------------------------- */
+/*  D2P(numeric,fraction,)                                         */
+/* --------------------------------------------------------------- */
+void __CDECL
+R_d2p( )
+{
+    int fraction,plen;
+
+    if (!IN_RANGE(1,ARGN,3))
+        Lerror(ERR_INCORRECT_CALL,0);
+    must_exist(1);
+    get_oi0(2,plen);
+    get_oi0(3,fraction);
+
+    Ld2p(ARGR, ARG1, plen,fraction);
+} /* R_d2p */
+/* --------------------------------------------------------------- */
+/*  P2D(packed-numeric)                                            */
+/* --------------------------------------------------------------- */
+void __CDECL
+R_p2d( )
+{
+    int fraction;
+
+    if (!IN_RANGE(1,ARGN,3))
+        Lerror(ERR_INCORRECT_CALL,0);
+    must_exist(1);
+    get_oi0(3,fraction);
+
+    Lp2d(ARGR, ARG1,0,fraction);
+} /* R_p2d */
 
 /* --------------------------------------------------------------- */
 /*  TRANSLATE(string(,(tableo)(,(tablei)(,pad))))                  */
