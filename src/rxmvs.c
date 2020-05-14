@@ -3,6 +3,24 @@
 
 #ifdef JCC
 #include <io.h>
+#include <time.h>
+#include "sockets.h"
+#include "mvsutils.h"
+#else
+# include <sys/socket.h>
+# include <sys/time.h>
+# include <netinet/in.h>
+# include <netinet/ip.h> /* superset of previous */
+# include <netdb.h>
+# include <arpa/inet.h>
+# include <errno.h>
+# define SOCKET      long
+# define SOCKADDR_IN struct sockaddr_in
+# define LPSOCKADDR  struct sockaddr *
+# define SOCKET      long
+# define INVALID_SOCKET (-1)
+# define SOCKET_ERROR   (-1)
+# define WSAGetLastError() errno
 #endif
 
 #include "irx.h"
@@ -64,11 +82,6 @@ char *RX_VAR_BLACKLIST[BLACKLIST_SIZE] = {"RC", "LASTCC", "SIGL", "RESULT", "SYS
 
 #ifdef __CROSS__
 /* ------------------------------------------------------------------------------------*/
-
-
-
-
-
 char*
 getNextVar(void** nextPtr)
 {
@@ -578,6 +591,187 @@ void R_stemcopy(int func)
     LFREESTR(tempKey)
 }
 
+void R_tcpopen(int func) {
+
+    int                 sock;
+    unsigned long       inAddress;
+    struct sockaddr_in  sockAddrIn;
+    struct hostent     *host;
+    struct timeval      timeout;
+
+#ifdef JCC
+    int                 lastError = 0;
+#endif
+
+    printf("DBG> connecting to %s:%d\n", LSTR(*ARG1), (int)LINT(*ARG2));
+
+    inAddress = inet_addr((const char *) LSTR(*ARG1));
+
+    if ((inAddress) == INADDR_NONE) {
+        host = gethostbyname(LSTR(*ARG1));
+        if (host == NULL || host->h_addr_list[0] == NULL) {
+            printf("Unknown host %s\n", (const char *)LSTR(*ARG1));
+            Lerror(ERR_INCORRECT_CALL,0);
+        } else {
+            inAddress = ((long *)(host->h_addr_list [0])) [0];
+        }
+    }
+
+    sockAddrIn.sin_family       = AF_INET;
+    sockAddrIn.sin_addr.s_addr  = inAddress;
+    sockAddrIn.sin_port         = ntohs (LINT(*ARG2));
+
+    // create socket
+    sock = socket (PF_INET, SOCK_STREAM, 0);
+    if (sock == INVALID_SOCKET) {
+#ifdef JCC
+        lastError = WSAGetLastError ();
+        printf("Invalid socket. (errno=%d)\n", lastError);
+        closesocket (sock);
+#else
+        printf("Invalid socket\n");
+#endif
+        Lerror(ERR_INCORRECT_CALL,0);
+    }
+
+    // set receive timeout
+    timeout.tv_sec = 10;        // 10 Secs Timeout
+    timeout.tv_usec = 0;        // Not init'ing this can cause strange errors
+
+#ifdef JCC
+    setsockopt(sock, SO_RCVTIMEO,(int *) &timeout, sizeof(struct timeval));
+#else
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(struct timeval));
+#endif
+
+    // connect
+    if (connect(sock, (LPSOCKADDR)&sockAddrIn, sizeof (sockAddrIn))) {
+#ifdef JCC
+        lastError = WSAGetLastError ();
+        printf("Unable to connect. (errno=%d)\n", lastError);
+        closesocket (sock);
+#else
+        printf("Unable to connect.\n");
+#endif
+        Lerror(ERR_INCORRECT_CALL,0);
+    }
+
+    // return socket fd
+    LINT(*ARGR)  = sock;
+    LTYPE(*ARGR) = LINTEGER_TY;
+    LLEN(*ARGR)  = sizeof(long);
+
+}
+
+void R_tcprecv(int func) {
+
+    int                 sock;
+
+    long                j;
+    char                buffer [1024];
+    // char             ip_adx [260];
+    // SOCKADDR_IN      Clocal_adx;
+    // struct hostent * result;
+    // char newline [2] = {0x15, 0x00};
+
+#ifdef JCC
+    int                 lastError = 0;
+#endif
+
+    L2INT(ARG1);
+    sock = LINT(*ARG1);
+
+    // receive data
+    if ((j = recv (sock, buffer, 1024, 0)) == SOCKET_ERROR) {
+        //printf("ERR> %s\n", strerror(errno));
+        printf("ERR> receiving failed.\n");
+        Lerror(ERR_INCORRECT_CALL,0);
+        /*
+        if (WSAGetLastError() != ENOTSOCK)
+            _putline ("recv failed, terminating.");
+        running = 0;
+        break;*/
+    };
+#ifdef JCC
+    ascii2ebcdic (buffer, j);
+#endif
+
+    if (buffer [0] == 55) {
+        printf ("DBG> terminating at EOT.\n");
+    }
+
+    // print to terminal
+    buffer [j] = 0;
+
+    printf("DBG> received [%s] from server\n", buffer);
+
+}
+
+void R_tcpsend(int func) {
+
+    SOCKET Ccom_han;
+
+    long             j;
+    int              sockerr=0;
+    char             ip_adx [260];
+    SOCKADDR_IN      Clocal_adx;
+    struct hostent * result;
+    char             buffer [1024];
+    char newline [2] = {0x15, 0x00};
+
+    L2INT(ARG1);
+    Ccom_han = LINT(*ARG1);
+
+    strcpy (buffer, LSTR(*ARG2));
+    printf("DBG> sending [%s] to server\n", buffer);
+
+    j = strlen (buffer);
+#ifdef JCC
+    ebcdic2ascii (buffer, j);
+#endif
+
+    if (send (Ccom_han, buffer, j, 0) == SOCKET_ERROR) {
+        printf("ERR> send failed, terminating.\n");
+#ifdef JCC
+        closesocket (Ccom_han);
+#endif
+        Lerror(ERR_INCORRECT_CALL,0);
+    }
+
+}
+
+void R_rhash(int func) {
+    int     slots, ki, p,m,pwr;
+    dword	value = 0;
+    size_t	l=0;
+
+    p   = 71;                  /* potential different Chars   */
+    pwr = 1;                   /* Power of */
+
+    must_exist(1);
+    get_oi0(2,slots);       /* is there a max slot given? */
+
+    if (slots==0) slots=724999983; /* maximum slots */
+
+    if (!LISNULL(*ARG1)) {
+        switch (LTYPE(*ARG1)) {
+            case LINTEGER_TY:
+                l = sizeof(long);   break;
+            case LREAL_TY:
+                l = sizeof(double); break;
+            case LSTRING_TY:
+                l = LLEN(*ARG1); break;
+        }
+
+        for (ki = 0; ki < l; ki++) {
+            value = (value + (LSTR(*ARG1)[ki]) * pwr) % slots;
+            pwr = ((pwr * p) % slots);
+        }
+    }
+    Licpy(ARGR,value);
+}
+
+
 #ifdef __DEBUG__
 void R_magic(int func)
 {
@@ -619,41 +813,6 @@ void R_magic(int func)
     Lscpy(ARGR,magicstr);
 }
 
-void R_testf(int func) {
-
-}
-
-void R_rhash(int func) {
-    int     slots, ki, p,m,pwr;
-    dword	value = 0;
-    size_t	l=0;
-
-    p   = 71;                  /* potential different Chars   */
-    pwr = 1;                   /* Power of */
-
-    must_exist(1);
-    get_oi0(2,slots);       /* is there a max slot given? */
-
-    if (slots==0) slots=724999983; /* maximum slots */
-
-    if (!LISNULL(*ARG1)) {
-       switch (LTYPE(*ARG1)) {
-          case LINTEGER_TY:
-             l = sizeof(long);   break;
-          case LREAL_TY:
-              l = sizeof(double); break;
-          case LSTRING_TY:
-              l = LLEN(*ARG1); break;
-       }
-
-       for (ki = 0; ki < l; ki++) {
-           value = (value + (LSTR(*ARG1)[ki]) * pwr) % slots;
-           pwr = ((pwr * p) % slots);
-       }
-    }
-    Licpy(ARGR,value);
-}
-
 void R_dummy(int func)
 {
     void *nextPtr = 0x00;
@@ -671,7 +830,6 @@ void R_dummy(int func)
 #endif
 
 }
-
 #endif
 
 int RxMvsInitialize()
@@ -804,19 +962,21 @@ int reopen(int fp) {
 void RxMvsRegFunctions()
 {
     /* MVS specific functions */
-    RxRegFunction("DUMPIT",   R_dumpIt,  0);
-    RxRegFunction("LISTIT",   R_listIt,  0);
-    RxRegFunction("WAIT",     R_wait,    0);
-    RxRegFunction("WTO",      R_wto ,    0);
-    RxRegFunction("ABEND",    R_abend ,  0);
-    RxRegFunction("USERID",   R_userid,  0);
-    RxRegFunction("LISTDSI",  R_listdsi, 0);
-    RxRegFunction("SYSDSN",   R_sysdsn,  0);
-    RxRegFunction("SYSVAR",   R_sysvar,  0);
-    RxRegFunction("VXGET",    R_vxget,   0);
-    RxRegFunction("VXPUT",    R_vxput,   0);
-    RxRegFunction("STEMCOPY", R_stemcopy,0);
-    RxRegFunction("TESTF", R_testf,0);
+    RxRegFunction("DUMPIT",     R_dumpIt,  0);
+    RxRegFunction("LISTIT",     R_listIt,  0);
+    RxRegFunction("WAIT",       R_wait,    0);
+    RxRegFunction("WTO",        R_wto ,    0);
+    RxRegFunction("ABEND",      R_abend ,  0);
+    RxRegFunction("USERID",     R_userid,  0);
+    RxRegFunction("LISTDSI",    R_listdsi, 0);
+    RxRegFunction("SYSDSN",     R_sysdsn,  0);
+    RxRegFunction("SYSVAR",     R_sysvar,  0);
+    RxRegFunction("VXGET",      R_vxget,   0);
+    RxRegFunction("VXPUT",      R_vxput,   0);
+    RxRegFunction("STEMCOPY",   R_stemcopy,0);
+    RxRegFunction("TCPOPEN",    R_tcpopen, 0);
+    RxRegFunction("TCPRECEIVE", R_tcprecv,0);
+    RxRegFunction("TCPSEND",    R_tcpsend,0);
     RxRegFunction("RHASH", R_rhash,0);
 
 #ifdef __DEBUG__
