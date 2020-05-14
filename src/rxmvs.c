@@ -623,6 +623,37 @@ void R_testf(int func) {
 
 }
 
+void R_rhash(int func) {
+    int     slots, ki, p,m,pwr;
+    dword	value = 0;
+    size_t	l=0;
+
+    p   = 71;                  /* potential different Chars   */
+    pwr = 1;                   /* Power of */
+
+    must_exist(1);
+    get_oi0(2,slots);       /* is there a max slot given? */
+
+    if (slots==0) slots=724999983; /* maximum slots */
+
+    if (!LISNULL(*ARG1)) {
+       switch (LTYPE(*ARG1)) {
+          case LINTEGER_TY:
+             l = sizeof(long);   break;
+          case LREAL_TY:
+              l = sizeof(double); break;
+          case LSTRING_TY:
+              l = LLEN(*ARG1); break;
+       }
+
+       for (ki = 0; ki < l; ki++) {
+           value = (value + (LSTR(*ARG1)[ki]) * pwr) % slots;
+           pwr = ((pwr * p) % slots);
+       }
+    }
+    Licpy(ARGR,value);
+}
+
 void R_dummy(int func)
 {
     void *nextPtr = 0x00;
@@ -786,6 +817,7 @@ void RxMvsRegFunctions()
     RxRegFunction("VXPUT",    R_vxput,   0);
     RxRegFunction("STEMCOPY", R_stemcopy,0);
     RxRegFunction("TESTF", R_testf,0);
+    RxRegFunction("RHASH", R_rhash,0);
 
 #ifdef __DEBUG__
     RxRegFunction("MAGIC",  R_magic, 0);
