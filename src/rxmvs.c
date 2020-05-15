@@ -6,6 +6,7 @@
 #include <time.h>
 #include "sockets.h"
 #include "mvsutils.h"
+#elif WIN32
 #else
 # include <sys/socket.h>
 # include <sys/time.h>
@@ -590,7 +591,7 @@ void R_stemcopy(int func)
 
     LFREESTR(tempKey)
 }
-
+#ifndef WIN32   // don't compile in Windows
 void R_tcpopen(int func) {
 
     int                 sock;
@@ -739,6 +740,85 @@ void R_tcpsend(int func) {
     }
 
 }
+#endif    // not in Windows
+
+void R_crypt(int func) {
+    int slen, plen, ki, kj, hlen;
+    char scr;
+    must_exist(1);
+    must_exist(2);
+
+    L2STR(ARG1);
+    L2STR(ARG2);
+
+    slen = strlen(LSTR(*ARG1));
+    plen = strlen(LSTR(*ARG2));
+    if (plen==0) {    // no password given, set one
+        Lscpy(ARG2,"NoPasswordprovided");
+        plen=strlen(LSTR(*ARG2));
+    }
+
+    Lfx(ARGR, slen);
+
+    hlen = slen / 2;
+// Step 1: XOR String with Password
+    for (ki = 0, kj=0; ki < slen; ki++,kj++) {
+        if (kj >= plen) kj = 0;
+        LSTR(*ARGR)[ki] = LSTR(*ARG1)[ki] ^ LSTR(*ARG2)[kj];
+    }
+// Step 2: Do some scrambling
+    for (ki = 0, kj=ki+5 ;ki < slen ; ki++, kj=ki+5) {
+        if (kj>=slen) break;
+        scr=LSTR(*ARGR)[ki] ;
+        LSTR(*ARGR)[ki]=LSTR(*ARGR)[kj] ;
+        LSTR(*ARGR)[kj]=scr;
+    }
+// Step 3: XOR right part to left part
+    for (ki = 0,  kj = hlen + 1; ki < hlen; ki++, kj++) {
+        LSTR(*ARGR)[ki] = LSTR(*ARGR)[ki] ^ LSTR(*ARGR)[kj];
+    }
+    LLEN(*ARGR) = (size_t) slen;
+    LTYPE(*ARGR) = LSTRING_TY;
+}
+
+// Decoding
+ void R_decrypt(int func) {
+     int slen,plen,ki,kj, hlen;
+     char scr;
+     must_exist(1);
+     must_exist(2);
+
+     L2STR(ARG1);
+     L2STR(ARG2);
+
+     slen=strlen(LSTR(*ARG1));
+     plen=strlen(LSTR(*ARG2));
+     if (plen==0) {    // no password given, set one
+        Lscpy(ARG2,"NoPasswordprovided");
+        plen=strlen(LSTR(*ARG2));
+     }
+
+     Lfx(ARGR,slen);
+     Lstrcpy(ARGR,ARG1);
+// Step 1: XOR right part to left part, now reverse order to CRYPT
+     for (ki = 0,  kj=hlen+1; ki < hlen; ki++,kj++) {
+         LSTR(*ARGR)[ki]=LSTR(*ARG1)[ki]^LSTR(*ARG1)[kj];
+     }
+// Step 2: XOR right part to left part
+    for (ki = 0,kj=5; ki < slen; ki++, kj=ki+5) {
+        if (kj>=slen) break;
+        scr=LSTR(*ARGR)[ki] ;
+        LSTR(*ARGR)[ki]=LSTR(*ARGR)[kj] ;
+        LSTR(*ARGR)[kj]=scr;
+    }
+// Step 3: XOR String with Password
+     for (ki = 0, kj=0; ki < slen; ki++,kj++) {
+         if (kj>=plen) kj=0;
+         LSTR(*ARGR)[ki]=LSTR(*ARGR)[ki] ^ LSTR(*ARG2)[kj];
+     }
+     LLEN(*ARGR) = (size_t) slen;
+     LTYPE(*ARGR) = LSTRING_TY;
+ }
 
 void R_rhash(int func) {
     int     slots, ki, p,m,pwr;
@@ -962,6 +1042,8 @@ int reopen(int fp) {
 void RxMvsRegFunctions()
 {
     /* MVS specific functions */
+    RxRegFunction("CRYPT", R_crypt,0);
+    RxRegFunction("DECRYPT", R_decrypt,0);
     RxRegFunction("DUMPIT",     R_dumpIt,  0);
     RxRegFunction("LISTIT",     R_listIt,  0);
     RxRegFunction("WAIT",       R_wait,    0);
@@ -974,9 +1056,11 @@ void RxMvsRegFunctions()
     RxRegFunction("VXGET",      R_vxget,   0);
     RxRegFunction("VXPUT",      R_vxput,   0);
     RxRegFunction("STEMCOPY",   R_stemcopy,0);
+#ifndef WIN32
     RxRegFunction("TCPOPEN",    R_tcpopen, 0);
     RxRegFunction("TCPRECEIVE", R_tcprecv,0);
     RxRegFunction("TCPSEND",    R_tcpsend,0);
+#endif
     RxRegFunction("RHASH", R_rhash,0);
 
 #ifdef __DEBUG__
