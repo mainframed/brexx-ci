@@ -74,6 +74,10 @@ int checkValueLength(long lValue);
 int checkVariableBlacklist(PLstr name);
 int reopen(int fp);
 
+int _EncryptString(const PLstr to, const PLstr from, const PLstr password);
+void _rotate(PLstr to,PLstr from, int start);
+
+
 #ifdef __CROSS__
 int __get_ddndsnmemb (int handle, char * ddn, char * dsn,
                       char * member, char * serial, unsigned char * flags);
@@ -743,83 +747,149 @@ void R_tcpsend(int func) {
 }
 #endif    // not in Windows
 
-void R_crypt(int func) {
-    int slen, plen, ki, kj, hlen;
-    char scr;
-    must_exist(1);
-    must_exist(2);
+int _EncryptString(const PLstr to, const PLstr from, const PLstr password) {;
+    int slen,plen, ki, kj;
+    L2STR(from);
+    L2STR(password);
+    slen=LLEN(*from);
+    plen=LLEN(*password);
+    Lfx(ARGR,slen);
 
-    L2STR(ARG1);
-    L2STR(ARG2);
-
-    slen = strlen(LSTR(*ARG1));
-    plen = strlen(LSTR(*ARG2));
-    if (plen==0) {    // no password given, set one
-        Lscpy(ARG2,"NoPasswordprovided");
-        plen=strlen(LSTR(*ARG2));
-    }
-
-    Lfx(ARGR, slen);
-
-    hlen = slen / 2;
-// Step 1: XOR String with Password
     for (ki = 0, kj=0; ki < slen; ki++,kj++) {
         if (kj >= plen) kj = 0;
-        LSTR(*ARGR)[ki] = LSTR(*ARG1)[ki] ^ LSTR(*ARG2)[kj];
+        LSTR(*to)[ki] = LSTR(*from)[ki] ^ LSTR(*password)[kj];
     }
-// Step 2: Do some scrambling
-    for (ki = 0, kj=ki+5 ;ki < slen ; ki++, kj=ki+5) {
-        if (kj>=slen) break;
-        scr=LSTR(*ARGR)[ki] ;
-        LSTR(*ARGR)[ki]=LSTR(*ARGR)[kj] ;
-        LSTR(*ARGR)[kj]=scr;
+    LLEN(*to) = (size_t) slen;
+    LTYPE(*to) = LSTRING_TY;
+    return slen;
+}
+
+void R_crypt(int func) {
+    int slen, plen, ki,rounds;
+    Lstr reverse, result, pw;
+ // string to encrypt and password must exist
+    must_exist(1);
+    must_exist(2);
+    get_oi0(3,rounds);       /* is there a round parm given? */
+    if (rounds==0) rounds=10;  /* maximum slots */
+ // Fetch both strings
+    L2STR(ARG1);
+    L2STR(ARG2);
+    slen = LLEN(*ARG1);   // don't use STRLEN, as string may contain '0'x
+    plen = LLEN(*ARG2);
+// set up temporary result
+    LINITSTR(result);
+    Lfx(&result,slen);
+    Lstrcpy(&result,ARG1);
+// init Password definition
+    if (plen == 0) {    // no password given, set one
+        Lscpy(ARG2, "NoPasswordprovided");
+        plen = strlen(LSTR(*ARG2));
     }
-// Step 3: XOR right part to left part
-    for (ki = 0,  kj = hlen + 1; ki < hlen; ki++, kj++) {
-        LSTR(*ARGR)[ki] = LSTR(*ARGR)[ki] ^ LSTR(*ARGR)[kj];
+    LINITSTR(pw);
+    Lfx(&pw,plen+25);
+    Lstrcpy(&pw,ARG2);
+ // add some dirty characters to increase safety
+    Lcat(&pw,"'%_=?$+-()/&.:;,");
+    plen=LLEN(pw);
+ // set up reverse password
+    LINITSTR(reverse);
+    Lfx(&reverse, plen);
+    Lstrcpy(&reverse, ARG2);
+    Lreverse(&reverse);
+    // run through encryption in several rounds
+    for (ki = 1; ki <= rounds; ki++) {
+    // Step 1: XOR String with Password
+        _rotate(ARGR, &pw, ki);
+        slen = _EncryptString(&result, &result, ARGR);
+     // Step 2: XOR String with reversed Password
+        _rotate(ARGR, &reverse, ki);
+        slen = _EncryptString(&result, &result, ARGR);
     }
+ // final settings and cleanup
+    Lstrcpy(ARGR,&result);
     LLEN(*ARGR) = (size_t) slen;
     LTYPE(*ARGR) = LSTRING_TY;
+    LFREESTR(reverse);
+    LFREESTR(pw);
+    LFREESTR(result)
 }
 
 // Decoding
  void R_decrypt(int func) {
-     int slen,plen,ki,kj, hlen;
-     char scr;
+     int slen,plen,ki,rounds;
+     Lstr reverse, pw, result;
+  // String to encrypt and password must exist
      must_exist(1);
      must_exist(2);
-
+     get_oi0(3,rounds);       /* is there a round parm given? */
+     if (rounds==0) rounds=10;  /* maximum slots */
+ // Fetch both strings
      L2STR(ARG1);
      L2STR(ARG2);
-
-     slen=strlen(LSTR(*ARG1));
-     plen=strlen(LSTR(*ARG2));
+     slen=LLEN(*ARG1);   // don't use STRLEN, as contained string may contain '0'x
+     plen=LLEN(*ARG2);
+  // init Password definition
      if (plen==0) {    // no password given, set one
         Lscpy(ARG2,"NoPasswordprovided");
         plen=strlen(LSTR(*ARG2));
      }
-
-     Lfx(ARGR,slen);
-     Lstrcpy(ARGR,ARG1);
-// Step 1: XOR right part to left part, now reverse order to CRYPT
-     for (ki = 0,  kj=hlen+1; ki < hlen; ki++,kj++) {
-         LSTR(*ARGR)[ki]=LSTR(*ARG1)[ki]^LSTR(*ARG1)[kj];
-     }
-// Step 2: XOR right part to left part
-    for (ki = 0,kj=5; ki < slen; ki++, kj=ki+5) {
-        if (kj>=slen) break;
-        scr=LSTR(*ARGR)[ki] ;
-        LSTR(*ARGR)[ki]=LSTR(*ARGR)[kj] ;
-        LSTR(*ARGR)[kj]=scr;
+    LINITSTR(pw);
+    Lfx(&pw,plen+25);
+    Lstrcpy(&pw,ARG2);
+ // add some dirty characters to increase safety
+    Lcat(&pw,"'%_=?$+-()/&.:;,");
+    plen=LLEN(pw);
+ // build reverse of extended password
+    LINITSTR(reverse);
+    Lfx(&reverse,plen);
+    Lstrcpy(&reverse,ARG2);
+    Lreverse(&reverse);
+ // set up temporary result
+    LINITSTR(result);
+    Lfx(&result,slen);
+    Lstrcpy(&result,ARG1);
+ // run through encryption in several rounds, now in opposite order
+    for (ki = rounds; ki >= 1; ki--) {
+     // Step 1: XOR String with reversed Password
+        _rotate(ARGR, &reverse, ki);
+        slen = _EncryptString(&result, &result, ARGR);
+        _rotate(ARGR, &pw, ki);
+     // Step 2: XOR String with Password
+        slen = _EncryptString(&result,&result, ARGR);
     }
-// Step 3: XOR String with Password
-     for (ki = 0, kj=0; ki < slen; ki++,kj++) {
-         if (kj>=plen) kj=0;
-         LSTR(*ARGR)[ki]=LSTR(*ARGR)[ki] ^ LSTR(*ARG2)[kj];
-     }
+ // final settings and cleanup
+     Lstrcpy(ARGR,&result) ;
      LLEN(*ARGR) = (size_t) slen;
      LTYPE(*ARGR) = LSTRING_TY;
- }
+     LFREESTR(reverse);
+     LFREESTR(pw);
+     LFREESTR(result)
+}
+
+// Return string at a certain position til it's end and continued substring before starting position
+void _rotate(PLstr to, PLstr from, int start) {
+    int slen,rlen, istart=start;
+
+    slen=LLEN(*from);
+    istart--;                       // make start to a offset
+    istart=istart%slen;              // if start > string length (re-calculate offset)
+    rlen = slen- istart; // lenght of remaining string
+    Lfx(to,slen);
+// 1. copy remaining string part
+    MEMMOVE( LSTR(*to), LSTR(*from)+istart, (size_t)rlen);
+// 2. attach remaining length with string starting from position 1
+    MEMMOVE( LSTR(*to)+rlen, LSTR(*from), (size_t)slen-rlen);
+    LLEN(*to) = (size_t) slen;
+    LTYPE(*to) = LSTRING_TY;
+}
+void R_rotate(int func) {
+    int start;
+    must_exist(1);
+    must_exist(2);
+    get_oi(2,start);
+    _rotate(ARGR,ARG1,ARG2);
+}
 
 void R_rhash(int func) {
     int     slots, ki, p,m,pwr;
@@ -1109,7 +1179,7 @@ int reopen(int fp) {
 void RxMvsRegFunctions()
 {
     /* MVS specific functions */
-    RxRegFunction("CRYPT", R_crypt,0);
+    RxRegFunction("ENCRYPT", R_crypt,0);
     RxRegFunction("DECRYPT", R_decrypt,0);
     RxRegFunction("DUMPIT",     R_dumpIt,  0);
     RxRegFunction("LISTIT",     R_listIt,  0);
@@ -1118,6 +1188,7 @@ void RxMvsRegFunctions()
     RxRegFunction("ABEND",      R_abend ,  0);
     RxRegFunction("USERID",     R_userid,  0);
     RxRegFunction("LISTDSI",    R_listdsi, 0);
+    RxRegFunction("ROTATE",     R_rotate,0);
     RxRegFunction("SYSDSN",     R_sysdsn,  0);
     RxRegFunction("SYSVAR",     R_sysvar,  0);
     RxRegFunction("VXGET",      R_vxget,   0);
