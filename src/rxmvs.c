@@ -30,6 +30,7 @@
 #include "rxmvsext.h"
 #include "rxtso.h"
 #include "util.h"
+#include "netdata.h"
 #ifdef __DEBUG__
 #include "bmem.h"
 #endif
@@ -851,6 +852,72 @@ void R_rhash(int func) {
     Licpy(ARGR,value);
 }
 
+void R_listxmi(int func)
+{
+    char sFileName[45];
+    char sFunctionCode[3];
+
+    FILE *pFile;
+    int iErr;
+
+    QuotationType quotationType;
+
+    char* _style_old = _style;
+
+    memset(sFileName,0,45);
+    memset(sFunctionCode,0,3);
+
+    iErr = 0;
+
+    if (ARGN != 1)
+        Lerror(ERR_INCORRECT_CALL,0);
+
+    LASCIIZ(*ARG1)
+    get_s(1)
+#ifndef __CROSS__
+    Lupper(ARG1);
+#endif
+
+    _style = "//DSN:";
+    quotationType = CheckQuotation((char *)LSTR(*ARG1));
+    switch (quotationType) {
+        case UNQUOTED:
+            if (environment->SYSPREF[0] != '\0') {
+                strcat(sFileName, environment->SYSPREF);
+                strcat(sFileName, ".");
+                strcat(sFileName, (const char *) LSTR(*ARG1));
+            }
+            break;
+        case PARTIALLY_QUOTED:
+            strcat(sFunctionCode, "16");
+            iErr = 2;
+            break;
+        case FULL_QUOTED:
+            strncpy(sFileName, (const char *) (LSTR(*ARG1)) + 1, ARG1->len - 2);
+            break;
+        default:
+            Lerror(ERR_DATA_NOT_SPEC, 0);
+    }
+
+    if (iErr == 0) {
+
+#ifndef __CROSS__
+        pFile = FOPEN(sFileName,"R");
+#else
+        pFile = FOPEN(sFileName,"r");
+#endif
+        if (pFile != NULL) {
+            parseXMI(pFile);
+            FCLOSE(pFile);
+        } else {
+            strcat(sFunctionCode,"16");
+        }
+    }
+
+    Lscpy(ARGR,sFunctionCode);
+
+    _style = _style_old;
+}
 
 #ifdef __DEBUG__
 void R_magic(int func)
@@ -1061,7 +1128,8 @@ void RxMvsRegFunctions()
     RxRegFunction("TCPRECEIVE", R_tcprecv,0);
     RxRegFunction("TCPSEND",    R_tcpsend,0);
 #endif
-    RxRegFunction("RHASH", R_rhash,0);
+    RxRegFunction("RHASH",      R_rhash,0);
+    RxRegFunction("LISTXMI",    R_listxmi,0);
 
 #ifdef __DEBUG__
     RxRegFunction("MAGIC",  R_magic, 0);
