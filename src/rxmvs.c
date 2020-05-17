@@ -747,7 +747,7 @@ void R_tcpsend(int func) {
 }
 #endif    // not in Windows
 
-int _EncryptString(const PLstr to, const PLstr from, const PLstr password) {;
+int _EncryptString(const PLstr to, const PLstr from, const PLstr password) {
     int slen,plen, ki, kj;
     L2STR(from);
     L2STR(password);
@@ -888,7 +888,7 @@ void R_rotate(int func) {
     must_exist(1);
     must_exist(2);
     get_oi(2,start);
-    _rotate(ARGR,ARG1,ARG2);
+    _rotate(ARGR,ARG1,start);
 }
 
 void R_rhash(int func) {
