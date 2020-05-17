@@ -168,6 +168,7 @@ add_executable(brexx
         inc/util.h
         inc/variable.h
         inc/rxtso.h
+        inc/netdata.h
         lstring/abbrev.c
         lstring/abs.c
         lstring/add.c
@@ -249,6 +250,8 @@ add_executable(brexx
         lstring/x2c.c
         lstring/x2d.c
         lstring/xrange.c
+        lstring/d2p.c
+        lstring/p2d.c
         fss/fss.h
         fss/fss.c
         src/address.c
@@ -276,7 +279,9 @@ add_executable(brexx
         src/template.c
         src/trace.c
         src/util.c
-        src/variable.c lstring/d2p.c lstring/p2d.c)
+        src/variable.c
+        src/netdata.c)
+
 if(UNIX AND NOT APPLE)
    target_link_libraries(brexx m)
 endif()
