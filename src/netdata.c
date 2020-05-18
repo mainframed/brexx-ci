@@ -222,17 +222,24 @@ void parseXMI(FILE *pFile) {
 
     /* INMFTIME */
     if (iErr == 0) {
-        char uid[15];
-        bzero(uid, 15);
+        NETDATA_TIME netdataTime;
+        bzero(&netdataTime, sizeof(NETDATA_TIME));
 
         iErr = getTextUnit(pSegment, INMFTIME, hTextUnit);
 
         if (iErr == 0) {
-            memcpy(uid, pTextUnit->data->data, getBinaryValue((BYTE *) & pTextUnit->data->length, 2));
+
+            memcpy(&netdataTime, pTextUnit->data->data, getBinaryValue((BYTE *) & pTextUnit->data->length, 2));
 #ifdef __CROSS__
-            ebcdicToAscii(uid);
+            ebcdicToAscii(&netdataTime);
 #endif
-            printf("INMFTIME > %s\n", uid);
+            printf("INMFTIME > %.2s.%.2s.%.4s %.2s:%.2s:%.2s\n",
+                    netdataTime.day,
+                    netdataTime.month,
+                    netdataTime.year,
+                    netdataTime.hour,
+                    netdataTime.minute,
+                    netdataTime.second);
         }
     }
 

@@ -12,6 +12,16 @@
 #   define FALSE 0
 #endif
 
+typedef struct s_nd_time {
+    char    year[4];
+    char    month[2];
+    char    day[2];
+    char    hour[2];
+    char    minute[2];
+    char    second[2];
+    char    fraction[1];
+} NETDATA_TIME, *P_NETDATA_TIME;
+
 typedef struct s_text_unit_header {
     unsigned short key;
     unsigned short number;
