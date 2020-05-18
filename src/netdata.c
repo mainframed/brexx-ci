@@ -27,10 +27,12 @@ getBinaryValue( BYTE *ptr, int len)
     BYTE	        aByte;
     // TODO: only length of 2 and 4 are permitted (short/int)
 #ifndef __CROSS__
-    if (len == 2) {
+    if (len == 1) {
+         binaryValue = (int) *ptr;
+    } else if (len == 2) {
          binaryValue = *(short *) ptr;
-    } else if (4) {
-         binaryValue = *(int *) ptr;
+    } else if (len == 4) {
+         binaryValue = *(int *)   ptr;
     }
 #else
 
@@ -46,34 +48,39 @@ getBinaryValue( BYTE *ptr, int len)
     return binaryValue;
 }
 
+
+
+
+
 int
 readSegment(FILE *pFile, P_SEGMENT pSegment)
 {
-    int             iErr        = 0;
+    int          iErr                   = 0;
 
-    unsigned long   ulLength;
-    unsigned long   ulBytesRead;
+    unsigned int ulBytesRead            = 0;
+    unsigned int ulCurrentPosition      = 0;
+    unsigned int ulLength               = 0;
 
-    // read segment header
-    ulBytesRead = fread((void *) &pSegment->header, 1, sizeof(SEGMENT_HEADER), pFile);
-    if (ulBytesRead != sizeof(SEGMENT_HEADER)) {
-        iErr = EOF;
-    }
+    // read length field
+    ((BYTE *)pSegment)[ulCurrentPosition] = fgetc(pFile);
+    ulBytesRead += 1;
 
-    // check segment header length value
-    if (iErr == 0) {
-        ulLength = (pSegment->header.length & 0xFFu) - 2;
-
-        if (ulLength > 253) {
-            iErr = -2;
-        }
+    // check length value
+    ulLength = ((BYTE *)pSegment)[0] & 0xFFu;
+    if (ulLength <2 || ulLength > 255) {
+        iErr = 1;
     }
 
     // read the entire segment
     if (iErr == 0) {
-        ulBytesRead = fread(&pSegment->data, 1, ulLength, pFile);
-        if (ulBytesRead != ulLength) {
-            iErr = EOF;
+        while (ulBytesRead < ulLength) {
+            ulCurrentPosition++;
+            ((BYTE *)pSegment)[ulCurrentPosition] = fgetc(pFile);
+            ulBytesRead++;
+        }
+
+        if (ulBytesRead  != ulLength) {
+            iErr = 2;
         }
     }
 
@@ -84,43 +91,22 @@ int
 isControlRecord(P_SEGMENT pSegment)
 {
     return
-        ((pSegment->header.flags & SDF_FIRST_SEGMENT) == SDF_FIRST_SEGMENT) &&
-        ((pSegment->header.flags & SDF_LAST_SEGMENT) == SDF_LAST_SEGMENT)   &&
-        ((pSegment->header.flags & SDF_CONTROL_RECORD) == SDF_CONTROL_RECORD);
+        ((pSegment->flags & SDF_FIRST_SEGMENT) == SDF_FIRST_SEGMENT) &&
+        ((pSegment->flags & SDF_LAST_SEGMENT) == SDF_LAST_SEGMENT)   &&
+        ((pSegment->flags & SDF_CONTROL_RECORD) == SDF_CONTROL_RECORD);
 }
 
 CONTROL_RECORD_FORMAT
 getControlRecordFormat(P_SEGMENT pSegment)
 {
-    char        identifier[6];
-    BYTE        data[247];
+    P_CONTROL_RECORD_DATA pControlRecordData = (P_CONTROL_RECORD_DATA) &(pSegment->data);
 
-    printf("FOO> sizeof(SEGMENT) %lu\n", sizeof(SEGMENT));
-    printf("FOO> sizeof(SEGMENT_HEADER) %lu\n", sizeof(SEGMENT_HEADER));
-    printf("FOO> header length = %x, flags = %x\n", pSegment->header.length, pSegment->header.flags);
-    printf("FOO> sizeof(SEGMENT_DATA) %lu\n", sizeof(SEGMENT_DATA));
-    printf("FOO> sizeof(CONTTROL_RECORD_DATA) %lu\n", sizeof(CONTTROL_RECORD_DATA));
-    printf("FOO> sizeof(CONTTROL_RECORD_DATA.ID) %lu\n", sizeof(identifier));
-    printf("FOO> sizeof(CONTTROL_RECORD_DATA.DATA) %lu\n", sizeof(data));
-    printf("FOO> sizeof(TEXT_UNIT) %lu\n", sizeof(TEXT_UNIT));
-    printf("FOO> sizeof(TEXT_UNIT_HEADER) %lu\n", sizeof(TEXT_UNIT_HEADER));
-    printf("FOO> sizeof(TEXT_UNIT_DATA) %lu\n", sizeof(TEXT_UNIT_DATA));
-
-    printf("FOO> the segment\n");
-    DumpHex((char *)pSegment, 96);
-
-    printf("FOO> the data\n");
-    DumpHex(pSegment->data.conttrolRecordData.identifier, 6);
-
-    printf("FOO> a search value\n");
-    DumpHex(HEX_INMR01,6);
-
-    if (memcmp(pSegment->data.conttrolRecordData.identifier, HEX_INMR01, 6) == 0) return INMR01;
-    if (memcmp(pSegment->data.conttrolRecordData.identifier, HEX_INMR02, 6) == 0) return INMR02;
-    if (memcmp(pSegment->data.conttrolRecordData.identifier, HEX_INMR03, 6) == 0) return INMR03;
-    if (memcmp(pSegment->data.conttrolRecordData.identifier, HEX_INMR04, 6) == 0) return INMR04;
-    if (memcmp(pSegment->data.conttrolRecordData.identifier, HEX_INMR06, 6) == 0) return INMR06;
-    if (memcmp(pSegment->data.conttrolRecordData.identifier, HEX_INMR07, 6) == 0) return INMR07;
+    if (memcmp(pControlRecordData->identifier, HEX_INMR01, 6) == 0) return INMR01;
+    if (memcmp(pControlRecordData->identifier, HEX_INMR02, 6) == 0) return INMR02;
+    if (memcmp(pControlRecordData->identifier, HEX_INMR03, 6) == 0) return INMR03;
+    if (memcmp(pControlRecordData->identifier, HEX_INMR04, 6) == 0) return INMR04;
+    if (memcmp(pControlRecordData->identifier, HEX_INMR06, 6) == 0) return INMR06;
+    if (memcmp(pControlRecordData->identifier, HEX_INMR07, 6) == 0) return INMR07;
 
     return UNKNOWN;
 }
@@ -128,36 +114,44 @@ getControlRecordFormat(P_SEGMENT pSegment)
 int
 getTextUnit(P_SEGMENT pSegment, unsigned int uiSearchKey, P_TEXT_UNIT *hTextUnit)
 {
-    int             iErr                        = 0;
+    int             iErr                    = 0;
 
-    unsigned int    uiCurrentPosition           = 0;
+    unsigned int    uiCurrentPosition       = 0;
+    unsigned int    uiMaxPosition           = 0;
+    unsigned int    uiCurrentKey            = 0;
+    unsigned int    uiCurrentNumber         = 0; // number of text unit data elements e.g. length/data pairs
+    unsigned int    uiCurrentLength         = 0; // length of real data in text unit data element
 
-    unsigned int    uiCurrentKey                = 0;
-    unsigned int    uiCurrentNumber             = 0; // number of text unit data elements e.g. length/data pairs
-    unsigned int    uiCurrentLength             = 0; // length of real data in text unit data element
+    BYTE            *pCurrentTextUnit       = 0;
 
-    BYTE            *pCurrentTextUnit           = 0;
+    iErr = 1; // default for text unit not found
+    uiMaxPosition = ((unsigned int)(pSegment->length & 0xFFu))  - 2 /* segment header               */
+                                                                - 6 /* control record identifier    */
+                                                                - 2 /* text unit header             */
+                                                                - 2 /* text unit data length        */;
+    while (uiCurrentPosition <= uiMaxPosition) {
 
-    // todo: ende richtig definiren
-    while (uiCurrentPosition <= 241) {
+        P_CONTROL_RECORD_DATA pControlRecordData = (P_CONTROL_RECORD_DATA) &(pSegment->data);
 
-        pCurrentTextUnit  = (BYTE *)pSegment->data.conttrolRecordData.data;
+        pCurrentTextUnit  = (BYTE *)pControlRecordData->data;
         pCurrentTextUnit += uiCurrentPosition;
 
         *hTextUnit = ((P_TEXT_UNIT) pCurrentTextUnit);
 
         uiCurrentKey    = getBinaryValue((BYTE *)&(*(hTextUnit))->header.key, 2);
         uiCurrentNumber = getBinaryValue((BYTE *)&(*(hTextUnit))->header.number, 2);
+        // TODO: handle uiCurrentNumber
         uiCurrentLength = getBinaryValue((BYTE *)&(*(hTextUnit))->data->length, 2);
 
-        if (uiCurrentKey == uiSearchKey) {
-            return 0;
-        } else {
+        if (uiCurrentKey != uiSearchKey) {
             uiCurrentPosition += sizeof(TEXT_UNIT_HEADER) + 2 + (uiCurrentLength * uiCurrentNumber) ;
+        } else {
+            iErr = 0;
+            break;
         }
     }
 
-    return -1;
+    return iErr;
 }
 
 void parseXMI(FILE *pFile) {
@@ -190,7 +184,11 @@ void parseXMI(FILE *pFile) {
         }
     }
 
-    // get first key
+    printf("-----------------------------\n");
+    printf("INMR01 - mandatory text units\n");
+    printf("-----------------------------\n");
+
+    /* INMFNODE */
     if (iErr == 0) {
         char node[9];
         bzero(node,9);
@@ -202,11 +200,148 @@ void parseXMI(FILE *pFile) {
 #ifdef __CROSS__
             ebcdicToAscii(node);
 #endif
-            printf("FOO> %s\n", node);
+            printf("INMFNODE > %s\n", node);
         }
     }
 
-    printf("FOO> iErr = %d\n", iErr);
+    /* INMFUID */
+    if (iErr == 0) {
+        char uid[9];
+        bzero(uid, 9);
+
+        iErr = getTextUnit(pSegment, INMFUID, hTextUnit);
+
+        if (iErr == 0) {
+            memcpy(uid, pTextUnit->data->data, getBinaryValue((BYTE *) & pTextUnit->data->length, 2));
+#ifdef __CROSS__
+            ebcdicToAscii(uid);
+#endif
+            printf("INMFUID  > %s\n", uid);
+        }
+    }
+
+    /* INMFTIME */
+    if (iErr == 0) {
+        char uid[15];
+        bzero(uid, 15);
+
+        iErr = getTextUnit(pSegment, INMFTIME, hTextUnit);
+
+        if (iErr == 0) {
+            memcpy(uid, pTextUnit->data->data, getBinaryValue((BYTE *) & pTextUnit->data->length, 2));
+#ifdef __CROSS__
+            ebcdicToAscii(uid);
+#endif
+            printf("INMFTIME > %s\n", uid);
+        }
+    }
+
+    /* INMTNODE */
+    if (iErr == 0) {
+        char node[9];
+        bzero(node,9);
+
+        iErr = getTextUnit(pSegment, INMTNODE, hTextUnit);
+
+        if (iErr == 0) {
+            memcpy(node, pTextUnit->data->data, getBinaryValue((BYTE *)&pTextUnit->data->length, 2));
+#ifdef __CROSS__
+            ebcdicToAscii(node);
+#endif
+            printf("INMTNODE > %s\n", node);
+        }
+    }
+
+    /* INMTUID */
+    if (iErr == 0) {
+        char uid[9];
+        bzero(uid, 9);
+
+        iErr = getTextUnit(pSegment, INMTUID, hTextUnit);
+
+        if (iErr == 0) {
+            memcpy(uid, pTextUnit->data->data, getBinaryValue((BYTE *) & pTextUnit->data->length, 2));
+#ifdef __CROSS__
+            ebcdicToAscii(uid);
+#endif
+            printf("INMTUID  > %s\n", uid);
+        }
+    }
+
+    /* INMLRECL */
+    if (iErr == 0) {
+        unsigned int uiLrecl = 0;
+
+        iErr = getTextUnit(pSegment, INMLRECL, hTextUnit);
+
+        if (iErr == 0) {
+            uiLrecl = getBinaryValue((BYTE *) &pTextUnit->data->data,
+                    getBinaryValue((BYTE *) &pTextUnit->data->length, 2));
+            printf("INMLRECL > %d\n", uiLrecl);
+        }
+    }
+
+    printf("-----------------------------\n");
+    printf("INMR01 - optional text units\n");
+    printf("-----------------------------\n");
+
+    /* INMFACK */
+    if (iErr == 0) {
+        unsigned int uiLrecl = 0;
+
+        iErr = getTextUnit(pSegment, INMFACK, hTextUnit);
+
+        if (iErr == 0) {
+            printf("INMFACK  > present\n");
+        } else {
+            printf("INMFACK  > not present\n");
+        }
+    }
+
+    iErr = 0;
+
+    /* INMFVERS */
+    if (iErr == 0) {
+        unsigned int uiLrecl = 0;
+
+        iErr = getTextUnit(pSegment, INMFVERS, hTextUnit);
+
+        if (iErr == 0) {
+            printf("INMFVERS > present\n");
+        } else {
+            printf("INMFVERS > not present\n");
+        }
+    }
+
+    iErr = 0;
+
+    /* INMNUMF */
+    if (iErr == 0) {
+        unsigned int uiLrecl = 0;
+
+        iErr = getTextUnit(pSegment, INMNUMF, hTextUnit);
+
+        if (iErr == 0) {
+            printf("INMNUMF  > present\n");
+        } else {
+            printf("INMNUMF  > not present\n");
+        }
+    }
+
+    iErr = 0;
+
+    /* INMUSERP */
+    if (iErr == 0) {
+        unsigned int uiLrecl = 0;
+
+        iErr = getTextUnit(pSegment, INMUSERP, hTextUnit);
+
+        if (iErr == 0) {
+            printf("INMUSERP > present\n");
+        } else {
+            printf("INMUSERP > not present\n");
+        }
+    }
 }
 
 

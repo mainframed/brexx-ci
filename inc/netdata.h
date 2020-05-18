@@ -30,26 +30,16 @@ typedef struct s_text_unit {
 typedef struct s_control_record_data {
     BYTE        identifier[6];
     BYTE        data[247];
-} CONTTROL_RECORD_DATA, *P_CONTROL_RECORD_DATA;
+} CONTROL_RECORD_DATA, *P_CONTROL_RECORD_DATA;
 
 typedef struct s_data_record_data {
     BYTE        data[253];
 } DATA_RECORD_DATA, *P_DATA_RECORD_DATA;
 
-typedef struct s_segment_header {
-    BYTE length;
-    BYTE flags;
-} SEGMENT_HEADER, *P_SEGMENT_HEADER;
-
-typedef union u_segment_data {
-    CONTTROL_RECORD_DATA    conttrolRecordData;
-    DATA_RECORD_DATA        dataRecordData;
-} SEGMENT_DATA, *P_SEGMENT_DATA;
-
 typedef struct s_segment {
-    SEGMENT_HEADER  header;
-    SEGMENT_DATA    data;
-    //BYTE            data;
+    BYTE    length;
+    BYTE    flags;
+    BYTE    data[253];
 } SEGMENT, *P_SEGMENT;
 
 typedef enum e_control_rec_format {

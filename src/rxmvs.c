@@ -1179,8 +1179,8 @@ int reopen(int fp) {
 void RxMvsRegFunctions()
 {
     /* MVS specific functions */
-    RxRegFunction("ENCRYPT", R_crypt,0);
-    RxRegFunction("DECRYPT", R_decrypt,0);
+    RxRegFunction("ENCRYPT",    R_crypt,0);
+    RxRegFunction("DECRYPT",    R_decrypt,0);
     RxRegFunction("DUMPIT",     R_dumpIt,  0);
     RxRegFunction("LISTIT",     R_listIt,  0);
     RxRegFunction("WAIT",       R_wait,    0);
