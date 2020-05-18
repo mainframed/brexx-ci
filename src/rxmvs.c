@@ -75,7 +75,7 @@ int checkVariableBlacklist(PLstr name);
 int reopen(int fp);
 
 int _EncryptString(const PLstr to, const PLstr from, const PLstr password);
-void _rotate(PLstr to,PLstr from, int start);
+void _rotate(PLstr to,PLstr from, int start,int slen);
 
 
 #ifdef __CROSS__
@@ -776,6 +776,11 @@ void R_crypt(int func) {
     L2STR(ARG1);
     L2STR(ARG2);
     slen = LLEN(*ARG1);   // don't use STRLEN, as string may contain '0'x
+    if (slen<1) {              // is string empty? then return null string
+        LZEROSTR(*ARGR);
+        return;
+    }
+
     plen = LLEN(*ARG2);
 // set up temporary result
     LINITSTR(result);
@@ -800,10 +805,10 @@ void R_crypt(int func) {
     // run through encryption in several rounds
     for (ki = 1; ki <= rounds; ki++) {
     // Step 1: XOR String with Password
-        _rotate(ARGR, &pw, ki);
+        _rotate(ARGR, &pw, ki,0);
         slen = _EncryptString(&result, &result, ARGR);
      // Step 2: XOR String with reversed Password
-        _rotate(ARGR, &reverse, ki);
+        _rotate(ARGR, &reverse, ki,0);
         slen = _EncryptString(&result, &result, ARGR);
     }
  // final settings and cleanup
@@ -827,8 +832,13 @@ void R_crypt(int func) {
  // Fetch both strings
      L2STR(ARG1);
      L2STR(ARG2);
-     slen=LLEN(*ARG1);   // don't use STRLEN, as contained string may contain '0'x
-     plen=LLEN(*ARG2);
+     slen=LLEN(*ARG1);       // don't use STRLEN, as contained string may contain '0'x
+     if (slen<1) {              // is string empty? then return null string
+        LZEROSTR(*ARGR);
+        return;
+     }
+
+    plen=LLEN(*ARG2);
   // init Password definition
      if (plen==0) {    // no password given, set one
         Lscpy(ARG2,"NoPasswordprovided");
@@ -852,9 +862,9 @@ void R_crypt(int func) {
  // run through encryption in several rounds, now in opposite order
     for (ki = rounds; ki >= 1; ki--) {
      // Step 1: XOR String with reversed Password
-        _rotate(ARGR, &reverse, ki);
+        _rotate(ARGR, &reverse, ki,0);
         slen = _EncryptString(&result, &result, ARGR);
-        _rotate(ARGR, &pw, ki);
+        _rotate(ARGR, &pw, ki,0);
      // Step 2: XOR String with Password
         slen = _EncryptString(&result,&result, ARGR);
     }
@@ -868,27 +878,34 @@ void R_crypt(int func) {
 }
 
 // Return string at a certain position til it's end and continued substring before starting position
-void _rotate(PLstr to, PLstr from, int start) {
-    int slen,rlen, istart=start;
+void _rotate(PLstr to, PLstr from, int start, int frlen) {
+    int slen,rlen, istart=start,flen=frlen;
 
     slen=LLEN(*from);
+    if (slen<1) {                  // is string empty? then return null string
+        LZEROSTR(*to);
+        return;
+    }
+    if (istart>slen) istart=slen;   // if start position > string len set to last byte of string
     istart--;                       // make start to a offset
-    istart=istart%slen;              // if start > string length (re-calculate offset)
-    rlen = slen- istart; // lenght of remaining string
+    istart=istart%slen;             // if start > string length (re-calculate offset)
+    rlen = slen- istart;            // lenght of remaining string
+    if (flen==0) flen=slen;
     Lfx(to,slen);
 // 1. copy remaining string part
     MEMMOVE( LSTR(*to), LSTR(*from)+istart, (size_t)rlen);
 // 2. attach remaining length with string starting from position 1
-    MEMMOVE( LSTR(*to)+rlen, LSTR(*from), (size_t)slen-rlen);
-    LLEN(*to) = (size_t) slen;
+    if (flen>rlen) MEMMOVE( LSTR(*to)+rlen, LSTR(*from), (size_t)slen-rlen);
+    LLEN(*to) = (size_t) flen;
     LTYPE(*to) = LSTRING_TY;
 }
 void R_rotate(int func) {
-    int start;
+    int start, slen;
     must_exist(1);
     must_exist(2);
     get_oi(2,start);
-    _rotate(ARGR,ARG1,start);
+    get_oi0(3,slen);
+    _rotate(ARGR,ARG1,start,slen);
 }
 
 void R_rhash(int func) {
@@ -902,7 +919,7 @@ void R_rhash(int func) {
     must_exist(1);
     get_oi0(2,slots);       /* is there a max slot given? */
 
-    if (slots==0) slots=724999983; /* maximum slots */
+    if (slots==0) slots=INT32_MAX; /* maximum slots */
 
     if (!LISNULL(*ARG1)) {
         switch (LTYPE(*ARG1)) {
