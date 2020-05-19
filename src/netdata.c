@@ -10,7 +10,7 @@ unsigned char  HEX_INMR06[6] = {0xC9, 0xD5, 0xD4, 0xD9, 0xF0, 0xF6 };
 unsigned char  HEX_INMR07[6] = {0xC9, 0xD5, 0xD4, 0xD9, 0xF0, 0xF7 };
 
 void
-ebcdicToAscii (unsigned char *s, unsigned int length)
+ebcdicToAscii(unsigned char *s, unsigned int length)
 {
     unsigned int uiCurrentPosition = 0;
     while (uiCurrentPosition < length)
@@ -21,7 +21,7 @@ ebcdicToAscii (unsigned char *s, unsigned int length)
 }
 
 int
-getBinaryValue( BYTE *ptr, int len)
+getBinaryValue(BYTE *ptr, int len)
 {
 
     int				binaryValue, i;
@@ -105,7 +105,7 @@ getControlRecordFormat(P_ND_SEGMENT pSegment)
     if (memcmp(pControlRecordData->identifier, HEX_INMR06, 6) == 0) return INMR06;
     if (memcmp(pControlRecordData->identifier, HEX_INMR07, 6) == 0) return INMR07;
 
-    return UNKNOWN;
+    return UNKNOWN_CTRL_REC_FORMAT;
 }
 
 int
@@ -122,6 +122,11 @@ getTextUnit(P_ND_SEGMENT pSegment, unsigned int uiSearchKey, P_ND_TEXT_UNIT *hTe
     BYTE            *pCurrentTextUnit       = 0;
 
     iErr = 1; // default for text unit not found
+
+    if (getControlRecordFormat(pSegment) == INMR02) {
+        uiCurrentPosition = 4;
+    }
+
     uiMaxPosition = ((unsigned int)(pSegment->length & 0xFFu))  - 2 /* segment header               */
                                                                 - 6 /* control record identifier    */
                                                                 - 2 /* text unit header             */
@@ -151,11 +156,16 @@ getTextUnit(P_ND_SEGMENT pSegment, unsigned int uiSearchKey, P_ND_TEXT_UNIT *hTe
     return iErr;
 }
 
-
 int
-getTextUnitLength(const struct s_nd_text_unit *pTextUnit)
+getTextUnitLength(P_ND_TEXT_UNIT pTextUnit)
 {
     return getBinaryValue((BYTE *) &pTextUnit->length, 2);
+}
+
+int
+getTextUnitNumber(P_ND_TEXT_UNIT pTextUnit)
+{
+    return getBinaryValue((BYTE *) &pTextUnit->number, 2);
 }
 
 int
@@ -169,86 +179,215 @@ getHeaderRecord(P_ND_SEGMENT pSegment, P_ND_HEADER_RECORD pHeaderRecord)
     unsigned int        uiCurrentPosition   = 0;
     unsigned int        uiTextUnitLength    = 0;
 
-    /* INMFNODE */
+    int                 iFound              = 0;
+
+    /* mandatory fields */
     bzero(pHeaderRecord->INMFNODE, sizeof(pHeaderRecord->INMFNODE));
     iErr = getTextUnit(pSegment, ND_INMFNODE, hTextUnit);
     if (iErr == 0) {
         memcpy(pHeaderRecord->INMFNODE, pTextUnit->data, getTextUnitLength(pTextUnit));
     }
 
-    /* INMFUID */
-    bzero(pHeaderRecord->INMFUID, sizeof(pHeaderRecord->INMFUID));
-    iErr = getTextUnit(pSegment, ND_INMFUID, hTextUnit);
     if (iErr == 0) {
-        memcpy(pHeaderRecord->INMFUID, pTextUnit->data, getTextUnitLength(pTextUnit));
+        bzero(pHeaderRecord->INMFUID, sizeof(pHeaderRecord->INMFUID));
+        iErr = getTextUnit(pSegment, ND_INMFUID, hTextUnit);
+        if (iErr == 0) {
+            memcpy(pHeaderRecord->INMFUID, pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
     }
 
-    /* INMFTIME */
-    bzero(&pHeaderRecord->INMFTIME, sizeof(pHeaderRecord->INMFTIME));
-    iErr = getTextUnit(pSegment, ND_INMFTIME, hTextUnit);
     if (iErr == 0) {
-        memcpy(&pHeaderRecord->INMFTIME, pTextUnit->data, getTextUnitLength(pTextUnit));
+        bzero(&pHeaderRecord->INMFTIME, sizeof(pHeaderRecord->INMFTIME));
+        iErr = getTextUnit(pSegment, ND_INMFTIME, hTextUnit);
+        if (iErr == 0) {
+            memcpy(&pHeaderRecord->INMFTIME, pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
     }
 
-    /* INMLRECL */
-    bzero(&pHeaderRecord->INMLRECL, sizeof(pHeaderRecord->INMLRECL));
-    iErr = getTextUnit(pSegment, ND_INMLRECL, hTextUnit);
     if (iErr == 0) {
-        memcpy(&pHeaderRecord->INMLRECL, pTextUnit->data, getTextUnitLength(pTextUnit));
+        bzero(&pHeaderRecord->INMLRECL, sizeof(pHeaderRecord->INMLRECL));
+        iErr = getTextUnit(pSegment, ND_INMLRECL, hTextUnit);
+        if (iErr == 0) {
+            pHeaderRecord->INMLRECL = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
+    }
+
+    if (iErr == 0) {
+        bzero(&pHeaderRecord->INMTNODE, sizeof(pHeaderRecord->INMTNODE));
+        iErr = getTextUnit(pSegment, ND_INMTNODE, hTextUnit);
+        if (iErr == 0) {
+            memcpy(&pHeaderRecord->INMTNODE, pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
+    }
+
+    if (iErr == 0) {
+        bzero(&pHeaderRecord->INMTUID, sizeof(pHeaderRecord->INMTUID));
+        iErr = getTextUnit(pSegment, ND_INMTUID, hTextUnit);
+        if (iErr == 0) {
+            memcpy(&pHeaderRecord->INMTUID, pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
+    }
+
+    /* optional fields */
+    if (iErr == 0) {
+        bzero(&pHeaderRecord->INMFACK, sizeof(pHeaderRecord->INMFACK));
+        iFound = getTextUnit(pSegment, ND_INMFACK, hTextUnit);
+        if (iFound == 0) {
+            memcpy(&pHeaderRecord->INMFACK, pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
+
+        bzero(&pHeaderRecord->INMFVERS, sizeof(pHeaderRecord->INMFVERS));
+        iFound = getTextUnit(pSegment, ND_INMFVERS, hTextUnit);
+        if (iFound == 0) {
+            pHeaderRecord->INMFVERS = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
+
+        bzero(&pHeaderRecord->INMNUMF, sizeof(pHeaderRecord->INMNUMF));
+        iFound = getTextUnit(pSegment, ND_INMNUMF, hTextUnit);
+        if (iFound == 0) {
+            pHeaderRecord->INMNUMF = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
+
+        bzero(&pHeaderRecord->INMUSERP, sizeof(pHeaderRecord->INMUSERP));
+        iFound = getTextUnit(pSegment, ND_INMUSERP, hTextUnit);
+        if (iFound == 0) {
+            memcpy(&pHeaderRecord->INMUSERP, pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
     }
 
     return iErr;
 }
 
-void parseXMI(FILE *pFile) {
-
+int
+getFileUtilRecord(P_ND_SEGMENT pSegment, P_ND_FILE_UTIL_RECORD pFileUtilRecord)
+{
     int                     iErr            = 0;
 
-    ND_SEGMENT              segment;
-    P_ND_SEGMENT            pSegment        = &segment;
+    P_ND_TEXT_UNIT      pTextUnit           = NULL;
+    P_ND_TEXT_UNIT      *hTextUnit          = &pTextUnit;
 
-    ND_HEADER_RECORD        ndHeaderRecord;
-    P_ND_HEADER_RECORD      pNdHeaderRecord = &ndHeaderRecord;
+    unsigned int        uiCurrentPosition   = 0;
+    unsigned int        uiTextUnitLength    = 0;
+    unsigned int        uiTextUnitNumber    = 0;
+    unsigned int        uiCurrentNumber     = 0;
+    int                 iFound              = 0;
 
-    ND_CTRL_RECORD_FORMAT   ctrlRecFormat   = UNKNOWN;
-
-    // clear segment
-    bzero(pSegment, sizeof(ND_SEGMENT));
-
-    // read first segment from file
-    iErr = readSegment(pFile, pSegment);
-
-    // first segment must be a INMR01 control record
+    /* mandatory fields */
+    bzero(&pFileUtilRecord->INMDSORG, sizeof(pFileUtilRecord->INMDSORG));
+    iErr = getTextUnit(pSegment, ND_INMDSORG, hTextUnit);
     if (iErr == 0) {
-        if (isControlRecord(pSegment)) {
-            ctrlRecFormat = getControlRecordFormat(pSegment);
-            if (ctrlRecFormat != INMR01) {
-                iErr = 1;
-            }
-        } else {
-            iErr = 2;
+        pFileUtilRecord->INMDSORG = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+    }
+
+    if (iErr == 0) {
+        bzero(&pFileUtilRecord->INMLRECL, sizeof(pFileUtilRecord->INMLRECL));
+        iErr = getTextUnit(pSegment, ND_INMLRECL, hTextUnit);
+        if (iErr == 0) {
+            pFileUtilRecord->INMLRECL = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
         }
     }
 
     if (iErr == 0) {
-        iErr = getHeaderRecord(pSegment, pNdHeaderRecord);
+        bzero(&pFileUtilRecord->INMRECFM, sizeof(pFileUtilRecord->INMRECFM));
+        iErr = getTextUnit(pSegment, ND_INMRECFM, hTextUnit);
+        if (iErr == 0) {
+            memcpy(&pFileUtilRecord->INMRECFM, pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
     }
 
-#ifdef __CROSS__
-    ebcdicToAscii((BYTE *)&pNdHeaderRecord->INMFNODE, sizeof(pNdHeaderRecord->INMFNODE));
-    ebcdicToAscii((BYTE *)&pNdHeaderRecord->INMFUID,  sizeof(pNdHeaderRecord->INMFUID));
-    ebcdicToAscii((BYTE *)&pNdHeaderRecord->INMFTIME, sizeof(pNdHeaderRecord->INMFTIME));
-#endif
+    if (iErr == 0) {
+        bzero(&pFileUtilRecord->INMSIZE, sizeof(pFileUtilRecord->INMSIZE));
+        iErr = getTextUnit(pSegment, ND_INMSIZE, hTextUnit);
+        if (iErr == 0) {
+            pFileUtilRecord->INMSIZE = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
+    }
 
-    printf("XMIT file was created by %.8s.%.8s on %.2s.%.2s.%.4s at %.2s:%.2s:%.2s \n",
-           pNdHeaderRecord->INMFNODE,
-           pNdHeaderRecord->INMFUID,
-           pNdHeaderRecord->INMFTIME.day,
-           pNdHeaderRecord->INMFTIME.month,
-           pNdHeaderRecord->INMFTIME.year,
-           pNdHeaderRecord->INMFTIME.hour,
-           pNdHeaderRecord->INMFTIME.minute,
-           pNdHeaderRecord->INMFTIME.second);
+    if (iErr == 0) {
+        bzero(&pFileUtilRecord->INMUTILN, sizeof(pFileUtilRecord->INMUTILN));
+        iErr = getTextUnit(pSegment, ND_INMUTILN, hTextUnit);
+        if (iErr == 0) {
+            memcpy(&pFileUtilRecord->INMUTILN, pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
+    }
+
+    /* optional fields */
+    if (iErr == 0) {
+        bzero(&pFileUtilRecord->INMBLKSZ, sizeof(pFileUtilRecord->INMBLKSZ));
+        iFound = getTextUnit(pSegment, ND_INMBLKSZ, hTextUnit);
+        if (iFound == 0) {
+            pFileUtilRecord->INMBLKSZ = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
+
+        bzero(&pFileUtilRecord->INMCREAT, sizeof(pFileUtilRecord->INMCREAT));
+        iFound = getTextUnit(pSegment, ND_INMCREAT, hTextUnit);
+        if (iFound == 0) {
+            memcpy(&pFileUtilRecord->INMCREAT, pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
+
+        bzero(&pFileUtilRecord->INMDIR, sizeof(pFileUtilRecord->INMDIR));
+        iFound = getTextUnit(pSegment, ND_INMDIR, hTextUnit);
+        if (iFound == 0) {
+            pFileUtilRecord->INMDIR = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
+
+        bzero(&pFileUtilRecord->INMDSNAM, sizeof(pFileUtilRecord->INMDSNAM));
+        iFound = getTextUnit(pSegment, ND_INMDSNAM, hTextUnit);
+        if (iFound == 0) {
+            void *pData = pTextUnit->data;
+            uiTextUnitNumber = getTextUnitNumber(pTextUnit);
+            for (uiCurrentNumber = 1; uiCurrentNumber <= uiTextUnitNumber; uiCurrentNumber++) {
+                memcpy(&pFileUtilRecord->INMDSNAM[uiCurrentPosition], pData, getTextUnitLength(pTextUnit));
+                uiCurrentPosition += getTextUnitLength(pTextUnit);
+            }
+        }
+
+        bzero(&pFileUtilRecord->INMEXPDT, sizeof(pFileUtilRecord->INMEXPDT));
+        iFound = getTextUnit(pSegment, ND_INMEXPDT, hTextUnit);
+        if (iFound == 0) {
+            memcpy(&pFileUtilRecord->INMEXPDT, pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
+
+        bzero(&pFileUtilRecord->INMFFM, sizeof(pFileUtilRecord->INMFFM));
+        iFound = getTextUnit(pSegment, ND_INMFFM, hTextUnit);
+        if (iFound == 0) {
+            pFileUtilRecord->INMFFM = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
+
+        bzero(&pFileUtilRecord->INMLCHG, sizeof(pFileUtilRecord->INMLCHG));
+        iFound = getTextUnit(pSegment, ND_INMLCHG, hTextUnit);
+        if (iFound == 0) {
+            memcpy(&pFileUtilRecord->INMLCHG, pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
+
+        bzero(&pFileUtilRecord->INMLREF, sizeof(pFileUtilRecord->INMLREF));
+        iFound = getTextUnit(pSegment, ND_INMLREF, hTextUnit);
+        if (iFound == 0) {
+            memcpy(&pFileUtilRecord->INMEXPDT, pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
+
+        bzero(&pFileUtilRecord->INMTERM, sizeof(pFileUtilRecord->INMTERM));
+        iFound = getTextUnit(pSegment, ND_INMTERM, hTextUnit);
+        if (iFound == 0) {
+            pFileUtilRecord->INMTERM = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
+
+        bzero(&pFileUtilRecord->INMUSERP, sizeof(pFileUtilRecord->INMUSERP));
+        iFound = getTextUnit(pSegment, ND_INMUSERP, hTextUnit);
+        if (iFound == 0) {
+            memcpy(&pFileUtilRecord->INMUSERP, pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
+
+        bzero(&pFileUtilRecord->INMMEMBRN, sizeof(pFileUtilRecord->INMMEMBRN));
+        iFound = getTextUnit(pSegment, ND_INMMEMBR, hTextUnit);
+        if (iFound == 0) {
+            pFileUtilRecord->INMMEMBRN = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+        }
+
+    }
+
+
+    return iErr;
 }
 
 
