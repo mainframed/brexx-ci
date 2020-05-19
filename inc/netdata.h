@@ -12,45 +12,53 @@
 #   define FALSE 0
 #endif
 
-typedef struct s_nd_time {
-    char    year[4];
-    char    month[2];
-    char    day[2];
-    char    hour[2];
-    char    minute[2];
-    char    second[2];
-    char    fraction[1];
-} NETDATA_TIME, *P_NETDATA_TIME;
 
-typedef struct s_text_unit_header {
-    unsigned short key;
-    unsigned short number;
-} TEXT_UNIT_HEADER, *P_TEXT_UNIT_HEADER;
+typedef struct s_nd_date_time {
+    char            year    [4];
+    char            month   [2];
+    char            day     [2];
+    char            hour    [2];
+    char            minute  [2];
+    char            second  [2];
+} ND_DATE_TIME, *P_ND_DATE_TIME;
 
-typedef struct s_text_unit_data {
-    short   length;
-    BYTE    data[1];
-} TEXT_UNIT_DATA, *P_TEXT_UNIT_DATA;
+/* INMR01 */
+typedef struct s_nd_header_record {
+    /* mandatory fields*/
+    char            INMFNODE      [8];  /* Origin node name                             */
+    ND_DATE_TIME    INMFTIME         ;  /* Origin timestamp                             */
+    char            INMFUID       [8];  /* Origin user ID                               */
+    unsigned int    INMLRECL         ;  /* Length of physical control record segments   */
+    char            INMTNODE      [8];  /* Target node name                             */
+    char            INMTUID       [8];  /* Target user ID                               */
+    /* optional fields*/
+    BYTE            INMFACK      [64];  /* Receipt notification requested               */
+    BYTE            INMFVERS      [8];  /* Origin version number                        */
+    unsigned int    INMNUMF          ;  /* Number of files in this transmission         */
+    BYTE            INMUSERP    [251];  /* User parameter string                        */
+} ND_HEADER_RECORD, *P_ND_HEADER_RECORD;
 
-typedef struct s_text_unit {
-    TEXT_UNIT_HEADER    header;
-    TEXT_UNIT_DATA      data[1];
-} TEXT_UNIT, *P_TEXT_UNIT;
+typedef struct s_nd_text_unit {
+    unsigned short  key;
+    unsigned short  number;
+    short           length;
+    BYTE            data[1];
+} ND_TEXT_UNIT, *P_ND_TEXT_UNIT;
 
-typedef struct s_control_record_data {
-    BYTE        identifier[6];
-    BYTE        data[247];
-} CONTROL_RECORD_DATA, *P_CONTROL_RECORD_DATA;
+typedef struct s_nd_ctrl_record {
+    BYTE            identifier[6];
+    BYTE            data[247];
+} ND_CTRL_RECORD, *P_ND_CTRL_RECORD;
 
-typedef struct s_data_record_data {
-    BYTE        data[253];
-} DATA_RECORD_DATA, *P_DATA_RECORD_DATA;
+typedef struct s_nd_data_record {
+    BYTE            data[253];
+} ND_DATA_RECORD, *P_ND_DATA_RECORD;
 
-typedef struct s_segment {
-    BYTE    length;
-    BYTE    flags;
-    BYTE    data[253];
-} SEGMENT, *P_SEGMENT;
+typedef struct s_nd_segment {
+    BYTE            length;
+    BYTE            flags;
+    BYTE            data[253];
+} ND_SEGMENT, *P_ND_SEGMENT;
 
 typedef enum e_control_rec_format {
     INMR01,
@@ -60,48 +68,48 @@ typedef enum e_control_rec_format {
     INMR06,
     INMR07,
     UNKNOWN
-} CONTROL_RECORD_FORMAT;
+} ND_CTRL_RECORD_FORMAT;
 
 /* SEGMENT DESCRIPTOR FLAGS                               */
-#define SDF_FIRST_SEGMENT  0x80u /* 1000                  */
-#define SDF_LAST_SEGMENT   0x40u /* 0100                  */
-#define SDF_CONTROL_RECORD 0x20u /* 0010                  */
-#define SDF_RECORD_NUMBER  0x10u /* 0001                  */
+#define ND_FIRST_SEGMENT  0x80u /* 1000                  */
+#define ND_LAST_SEGMENT   0x40u /* 0100                  */
+#define ND_CONTROL_RECORD 0x20u /* 0010                  */
+#define ND_RECORD_NUMBER  0x10u /* 0001                  */
 
 /* KEYS FOR NETWORK USER IDENTIFICATION (INMR01 RECORD)   */
-#define INMTNODE 0x1001 /* TARGET NODE NAME               */
-#define INMTUID  0x1002 /* TARGET USERID                  */
-#define INMFNODE 0x1011 /* ORIGIN NODE NAME               */
-#define INMFUID  0x1012 /* ORIGIN NODE NAME               */
-#define INMFVERS 0x1023 /* ORIGIN VERSION NUMBER          */
-#define INMFTIME 0x1024 /* ORIGIN TIME STAMP              */
-#define INMTTIME 0x1025 /* DESTINATION TIME STAMP         */
-#define INMNUMF  0x102F /* # OF FILES IN TRANSMISSION     */
+#define ND_INMTNODE 0x1001 /* TARGET NODE NAME               */
+#define ND_INMTUID  0x1002 /* TARGET USERID                  */
+#define ND_INMFNODE 0x1011 /* ORIGIN NODE NAME               */
+#define ND_INMFUID  0x1012 /* ORIGIN NODE NAME               */
+#define ND_INMFVERS 0x1023 /* ORIGIN VERSION NUMBER          */
+#define ND_INMFTIME 0x1024 /* ORIGIN TIME STAMP              */
+#define ND_INMTTIME 0x1025 /* DESTINATION TIME STAMP         */
+#define ND_INMNUMF  0x102F /* # OF FILES IN TRANSMISSION     */
 
 /* KEYS FOR GENERAL CONTROL                               */
-#define INMFACK  0x1026 /* ACKNOWLEDGEMENT REQUEST        */
-#define INMERRCD 0x1027 /* RECEIVE ERROR CODE             */
-#define INMUTILN 0x1028 /* NAME OF UTILITY PROGRAM        */
-#define INMUSERP 0x1029 /* USER PARAMETER STRING          */
-#define INMRECCT 0x102A /* TRANSMITTED RECORD COUNT       */
+#define ND_INMFACK  0x1026 /* ACKNOWLEDGEMENT REQUEST        */
+#define ND_INMERRCD 0x1027 /* RECEIVE ERROR CODE             */
+#define ND_INMUTILN 0x1028 /* NAME OF UTILITY PROGRAM        */
+#define ND_INMUSERP 0x1029 /* USER PARAMETER STRING          */
+#define ND_INMRECCT 0x102A /* TRANSMITTED RECORD COUNT       */
 
 /* KEYS FOR DATASET IDENTIFICATION (INMR02,INMR03 RECORDS)*/
-#define INMDDNAM 0x0001 /* DDNAME FOR FILE                */
-#define INMDSNAM 0x0002 /* DATASET NAME FOR FILE          */
-#define INMMEMBR 0x0003 /* TRANSMITTED MEMBER LIST        */
-#define INMSECND 0x000B /* SECONDARY SPACE QUANTITY       */
-#define INMDIR   0x000C /* DIRECTORY SPACE QUANTITY       */
-#define INMEXPDT 0x0022 /* EXPIRATION DATE                */
-#define INMTERM  0x0028 /* TERMINAL ALLOCATION            */
-#define INMBLKSZ 0x0030 /* BLOCKSIZE                      */
-#define INMDSORG 0x003C /* DATA SET ORGANIZATION          */
-#define INMLRECL 0x0042 /* LOGICAL RECORD  LENGTH         */
-#define INMRECFM 0x0049 /* RECORD FORMAT                  */
-#define INMLREF  0x1020 /* LAST REFERENCE DATE            */
-#define INMLCHG  0x1021 /* LAST CHANGE DATE               */
-#define INMCREAT 0x1022 /* CREATION DATE                  */
-#define INMSIZE  0x102C /* FILE SIZE IN BYTES             */
-#define INMTYPE  0x8012 /* DATA SET TYPE                  */
+#define ND_INMDDNAM 0x0001 /* DDNAME FOR FILE                */
+#define ND_INMDSNAM 0x0002 /* DATASET NAME FOR FILE          */
+#define ND_INMMEMBR 0x0003 /* TRANSMITTED MEMBER LIST        */
+#define ND_INMSECND 0x000B /* SECONDARY SPACE QUANTITY       */
+#define ND_INMDIR   0x000C /* DIRECTORY SPACE QUANTITY       */
+#define ND_INMEXPDT 0x0022 /* EXPIRATION DATE                */
+#define ND_INMTERM  0x0028 /* TERMINAL ALLOCATION            */
+#define ND_INMBLKSZ 0x0030 /* BLOCKSIZE                      */
+#define ND_INMDSORG 0x003C /* DATA SET ORGANIZATION          */
+#define ND_INMLRECL 0x0042 /* LOGICAL RECORD  LENGTH         */
+#define ND_INMRECFM 0x0049 /* RECORD FORMAT                  */
+#define ND_INMLREF  0x1020 /* LAST REFERENCE DATE            */
+#define ND_INMLCHG  0x1021 /* LAST CHANGE DATE               */
+#define ND_INMCREAT 0x1022 /* CREATION DATE                  */
+#define ND_INMSIZE  0x102C /* FILE SIZE IN BYTES             */
+#define ND_INMTYPE  0x8012 /* DATA SET TYPE                  */
 
 static const unsigned char e2a[256] = {
         0,  1,  2,  3,156,  9,134,127,151,141,142, 11, 12, 13, 14, 15,

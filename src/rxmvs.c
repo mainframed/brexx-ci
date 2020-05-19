@@ -988,11 +988,7 @@ void R_listxmi(int func)
 
     if (iErr == 0) {
 
-#ifndef __CROSS__
-        pFile = FOPEN(sFileName,"R");
-#else
-        pFile = FOPEN(sFileName,"r");
-#endif
+        pFile = FOPEN(sFileName,"r+b");
         if (pFile != NULL) {
             parseXMI(pFile);
             FCLOSE(pFile);

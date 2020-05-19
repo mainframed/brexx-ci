@@ -10,12 +10,13 @@ unsigned char  HEX_INMR06[6] = {0xC9, 0xD5, 0xD4, 0xD9, 0xF0, 0xF6 };
 unsigned char  HEX_INMR07[6] = {0xC9, 0xD5, 0xD4, 0xD9, 0xF0, 0xF7 };
 
 void
-ebcdicToAscii (unsigned char *s)
+ebcdicToAscii (unsigned char *s, unsigned int length)
 {
-    while (*s)
+    unsigned int uiCurrentPosition = 0;
+    while (uiCurrentPosition < length)
     {
-        *s = e2a[(int) (*s)];
-        s++;
+        s[uiCurrentPosition] = e2a[(int) (s[uiCurrentPosition])];
+        uiCurrentPosition++;
     }
 }
 
@@ -25,7 +26,7 @@ getBinaryValue( BYTE *ptr, int len)
 
     int				binaryValue, i;
     BYTE	        aByte;
-    // TODO: only length of 2 and 4 are permitted (short/int)
+    // TODO: only length of 1, 2 and 4 are permitted (short/int)
 #ifndef __CROSS__
     if (len == 1) {
          binaryValue = (int) *ptr;
@@ -48,12 +49,8 @@ getBinaryValue( BYTE *ptr, int len)
     return binaryValue;
 }
 
-
-
-
-
 int
-readSegment(FILE *pFile, P_SEGMENT pSegment)
+readSegment(FILE *pFile, P_ND_SEGMENT pSegment)
 {
     int          iErr                   = 0;
 
@@ -88,18 +85,18 @@ readSegment(FILE *pFile, P_SEGMENT pSegment)
 }
 
 int
-isControlRecord(P_SEGMENT pSegment)
+isControlRecord(P_ND_SEGMENT pSegment)
 {
     return
-        ((pSegment->flags & SDF_FIRST_SEGMENT) == SDF_FIRST_SEGMENT) &&
-        ((pSegment->flags & SDF_LAST_SEGMENT) == SDF_LAST_SEGMENT)   &&
-        ((pSegment->flags & SDF_CONTROL_RECORD) == SDF_CONTROL_RECORD);
+            ((pSegment->flags & ND_FIRST_SEGMENT) == ND_FIRST_SEGMENT) &&
+            ((pSegment->flags & ND_LAST_SEGMENT) == ND_LAST_SEGMENT) &&
+            ((pSegment->flags & ND_CONTROL_RECORD) == ND_CONTROL_RECORD);
 }
 
-CONTROL_RECORD_FORMAT
-getControlRecordFormat(P_SEGMENT pSegment)
+ND_CTRL_RECORD_FORMAT
+getControlRecordFormat(P_ND_SEGMENT pSegment)
 {
-    P_CONTROL_RECORD_DATA pControlRecordData = (P_CONTROL_RECORD_DATA) &(pSegment->data);
+    P_ND_CTRL_RECORD pControlRecordData = (P_ND_CTRL_RECORD) &(pSegment->data);
 
     if (memcmp(pControlRecordData->identifier, HEX_INMR01, 6) == 0) return INMR01;
     if (memcmp(pControlRecordData->identifier, HEX_INMR02, 6) == 0) return INMR02;
@@ -112,7 +109,7 @@ getControlRecordFormat(P_SEGMENT pSegment)
 }
 
 int
-getTextUnit(P_SEGMENT pSegment, unsigned int uiSearchKey, P_TEXT_UNIT *hTextUnit)
+getTextUnit(P_ND_SEGMENT pSegment, unsigned int uiSearchKey, P_ND_TEXT_UNIT *hTextUnit)
 {
     int             iErr                    = 0;
 
@@ -131,20 +128,20 @@ getTextUnit(P_SEGMENT pSegment, unsigned int uiSearchKey, P_TEXT_UNIT *hTextUnit
                                                                 - 2 /* text unit data length        */;
     while (uiCurrentPosition <= uiMaxPosition) {
 
-        P_CONTROL_RECORD_DATA pControlRecordData = (P_CONTROL_RECORD_DATA) &(pSegment->data);
+        P_ND_CTRL_RECORD pControlRecordData = (P_ND_CTRL_RECORD) &(pSegment->data);
 
         pCurrentTextUnit  = (BYTE *)pControlRecordData->data;
         pCurrentTextUnit += uiCurrentPosition;
 
-        *hTextUnit = ((P_TEXT_UNIT) pCurrentTextUnit);
+        *hTextUnit = ((P_ND_TEXT_UNIT) pCurrentTextUnit);
 
-        uiCurrentKey    = getBinaryValue((BYTE *)&(*(hTextUnit))->header.key, 2);
-        uiCurrentNumber = getBinaryValue((BYTE *)&(*(hTextUnit))->header.number, 2);
+        uiCurrentKey    = getBinaryValue((BYTE *)&(*(hTextUnit))->key, 2);
+        uiCurrentNumber = getBinaryValue((BYTE *)&(*(hTextUnit))->number, 2);
         // TODO: handle uiCurrentNumber
-        uiCurrentLength = getBinaryValue((BYTE *)&(*(hTextUnit))->data->length, 2);
+        uiCurrentLength = getBinaryValue((BYTE *)&(*(hTextUnit))->length, 2);
 
         if (uiCurrentKey != uiSearchKey) {
-            uiCurrentPosition += sizeof(TEXT_UNIT_HEADER) + 2 + (uiCurrentLength * uiCurrentNumber) ;
+            uiCurrentPosition += 4 + 2 + (uiCurrentLength * uiCurrentNumber) ;
         } else {
             iErr = 0;
             break;
@@ -154,20 +151,69 @@ getTextUnit(P_SEGMENT pSegment, unsigned int uiSearchKey, P_TEXT_UNIT *hTextUnit
     return iErr;
 }
 
+
+int
+getTextUnitLength(const struct s_nd_text_unit *pTextUnit)
+{
+    return getBinaryValue((BYTE *) &pTextUnit->length, 2);
+}
+
+int
+getHeaderRecord(P_ND_SEGMENT pSegment, P_ND_HEADER_RECORD pHeaderRecord)
+{
+    int                     iErr            = 0;
+
+    P_ND_TEXT_UNIT      pTextUnit           = NULL;
+    P_ND_TEXT_UNIT      *hTextUnit          = &pTextUnit;
+
+    unsigned int        uiCurrentPosition   = 0;
+    unsigned int        uiTextUnitLength    = 0;
+
+    /* INMFNODE */
+    bzero(pHeaderRecord->INMFNODE, sizeof(pHeaderRecord->INMFNODE));
+    iErr = getTextUnit(pSegment, ND_INMFNODE, hTextUnit);
+    if (iErr == 0) {
+        memcpy(pHeaderRecord->INMFNODE, pTextUnit->data, getTextUnitLength(pTextUnit));
+    }
+
+    /* INMFUID */
+    bzero(pHeaderRecord->INMFUID, sizeof(pHeaderRecord->INMFUID));
+    iErr = getTextUnit(pSegment, ND_INMFUID, hTextUnit);
+    if (iErr == 0) {
+        memcpy(pHeaderRecord->INMFUID, pTextUnit->data, getTextUnitLength(pTextUnit));
+    }
+
+    /* INMFTIME */
+    bzero(&pHeaderRecord->INMFTIME, sizeof(pHeaderRecord->INMFTIME));
+    iErr = getTextUnit(pSegment, ND_INMFTIME, hTextUnit);
+    if (iErr == 0) {
+        memcpy(&pHeaderRecord->INMFTIME, pTextUnit->data, getTextUnitLength(pTextUnit));
+    }
+
+    /* INMLRECL */
+    bzero(&pHeaderRecord->INMLRECL, sizeof(pHeaderRecord->INMLRECL));
+    iErr = getTextUnit(pSegment, ND_INMLRECL, hTextUnit);
+    if (iErr == 0) {
+        memcpy(&pHeaderRecord->INMLRECL, pTextUnit->data, getTextUnitLength(pTextUnit));
+    }
+
+    return iErr;
+}
+
 void parseXMI(FILE *pFile) {
 
     int                     iErr            = 0;
 
-    SEGMENT                 segment;
-    P_SEGMENT               pSegment        = &segment;
+    ND_SEGMENT              segment;
+    P_ND_SEGMENT            pSegment        = &segment;
 
-    P_TEXT_UNIT             pTextUnit       = NULL;
-    P_TEXT_UNIT            *hTextUnit       = &pTextUnit;
+    ND_HEADER_RECORD        ndHeaderRecord;
+    P_ND_HEADER_RECORD      pNdHeaderRecord = &ndHeaderRecord;
 
-    CONTROL_RECORD_FORMAT   ctrlRecFormat   = UNKNOWN;
+    ND_CTRL_RECORD_FORMAT   ctrlRecFormat   = UNKNOWN;
 
     // clear segment
-    bzero(pSegment, sizeof(SEGMENT));
+    bzero(pSegment, sizeof(ND_SEGMENT));
 
     // read first segment from file
     iErr = readSegment(pFile, pSegment);
@@ -184,171 +230,25 @@ void parseXMI(FILE *pFile) {
         }
     }
 
-    printf("-----------------------------\n");
-    printf("INMR01 - mandatory text units\n");
-    printf("-----------------------------\n");
-
-    /* INMFNODE */
     if (iErr == 0) {
-        char node[9];
-        bzero(node,9);
+        iErr = getHeaderRecord(pSegment, pNdHeaderRecord);
+    }
 
-        iErr = getTextUnit(pSegment, INMFNODE, hTextUnit);
-
-        if (iErr == 0) {
-            memcpy(node, pTextUnit->data->data, getBinaryValue((BYTE *)&pTextUnit->data->length, 2));
 #ifdef __CROSS__
-            ebcdicToAscii(node);
+    ebcdicToAscii((BYTE *)&pNdHeaderRecord->INMFNODE, sizeof(pNdHeaderRecord->INMFNODE));
+    ebcdicToAscii((BYTE *)&pNdHeaderRecord->INMFUID,  sizeof(pNdHeaderRecord->INMFUID));
+    ebcdicToAscii((BYTE *)&pNdHeaderRecord->INMFTIME, sizeof(pNdHeaderRecord->INMFTIME));
 #endif
-            printf("INMFNODE > %s\n", node);
-        }
-    }
 
-    /* INMFUID */
-    if (iErr == 0) {
-        char uid[9];
-        bzero(uid, 9);
-
-        iErr = getTextUnit(pSegment, INMFUID, hTextUnit);
-
-        if (iErr == 0) {
-            memcpy(uid, pTextUnit->data->data, getBinaryValue((BYTE *) & pTextUnit->data->length, 2));
-#ifdef __CROSS__
-            ebcdicToAscii(uid);
-#endif
-            printf("INMFUID  > %s\n", uid);
-        }
-    }
-
-    /* INMFTIME */
-    if (iErr == 0) {
-        NETDATA_TIME netdataTime;
-        bzero(&netdataTime, sizeof(NETDATA_TIME));
-
-        iErr = getTextUnit(pSegment, INMFTIME, hTextUnit);
-
-        if (iErr == 0) {
-
-            memcpy(&netdataTime, pTextUnit->data->data, getBinaryValue((BYTE *) & pTextUnit->data->length, 2));
-#ifdef __CROSS__
-            ebcdicToAscii(&netdataTime);
-#endif
-            printf("INMFTIME > %.2s.%.2s.%.4s %.2s:%.2s:%.2s\n",
-                    netdataTime.day,
-                    netdataTime.month,
-                    netdataTime.year,
-                    netdataTime.hour,
-                    netdataTime.minute,
-                    netdataTime.second);
-        }
-    }
-
-    /* INMTNODE */
-    if (iErr == 0) {
-        char node[9];
-        bzero(node,9);
-
-        iErr = getTextUnit(pSegment, INMTNODE, hTextUnit);
-
-        if (iErr == 0) {
-            memcpy(node, pTextUnit->data->data, getBinaryValue((BYTE *)&pTextUnit->data->length, 2));
-#ifdef __CROSS__
-            ebcdicToAscii(node);
-#endif
-            printf("INMTNODE > %s\n", node);
-        }
-    }
-
-    /* INMTUID */
-    if (iErr == 0) {
-        char uid[9];
-        bzero(uid, 9);
-
-        iErr = getTextUnit(pSegment, INMTUID, hTextUnit);
-
-        if (iErr == 0) {
-            memcpy(uid, pTextUnit->data->data, getBinaryValue((BYTE *) & pTextUnit->data->length, 2));
-#ifdef __CROSS__
-            ebcdicToAscii(uid);
-#endif
-            printf("INMTUID  > %s\n", uid);
-        }
-    }
-
-    /* INMLRECL */
-    if (iErr == 0) {
-        unsigned int uiLrecl = 0;
-
-        iErr = getTextUnit(pSegment, INMLRECL, hTextUnit);
-
-        if (iErr == 0) {
-            uiLrecl = getBinaryValue((BYTE *) &pTextUnit->data->data,
-                    getBinaryValue((BYTE *) &pTextUnit->data->length, 2));
-            printf("INMLRECL > %d\n", uiLrecl);
-        }
-    }
-
-    printf("-----------------------------\n");
-    printf("INMR01 - optional text units\n");
-    printf("-----------------------------\n");
-
-    /* INMFACK */
-    if (iErr == 0) {
-        unsigned int uiLrecl = 0;
-
-        iErr = getTextUnit(pSegment, INMFACK, hTextUnit);
-
-        if (iErr == 0) {
-            printf("INMFACK  > present\n");
-        } else {
-            printf("INMFACK  > not present\n");
-        }
-    }
-
-    iErr = 0;
-
-    /* INMFVERS */
-    if (iErr == 0) {
-        unsigned int uiLrecl = 0;
-
-        iErr = getTextUnit(pSegment, INMFVERS, hTextUnit);
-
-        if (iErr == 0) {
-            printf("INMFVERS > present\n");
-        } else {
-            printf("INMFVERS > not present\n");
-        }
-    }
-
-    iErr = 0;
-
-    /* INMNUMF */
-    if (iErr == 0) {
-        unsigned int uiLrecl = 0;
-
-        iErr = getTextUnit(pSegment, INMNUMF, hTextUnit);
-
-        if (iErr == 0) {
-            printf("INMNUMF  > present\n");
-        } else {
-            printf("INMNUMF  > not present\n");
-        }
-    }
-
-    iErr = 0;
-
-    /* INMUSERP */
-    if (iErr == 0) {
-        unsigned int uiLrecl = 0;
-
-        iErr = getTextUnit(pSegment, INMUSERP, hTextUnit);
-
-        if (iErr == 0) {
-            printf("INMUSERP > present\n");
-        } else {
-            printf("INMUSERP > not present\n");
-        }
-    }
+    printf("XMIT file was created by %.8s.%.8s on %.2s.%.2s.%.4s at %.2s:%.2s:%.2s \n",
+           pNdHeaderRecord->INMFNODE,
+           pNdHeaderRecord->INMFUID,
+           pNdHeaderRecord->INMFTIME.day,
+           pNdHeaderRecord->INMFTIME.month,
+           pNdHeaderRecord->INMFTIME.year,
+           pNdHeaderRecord->INMFTIME.hour,
+           pNdHeaderRecord->INMFTIME.minute,
+           pNdHeaderRecord->INMFTIME.second);
 }
 
 
