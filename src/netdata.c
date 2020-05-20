@@ -143,7 +143,7 @@ getTextUnit(P_ND_SEGMENT pSegment, unsigned int uiSearchKey, P_ND_TEXT_UNIT *hTe
         uiCurrentKey    = getBinaryValue((BYTE *)&(*(hTextUnit))->key, 2);
         uiCurrentNumber = getBinaryValue((BYTE *)&(*(hTextUnit))->number, 2);
         // TODO: handle uiCurrentNumber
-        uiCurrentLength = getBinaryValue((BYTE *)&(*(hTextUnit))->length, 2);
+        uiCurrentLength = getBinaryValue((BYTE *)&(*(hTextUnit))->value.length, 2);
 
         if (uiCurrentKey != uiSearchKey) {
             uiCurrentPosition += 4 + 2 + (uiCurrentLength * uiCurrentNumber) ;
@@ -159,13 +159,47 @@ getTextUnit(P_ND_SEGMENT pSegment, unsigned int uiSearchKey, P_ND_TEXT_UNIT *hTe
 int
 getTextUnitLength(P_ND_TEXT_UNIT pTextUnit)
 {
-    return getBinaryValue((BYTE *) &pTextUnit->length, 2);
+    return getBinaryValue((BYTE *) &pTextUnit->value.length, 2);
 }
 
 int
 getTextUnitNumber(P_ND_TEXT_UNIT pTextUnit)
 {
     return getBinaryValue((BYTE *) &pTextUnit->number, 2);
+}
+
+int
+getTextUnitValue(P_ND_TEXT_UNIT pTextUnit, unsigned int uiSearchNumber, P_ND_TEXT_UNIT_VALUE *hTextUnitValue)
+{
+    int             iErr                    = 0;
+
+    unsigned int    uiMaxNumber             = 0;
+    unsigned int    uiCurrentNumber         = 0;
+    unsigned int    uiCurrentDataLength     = 0;
+
+    BYTE            *pTextUnitValue         = 0;
+
+    pTextUnitValue = (BYTE *) &pTextUnit->value;
+    uiMaxNumber = getTextUnitNumber(pTextUnit);
+
+    if (uiSearchNumber > uiMaxNumber) {
+        iErr = 1;
+    }
+
+    if (iErr == 0) {
+        for (uiCurrentNumber = 1; uiCurrentNumber <= uiMaxNumber; uiCurrentNumber++) {
+
+            if (uiCurrentNumber == uiSearchNumber) {
+                *hTextUnitValue = (P_ND_TEXT_UNIT_VALUE)pTextUnitValue;
+            } else {
+                uiCurrentDataLength = getBinaryValue((BYTE *) &((P_ND_TEXT_UNIT_VALUE) pTextUnitValue)->length,
+                                                         sizeof((P_ND_TEXT_UNIT_VALUE) pTextUnitValue)->length);
+                pTextUnitValue += uiCurrentDataLength +  sizeof((P_ND_TEXT_UNIT_VALUE) pTextUnitValue)->length;
+            }
+        }
+    }
+
+    return iErr;
 }
 
 int
@@ -185,14 +219,14 @@ getHeaderRecord(P_ND_SEGMENT pSegment, P_ND_HEADER_RECORD pHeaderRecord)
     bzero(pHeaderRecord->INMFNODE, sizeof(pHeaderRecord->INMFNODE));
     iErr = getTextUnit(pSegment, ND_INMFNODE, hTextUnit);
     if (iErr == 0) {
-        memcpy(pHeaderRecord->INMFNODE, pTextUnit->data, getTextUnitLength(pTextUnit));
+        memcpy(pHeaderRecord->INMFNODE, pTextUnit->value.data, getTextUnitLength(pTextUnit));
     }
 
     if (iErr == 0) {
         bzero(pHeaderRecord->INMFUID, sizeof(pHeaderRecord->INMFUID));
         iErr = getTextUnit(pSegment, ND_INMFUID, hTextUnit);
         if (iErr == 0) {
-            memcpy(pHeaderRecord->INMFUID, pTextUnit->data, getTextUnitLength(pTextUnit));
+            memcpy(pHeaderRecord->INMFUID, pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
     }
 
@@ -200,7 +234,7 @@ getHeaderRecord(P_ND_SEGMENT pSegment, P_ND_HEADER_RECORD pHeaderRecord)
         bzero(&pHeaderRecord->INMFTIME, sizeof(pHeaderRecord->INMFTIME));
         iErr = getTextUnit(pSegment, ND_INMFTIME, hTextUnit);
         if (iErr == 0) {
-            memcpy(&pHeaderRecord->INMFTIME, pTextUnit->data, getTextUnitLength(pTextUnit));
+            memcpy(&pHeaderRecord->INMFTIME, pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
     }
 
@@ -208,7 +242,7 @@ getHeaderRecord(P_ND_SEGMENT pSegment, P_ND_HEADER_RECORD pHeaderRecord)
         bzero(&pHeaderRecord->INMLRECL, sizeof(pHeaderRecord->INMLRECL));
         iErr = getTextUnit(pSegment, ND_INMLRECL, hTextUnit);
         if (iErr == 0) {
-            pHeaderRecord->INMLRECL = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+            pHeaderRecord->INMLRECL = getBinaryValue(pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
     }
 
@@ -216,7 +250,7 @@ getHeaderRecord(P_ND_SEGMENT pSegment, P_ND_HEADER_RECORD pHeaderRecord)
         bzero(&pHeaderRecord->INMTNODE, sizeof(pHeaderRecord->INMTNODE));
         iErr = getTextUnit(pSegment, ND_INMTNODE, hTextUnit);
         if (iErr == 0) {
-            memcpy(&pHeaderRecord->INMTNODE, pTextUnit->data, getTextUnitLength(pTextUnit));
+            memcpy(&pHeaderRecord->INMTNODE, pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
     }
 
@@ -224,7 +258,7 @@ getHeaderRecord(P_ND_SEGMENT pSegment, P_ND_HEADER_RECORD pHeaderRecord)
         bzero(&pHeaderRecord->INMTUID, sizeof(pHeaderRecord->INMTUID));
         iErr = getTextUnit(pSegment, ND_INMTUID, hTextUnit);
         if (iErr == 0) {
-            memcpy(&pHeaderRecord->INMTUID, pTextUnit->data, getTextUnitLength(pTextUnit));
+            memcpy(&pHeaderRecord->INMTUID, pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
     }
 
@@ -233,25 +267,25 @@ getHeaderRecord(P_ND_SEGMENT pSegment, P_ND_HEADER_RECORD pHeaderRecord)
         bzero(&pHeaderRecord->INMFACK, sizeof(pHeaderRecord->INMFACK));
         iFound = getTextUnit(pSegment, ND_INMFACK, hTextUnit);
         if (iFound == 0) {
-            memcpy(&pHeaderRecord->INMFACK, pTextUnit->data, getTextUnitLength(pTextUnit));
+            memcpy(&pHeaderRecord->INMFACK, pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
 
         bzero(&pHeaderRecord->INMFVERS, sizeof(pHeaderRecord->INMFVERS));
         iFound = getTextUnit(pSegment, ND_INMFVERS, hTextUnit);
         if (iFound == 0) {
-            pHeaderRecord->INMFVERS = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+            pHeaderRecord->INMFVERS = getBinaryValue(pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
 
         bzero(&pHeaderRecord->INMNUMF, sizeof(pHeaderRecord->INMNUMF));
         iFound = getTextUnit(pSegment, ND_INMNUMF, hTextUnit);
         if (iFound == 0) {
-            pHeaderRecord->INMNUMF = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+            pHeaderRecord->INMNUMF = getBinaryValue(pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
 
         bzero(&pHeaderRecord->INMUSERP, sizeof(pHeaderRecord->INMUSERP));
         iFound = getTextUnit(pSegment, ND_INMUSERP, hTextUnit);
         if (iFound == 0) {
-            memcpy(&pHeaderRecord->INMUSERP, pTextUnit->data, getTextUnitLength(pTextUnit));
+            memcpy(&pHeaderRecord->INMUSERP, pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
     }
 
@@ -270,20 +304,21 @@ getFileUtilRecord(P_ND_SEGMENT pSegment, P_ND_FILE_UTIL_RECORD pFileUtilRecord)
     unsigned int        uiTextUnitLength    = 0;
     unsigned int        uiTextUnitNumber    = 0;
     unsigned int        uiCurrentNumber     = 0;
+    unsigned int        uiDataLength        = 0;
     int                 iFound              = 0;
 
     /* mandatory fields */
     bzero(&pFileUtilRecord->INMDSORG, sizeof(pFileUtilRecord->INMDSORG));
     iErr = getTextUnit(pSegment, ND_INMDSORG, hTextUnit);
     if (iErr == 0) {
-        pFileUtilRecord->INMDSORG = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+        pFileUtilRecord->INMDSORG = getBinaryValue(pTextUnit->value.data, getTextUnitLength(pTextUnit));
     }
 
     if (iErr == 0) {
         bzero(&pFileUtilRecord->INMLRECL, sizeof(pFileUtilRecord->INMLRECL));
         iErr = getTextUnit(pSegment, ND_INMLRECL, hTextUnit);
         if (iErr == 0) {
-            pFileUtilRecord->INMLRECL = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+            pFileUtilRecord->INMLRECL = getBinaryValue(pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
     }
 
@@ -291,7 +326,7 @@ getFileUtilRecord(P_ND_SEGMENT pSegment, P_ND_FILE_UTIL_RECORD pFileUtilRecord)
         bzero(&pFileUtilRecord->INMRECFM, sizeof(pFileUtilRecord->INMRECFM));
         iErr = getTextUnit(pSegment, ND_INMRECFM, hTextUnit);
         if (iErr == 0) {
-            memcpy(&pFileUtilRecord->INMRECFM, pTextUnit->data, getTextUnitLength(pTextUnit));
+            memcpy(&pFileUtilRecord->INMRECFM, pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
     }
 
@@ -299,7 +334,7 @@ getFileUtilRecord(P_ND_SEGMENT pSegment, P_ND_FILE_UTIL_RECORD pFileUtilRecord)
         bzero(&pFileUtilRecord->INMSIZE, sizeof(pFileUtilRecord->INMSIZE));
         iErr = getTextUnit(pSegment, ND_INMSIZE, hTextUnit);
         if (iErr == 0) {
-            pFileUtilRecord->INMSIZE = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+            pFileUtilRecord->INMSIZE = getBinaryValue(pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
     }
 
@@ -307,7 +342,7 @@ getFileUtilRecord(P_ND_SEGMENT pSegment, P_ND_FILE_UTIL_RECORD pFileUtilRecord)
         bzero(&pFileUtilRecord->INMUTILN, sizeof(pFileUtilRecord->INMUTILN));
         iErr = getTextUnit(pSegment, ND_INMUTILN, hTextUnit);
         if (iErr == 0) {
-            memcpy(&pFileUtilRecord->INMUTILN, pTextUnit->data, getTextUnitLength(pTextUnit));
+            memcpy(&pFileUtilRecord->INMUTILN, pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
     }
 
@@ -316,76 +351,82 @@ getFileUtilRecord(P_ND_SEGMENT pSegment, P_ND_FILE_UTIL_RECORD pFileUtilRecord)
         bzero(&pFileUtilRecord->INMBLKSZ, sizeof(pFileUtilRecord->INMBLKSZ));
         iFound = getTextUnit(pSegment, ND_INMBLKSZ, hTextUnit);
         if (iFound == 0) {
-            pFileUtilRecord->INMBLKSZ = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+            pFileUtilRecord->INMBLKSZ = getBinaryValue(pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
 
         bzero(&pFileUtilRecord->INMCREAT, sizeof(pFileUtilRecord->INMCREAT));
         iFound = getTextUnit(pSegment, ND_INMCREAT, hTextUnit);
         if (iFound == 0) {
-            memcpy(&pFileUtilRecord->INMCREAT, pTextUnit->data, getTextUnitLength(pTextUnit));
+            memcpy(&pFileUtilRecord->INMCREAT, pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
 
         bzero(&pFileUtilRecord->INMDIR, sizeof(pFileUtilRecord->INMDIR));
         iFound = getTextUnit(pSegment, ND_INMDIR, hTextUnit);
         if (iFound == 0) {
-            pFileUtilRecord->INMDIR = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+            pFileUtilRecord->INMDIR = getBinaryValue(pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
 
         bzero(&pFileUtilRecord->INMDSNAM, sizeof(pFileUtilRecord->INMDSNAM));
         iFound = getTextUnit(pSegment, ND_INMDSNAM, hTextUnit);
         if (iFound == 0) {
-            void *pData = pTextUnit->data;
+            BYTE *pTextUnitValue = (BYTE *)&pTextUnit->value;
             uiTextUnitNumber = getTextUnitNumber(pTextUnit);
+
             for (uiCurrentNumber = 1; uiCurrentNumber <= uiTextUnitNumber; uiCurrentNumber++) {
-                memcpy(&pFileUtilRecord->INMDSNAM[uiCurrentPosition], pData, getTextUnitLength(pTextUnit));
-                uiCurrentPosition += getTextUnitLength(pTextUnit);
+                uiDataLength = getBinaryValue((BYTE *) &((P_ND_TEXT_UNIT_VALUE) pTextUnitValue)->length,
+                        sizeof((P_ND_TEXT_UNIT_VALUE) pTextUnitValue)->length);
+
+                memcpy(&pFileUtilRecord->INMDSNAM[uiCurrentPosition],
+                       ((P_ND_TEXT_UNIT_VALUE)pTextUnitValue)->data, uiDataLength);
+
+                uiCurrentPosition += uiDataLength;
+                pTextUnitValue    += uiDataLength + sizeof((P_ND_TEXT_UNIT_VALUE) pTextUnitValue)->length;
             }
         }
 
         bzero(&pFileUtilRecord->INMEXPDT, sizeof(pFileUtilRecord->INMEXPDT));
         iFound = getTextUnit(pSegment, ND_INMEXPDT, hTextUnit);
         if (iFound == 0) {
-            memcpy(&pFileUtilRecord->INMEXPDT, pTextUnit->data, getTextUnitLength(pTextUnit));
+            memcpy(&pFileUtilRecord->INMEXPDT, pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
 
         bzero(&pFileUtilRecord->INMFFM, sizeof(pFileUtilRecord->INMFFM));
         iFound = getTextUnit(pSegment, ND_INMFFM, hTextUnit);
         if (iFound == 0) {
-            pFileUtilRecord->INMFFM = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+            pFileUtilRecord->INMFFM = getBinaryValue(pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
 
         bzero(&pFileUtilRecord->INMLCHG, sizeof(pFileUtilRecord->INMLCHG));
         iFound = getTextUnit(pSegment, ND_INMLCHG, hTextUnit);
         if (iFound == 0) {
-            memcpy(&pFileUtilRecord->INMLCHG, pTextUnit->data, getTextUnitLength(pTextUnit));
+            memcpy(&pFileUtilRecord->INMLCHG, pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
 
         bzero(&pFileUtilRecord->INMLREF, sizeof(pFileUtilRecord->INMLREF));
         iFound = getTextUnit(pSegment, ND_INMLREF, hTextUnit);
         if (iFound == 0) {
-            memcpy(&pFileUtilRecord->INMEXPDT, pTextUnit->data, getTextUnitLength(pTextUnit));
+            memcpy(&pFileUtilRecord->INMEXPDT, pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
 
         bzero(&pFileUtilRecord->INMTERM, sizeof(pFileUtilRecord->INMTERM));
         iFound = getTextUnit(pSegment, ND_INMTERM, hTextUnit);
         if (iFound == 0) {
-            pFileUtilRecord->INMTERM = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+            pFileUtilRecord->INMTERM = getBinaryValue(pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
 
         bzero(&pFileUtilRecord->INMUSERP, sizeof(pFileUtilRecord->INMUSERP));
         iFound = getTextUnit(pSegment, ND_INMUSERP, hTextUnit);
         if (iFound == 0) {
-            memcpy(&pFileUtilRecord->INMUSERP, pTextUnit->data, getTextUnitLength(pTextUnit));
+            memcpy(&pFileUtilRecord->INMUSERP, pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
 
         bzero(&pFileUtilRecord->INMMEMBRN, sizeof(pFileUtilRecord->INMMEMBRN));
         iFound = getTextUnit(pSegment, ND_INMMEMBR, hTextUnit);
         if (iFound == 0) {
-            pFileUtilRecord->INMMEMBRN = getBinaryValue(pTextUnit->data, getTextUnitLength(pTextUnit));
+            pFileUtilRecord->INMMEMBRN = getBinaryValue(pTextUnit->value.data, getTextUnitLength(pTextUnit));
         }
 
     }
-
 
     return iErr;
 }

@@ -12,14 +12,24 @@
 #   define FALSE 0
 #endif
 
-typedef enum e_dsorg {
+typedef enum {
     VSAM,
     PO,
     PS,
     UNKNOWN_DOSORG
 } ND_DSORG;
 
-typedef struct s_nd_date_time {
+typedef enum {
+    INMR01,
+    INMR02,
+    INMR03,
+    INMR04,
+    INMR06,
+    INMR07,
+    UNKNOWN_CTRL_REC_FORMAT
+} ND_CTRL_RECORD_FORMAT;
+
+typedef struct {
     char            year    [4];
     char            month   [2];
     char            day     [2];
@@ -29,7 +39,7 @@ typedef struct s_nd_date_time {
 } ND_DATE_TIME, *P_ND_DATE_TIME;
 
 /* INMR01 */
-typedef struct s_nd_header_record {
+typedef struct {
     /* mandatory fields*/
     char            INMFNODE      [8];  /* Origin node name                             */
     ND_DATE_TIME    INMFTIME         ;  /* Origin timestamp                             */
@@ -45,7 +55,7 @@ typedef struct s_nd_header_record {
 } ND_HEADER_RECORD, *P_ND_HEADER_RECORD;
 
 /* INMR02 */
-typedef struct s_nd_file_util_record {
+typedef struct {
     /* mandatory fields */
     ND_DSORG        INMDSORG         ;  /* File organization                            */
     unsigned int    INMLRECL         ;  /* Logical record length                        */
@@ -67,37 +77,33 @@ typedef struct s_nd_file_util_record {
     char            INMMEMBR[1][8]   ;  /* Member name list                             */
 } ND_FILE_UTIL_RECORD, *P_ND_FILE_UTIL_RECORD;
 
-typedef struct s_nd_text_unit {
-    unsigned short  key;
-    unsigned short  number;
+typedef struct {
     short           length;
     BYTE            data[1];
+} ND_TEXT_UNIT_VALUE, *P_ND_TEXT_UNIT_VALUE;
+
+typedef struct {
+    unsigned short  key;
+    unsigned short  number;
+    ND_TEXT_UNIT_VALUE value;
 } ND_TEXT_UNIT, *P_ND_TEXT_UNIT;
 
-typedef struct s_nd_ctrl_record {
+typedef struct {
     BYTE            identifier[6];
     BYTE            data[247];
 } ND_CTRL_RECORD, *P_ND_CTRL_RECORD;
 
-typedef struct s_nd_data_record {
+typedef struct {
     BYTE            data[253];
 } ND_DATA_RECORD, *P_ND_DATA_RECORD;
 
-typedef struct s_nd_segment {
+typedef struct {
     BYTE            length;
     BYTE            flags;
     BYTE            data[253];
 } ND_SEGMENT, *P_ND_SEGMENT;
 
-typedef enum e_ctrl_rec_format {
-    INMR01,
-    INMR02,
-    INMR03,
-    INMR04,
-    INMR06,
-    INMR07,
-    UNKNOWN_CTRL_REC_FORMAT
-} ND_CTRL_RECORD_FORMAT;
+
 
 /* SEGMENT DESCRIPTOR FLAGS                                             */
 #define ND_FIRST_SEGMENT    0x80u /* 1000                               */
