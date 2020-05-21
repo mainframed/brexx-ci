@@ -78,8 +78,10 @@ int checkValueLength(long lValue);
 int checkVariableBlacklist(PLstr name);
 int reopen(int fp);
 
+void Lcryptall(PLstr to, PLstr from, PLstr pw, int rounds,int mode);
 int _EncryptString(const PLstr to, const PLstr from, const PLstr password);
 void _rotate(PLstr to,PLstr from, int start,int slen);
+void Lhash(const PLstr to, const PLstr from, long slots) ;
 
 
 #ifdef __CROSS__
@@ -819,24 +821,22 @@ void Lcryptall(PLstr to, PLstr from, PLstr pw, int rounds,int mode) {
 
     Lhash(&pwt, pw, 127);
     hashv = LINT(pwt);
-    printf("Org Hash %i\n",hashv);
+
     if (mode == 0) {  // encode
      // run through encryption in several rounds
         for (ki = 1; ki <= rounds; ki++) {    // Step 1: XOR String with Password
-            printf("Enc Hash %i\n",hashv);
             for (kj = 0; kj < slen; kj++) {
                 LSTR(*to)[kj] = LSTR(*to)[kj] + hashv;
             }
             hashv=(hashv+3)%127;
-            _rotate(&pwt, &pw, ki, 0);
+            _rotate(&pwt, pw, ki, 0);
             slen = _EncryptString(to, to, &pwt);
         }
     } else {    // decode
         hashv=(hashv+3*rounds-3)%127;
         for (ki = rounds; ki >= 1; ki--) {    // Step 1: XOR String with Password
-            _rotate(&pwt, &pw, ki,0);
+            _rotate(&pwt, pw, ki,0);
             slen = _EncryptString(to, to, &pwt);
-            printf("Dec Hash %i\n",hashv);
             for (kj = 0; kj < slen; kj++) {
                 LSTR(*to)[kj]=LSTR(*to)[kj]-hashv;
             }
@@ -883,9 +883,9 @@ void R_rotate(int func) {
     get_oi0(3,slen);
     _rotate(ARGR,ARG1,start,slen);
 }
-int
-Lhash(const PLstr to, const PLstr from, long slots) {
-    int ki,value=0, pcn,pwr,islots=INT32_MAX;;
+
+void Lhash(const PLstr to, const PLstr from, long slots) {
+    int ki,value=0, pcn,pwr,islots=INT32_MAX;
     size_t	lhlen=0;
 
     if (slots==0) slots=islots; /* maximum slots */
