@@ -753,14 +753,15 @@ void R_tcpsend(int func) {
 }
 #endif    // not in Windows
 
+// -------------------------------------------------------------------------------------
+// Encrypt/Decrypt  String Sub procedure
+// -------------------------------------------------------------------------------------
 int _EncryptString(const PLstr to, const PLstr from, const PLstr password) {
     int slen,plen, ki, kj;
     L2STR(from);
     L2STR(password);
     slen=LLEN(*from);
     plen=LLEN(*password);
-    Lfx(ARGR,slen);
-
     for (ki = 0, kj=0; ki < slen; ki++,kj++) {
         if (kj >= plen) kj = 0;
         LSTR(*to)[ki] = LSTR(*from)[ki] ^ LSTR(*password)[kj];
@@ -769,120 +770,88 @@ int _EncryptString(const PLstr to, const PLstr from, const PLstr password) {
     LTYPE(*to) = LSTRING_TY;
     return slen;
 }
-
+// -------------------------------------------------------------------------------------
+// Encrypt String
+// -------------------------------------------------------------------------------------
 void R_crypt(int func) {
-    int slen, plen, ki,rounds;
-    Lstr reverse, result, pw;
+    int rounds=7;
  // string to encrypt and password must exist
     must_exist(1);
     must_exist(2);
-    get_oi0(3,rounds);       /* is there a round parm given? */
-    if (rounds==0) rounds=10;  /* maximum slots */
- // Fetch both strings
-    L2STR(ARG1);
-    L2STR(ARG2);
-    slen = LLEN(*ARG1);   // don't use STRLEN, as string may contain '0'x
-    if (slen<1) {              // is string empty? then return null string
-        LZEROSTR(*ARGR);
+    get_oi0(3,rounds);       /* drop rounds parameter, it might decrease security */
+    if (rounds==0) rounds=7;  /* maximum slots */
+    Lcryptall(ARGR, ARG1, ARG2,rounds,0);  // mode =0  encode
+}
+// -------------------------------------------------------------------------------------
+// Decrypt String
+// -------------------------------------------------------------------------------------
+void R_decrypt(int func) {
+    int rounds=7;
+    // string to encrypt and password must exist
+    must_exist(1);
+    must_exist(2);
+    get_oi0(3,rounds);       /* drop rounds parameter, it might decrease security */
+    if (rounds==0) rounds=7;  /* maximum slots */
+    Lcryptall(ARGR, ARG1, ARG2,rounds,1); // mode =1  decode
+}
+// -------------------------------------------------------------------------------------
+// Encrypt/Decrypt common Procedure
+// -------------------------------------------------------------------------------------
+void Lcryptall(PLstr to, PLstr from, PLstr pw, int rounds,int mode) {
+    int plen, slen, ki,kj, hashv;
+    Lstr pwt;
+    L2STR(from);                 // make sure FROM is string
+    L2STR(pw);                   // same for password
+    slen = LLEN(*from);       // don't use STRLEN, as string may contain '0'x
+    if (slen < 1) {              // is string empty? then return null string
+        LZEROSTR(*to);
         return;
     }
+    // set up temporary result
+    Lfx(to, slen);
+    Lstrcpy(to, from);
+    // init Password definition
+    plen = LLEN(*pw);
+    if (plen == 0) return;   // no password given, string remains unchanged
 
-    plen = LLEN(*ARG2);
-// set up temporary result
-    LINITSTR(result);
-    Lfx(&result,slen);
-    Lstrcpy(&result,ARG1);
-// init Password definition
-    if (plen == 0) {    // no password given, set one
-        Lscpy(ARG2, "NoPasswordprovided");
-        plen = strlen(LSTR(*ARG2));
+    LINITSTR(pwt);
+    Lfx(&pwt, plen);
+
+    Lhash(&pwt, pw, 127);
+    hashv = LINT(pwt);
+    printf("Org Hash %i\n",hashv);
+    if (mode == 0) {  // encode
+     // run through encryption in several rounds
+        for (ki = 1; ki <= rounds; ki++) {    // Step 1: XOR String with Password
+            printf("Enc Hash %i\n",hashv);
+            for (kj = 0; kj < slen; kj++) {
+                LSTR(*to)[kj] = LSTR(*to)[kj] + hashv;
+            }
+            hashv=(hashv+3)%127;
+            _rotate(&pwt, &pw, ki, 0);
+            slen = _EncryptString(to, to, &pwt);
+        }
+    } else {    // decode
+        hashv=(hashv+3*rounds-3)%127;
+        for (ki = rounds; ki >= 1; ki--) {    // Step 1: XOR String with Password
+            _rotate(&pwt, &pw, ki,0);
+            slen = _EncryptString(to, to, &pwt);
+            printf("Dec Hash %i\n",hashv);
+            for (kj = 0; kj < slen; kj++) {
+                LSTR(*to)[kj]=LSTR(*to)[kj]-hashv;
+            }
+            hashv=(hashv-3)%127;
+        }
     }
-    LINITSTR(pw);
-    Lfx(&pw,plen+25);
-    Lstrcpy(&pw,ARG2);
- // add some dirty characters to increase safety
-    Lcat(&pw,"'%_=?$+-()/&.:;,");
-    plen=LLEN(pw);
- // set up reverse password
-    LINITSTR(reverse);
-    Lfx(&reverse, plen);
-    Lstrcpy(&reverse, ARG2);
-    Lreverse(&reverse);
-    // run through encryption in several rounds
-    for (ki = 1; ki <= rounds; ki++) {
-    // Step 1: XOR String with Password
-        _rotate(ARGR, &pw, ki,0);
-        slen = _EncryptString(&result, &result, ARGR);
-     // Step 2: XOR String with reversed Password
-        _rotate(ARGR, &reverse, ki,0);
-        slen = _EncryptString(&result, &result, ARGR);
-    }
- // final settings and cleanup
-    Lstrcpy(ARGR,&result);
-    LLEN(*ARGR) = (size_t) slen;
-    LTYPE(*ARGR) = LSTRING_TY;
-    LFREESTR(reverse);
-    LFREESTR(pw);
-    LFREESTR(result)
+    // final settings and cleanup
+    LLEN(*to) = (size_t) slen;
+    LTYPE(*to) = LSTRING_TY;
+    LFREESTR(pwt)
 }
 
-// Decoding
- void R_decrypt(int func) {
-     int slen,plen,ki,rounds;
-     Lstr reverse, pw, result;
-  // String to encrypt and password must exist
-     must_exist(1);
-     must_exist(2);
-     get_oi0(3,rounds);       /* is there a round parm given? */
-     if (rounds==0) rounds=10;  /* maximum slots */
- // Fetch both strings
-     L2STR(ARG1);
-     L2STR(ARG2);
-     slen=LLEN(*ARG1);       // don't use STRLEN, as contained string may contain '0'x
-     if (slen<1) {              // is string empty? then return null string
-        LZEROSTR(*ARGR);
-        return;
-     }
-
-    plen=LLEN(*ARG2);
-  // init Password definition
-     if (plen==0) {    // no password given, set one
-        Lscpy(ARG2,"NoPasswordprovided");
-        plen=strlen(LSTR(*ARG2));
-     }
-    LINITSTR(pw);
-    Lfx(&pw,plen+25);
-    Lstrcpy(&pw,ARG2);
- // add some dirty characters to increase safety
-    Lcat(&pw,"'%_=?$+-()/&.:;,");
-    plen=LLEN(pw);
- // build reverse of extended password
-    LINITSTR(reverse);
-    Lfx(&reverse,plen);
-    Lstrcpy(&reverse,ARG2);
-    Lreverse(&reverse);
- // set up temporary result
-    LINITSTR(result);
-    Lfx(&result,slen);
-    Lstrcpy(&result,ARG1);
- // run through encryption in several rounds, now in opposite order
-    for (ki = rounds; ki >= 1; ki--) {
-     // Step 1: XOR String with reversed Password
-        _rotate(ARGR, &reverse, ki,0);
-        slen = _EncryptString(&result, &result, ARGR);
-        _rotate(ARGR, &pw, ki,0);
-     // Step 2: XOR String with Password
-        slen = _EncryptString(&result,&result, ARGR);
-    }
- // final settings and cleanup
-     Lstrcpy(ARGR,&result) ;
-     LLEN(*ARGR) = (size_t) slen;
-     LTYPE(*ARGR) = LSTRING_TY;
-     LFREESTR(reverse);
-     LFREESTR(pw);
-     LFREESTR(result)
-}
-
+// -------------------------------------------------------------------------------------
+// Rotate String
+// -------------------------------------------------------------------------------------
 // Return string at a certain position til it's end and continued substring before starting position
 void _rotate(PLstr to, PLstr from, int start, int frlen) {
     int slen,rlen, istart=start,flen=frlen;
@@ -892,11 +861,12 @@ void _rotate(PLstr to, PLstr from, int start, int frlen) {
         LZEROSTR(*to);
         return;
     }
-    if (istart>slen) istart=slen;   // if start position > string len set to last byte of string
+    istart=istart%slen;             // if start > string length (re-calculate offset)
     istart--;                       // make start to a offset
     istart=istart%slen;             // if start > string length (re-calculate offset)
     rlen = slen- istart;            // lenght of remaining string
     if (flen==0) flen=slen;
+    if (LISNULL(*to)) LINITSTR(*to);
     Lfx(to,slen);
 // 1. copy remaining string part
     MEMMOVE( LSTR(*to), LSTR(*from)+istart, (size_t)rlen);
@@ -913,36 +883,46 @@ void R_rotate(int func) {
     get_oi0(3,slen);
     _rotate(ARGR,ARG1,start,slen);
 }
+int
+Lhash(const PLstr to, const PLstr from, long slots) {
+    int ki,value=0, pcn,pwr,islots=INT32_MAX;;
+    size_t	lhlen=0;
+
+    if (slots==0) slots=islots; /* maximum slots */
+
+    pcn   = 71;                    /* potentially different Chars   */
+    pwr = 1;                       /* Power of ... */
+
+    if (!LISNULL(*from)) {
+        switch (LTYPE(*from)) {
+            case LINTEGER_TY:
+               lhlen = sizeof(long);
+               break;
+            case LREAL_TY:
+               lhlen = sizeof(double);
+               break;
+            case LSTRING_TY:
+               lhlen = LLEN(*from);
+               break;
+        }
+
+        for (ki = 0; ki < lhlen; ki++) {
+            value = (value + (LSTR(*from)[ki]) * pwr)%islots;
+            pwr = ((pwr * pcn) % islots);
+        }
+    }
+    value=labs(value%slots);
+    Licpy(to,labs(value));
+}
+
 
 void R_rhash(int func) {
-    int     slots, ki, p,m,pwr;
-    dword	value = 0;
-    size_t	l=0;
-
-    p   = 71;                  /* potential different Chars   */
-    pwr = 1;                   /* Power of */
+    int     slots=0;
 
     must_exist(1);
     get_oi0(2,slots);       /* is there a max slot given? */
 
-    if (slots==0) slots=INT32_MAX; /* maximum slots */
-
-    if (!LISNULL(*ARG1)) {
-        switch (LTYPE(*ARG1)) {
-            case LINTEGER_TY:
-                l = sizeof(long);   break;
-            case LREAL_TY:
-                l = sizeof(double); break;
-            case LSTRING_TY:
-                l = LLEN(*ARG1); break;
-        }
-
-        for (ki = 0; ki < l; ki++) {
-            value = (value + (LSTR(*ARG1)[ki]) * pwr) % slots;
-            pwr = ((pwr * p) % slots);
-        }
-    }
-    Licpy(ARGR,value);
+    Lhash(ARGR,ARG1,slots);
 }
 
 void R_listxmi(int func)
