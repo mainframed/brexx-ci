@@ -16,14 +16,12 @@ Lread( FILEP f, const PLstr line, long size )
 
 	/* We use the fgetc and not the fread to get rid of the 0x0D */
 	if (size>0) {
-		Lfx(line,(size_t)size);
-		c = LSTR(*line);
-		for (l=0; l<size; l++) {
-			ci = FGETC(f);
-			if (ci==-1)
-				break;
-			*c++ = ci;
-		}
+        int iRead = 0;
+        l = 0;
+        Lfx(line,(size_t)size);
+        c = (char *)LSTR(*line);
+        iRead = (int)fread(c, 1, size, f);
+        if (iRead != 0) l = iRead;
 	} else
 	if (size==0) {			/* Read a single line */
 		Lfx(line,LREADINCSIZE);
