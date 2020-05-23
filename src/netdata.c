@@ -188,7 +188,6 @@ getTextUnitValue(P_ND_TEXT_UNIT pTextUnit, unsigned int uiSearchNumber, P_ND_TEX
 
     if (iErr == 0) {
         for (uiCurrentNumber = 1; uiCurrentNumber <= uiMaxNumber; uiCurrentNumber++) {
-
             if (uiCurrentNumber == uiSearchNumber) {
                 *hTextUnitValue = (P_ND_TEXT_UNIT_VALUE)pTextUnitValue;
             } else {
@@ -209,9 +208,6 @@ getHeaderRecord(P_ND_SEGMENT pSegment, P_ND_HEADER_RECORD pHeaderRecord)
 
     P_ND_TEXT_UNIT      pTextUnit           = NULL;
     P_ND_TEXT_UNIT      *hTextUnit          = &pTextUnit;
-
-    unsigned int        uiCurrentPosition   = 0;
-    unsigned int        uiTextUnitLength    = 0;
 
     int                 iFound              = 0;
 
@@ -301,9 +297,7 @@ getFileUtilRecord(P_ND_SEGMENT pSegment, P_ND_FILE_UTIL_RECORD pFileUtilRecord)
     P_ND_TEXT_UNIT      *hTextUnit          = &pTextUnit;
 
     unsigned int        uiCurrentPosition   = 0;
-    unsigned int        uiTextUnitLength    = 0;
-    unsigned int        uiTextUnitNumber    = 0;
-    unsigned int        uiCurrentNumber     = 0;
+
     unsigned int        uiDataLength        = 0;
     int                 iFound              = 0;
 
@@ -369,18 +363,36 @@ getFileUtilRecord(P_ND_SEGMENT pSegment, P_ND_FILE_UTIL_RECORD pFileUtilRecord)
         bzero(&pFileUtilRecord->INMDSNAM, sizeof(pFileUtilRecord->INMDSNAM));
         iFound = getTextUnit(pSegment, ND_INMDSNAM, hTextUnit);
         if (iFound == 0) {
-            BYTE *pTextUnitValue = (BYTE *)&pTextUnit->value;
-            uiTextUnitNumber = getTextUnitNumber(pTextUnit);
+            P_ND_TEXT_UNIT_VALUE pTextUnitValue;
 
-            for (uiCurrentNumber = 1; uiCurrentNumber <= uiTextUnitNumber; uiCurrentNumber++) {
-                uiDataLength = getBinaryValue((BYTE *) &((P_ND_TEXT_UNIT_VALUE) pTextUnitValue)->length,
-                        sizeof((P_ND_TEXT_UNIT_VALUE) pTextUnitValue)->length);
+            unsigned int uiMaxNumber = 0;
+            unsigned int uiCurrentNumber = 0;
 
-                memcpy(&pFileUtilRecord->INMDSNAM[uiCurrentPosition],
-                       ((P_ND_TEXT_UNIT_VALUE)pTextUnitValue)->data, uiDataLength);
+            uiMaxNumber = getTextUnitNumber(pTextUnit);
 
-                uiCurrentPosition += uiDataLength;
-                pTextUnitValue    += uiDataLength + sizeof((P_ND_TEXT_UNIT_VALUE) pTextUnitValue)->length;
+            for (uiCurrentNumber = 1; uiCurrentNumber <= uiMaxNumber; uiCurrentNumber++) {
+                iErr = getTextUnitValue(pTextUnit, uiCurrentNumber, &pTextUnitValue);
+
+                if (iErr == 0) {
+                    uiDataLength = getBinaryValue((BYTE *) &pTextUnitValue->length,
+                                                  sizeof(pTextUnitValue->length));
+
+                    // adding Nth qualifier part of dsn
+                    memcpy(&pFileUtilRecord->INMDSNAM[uiCurrentPosition],
+                           pTextUnitValue->data, uiDataLength);
+
+                    uiCurrentPosition += uiDataLength;
+
+                    // adding a dot
+                    if (uiCurrentNumber < uiMaxNumber) {
+                        char cDot = 0x4B;
+
+                        memcpy(&pFileUtilRecord->INMDSNAM[uiCurrentPosition],
+                               &cDot, 1);
+
+                        uiCurrentPosition++;
+                    }
+                }
             }
         }
 

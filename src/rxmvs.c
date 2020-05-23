@@ -973,7 +973,7 @@ void R_listxmi(int func)
     }
 
     if (iErr == 0) {
-
+        unsigned long sz = 0;
         pFile = FOPEN(sFileName,"r+b");
         if (pFile != NULL) {
             parseXMI(pFile);
@@ -1458,6 +1458,7 @@ parseINMR02(P_ND_SEGMENT pSegment)
 #ifdef __CROSS__
         /* mandatory fields */
         ebcdicToAscii((BYTE *) &pFileUtilRecord->INMDSNAM, sizeof(pFileUtilRecord->INMDSNAM));
+        ebcdicToAscii((BYTE *) &pFileUtilRecord->INMUTILN, sizeof(pFileUtilRecord->INMUTILN));
         /* optional fields */
 #endif
 
@@ -1465,6 +1466,9 @@ parseINMR02(P_ND_SEGMENT pSegment)
         strncpy(sTemp, pFileUtilRecord->INMDSNAM, sizeof(pFileUtilRecord->INMDSNAM));
         setVariable("INMDSNAM", sTemp);
 
+        bzero(sTemp, sizeof(sTemp));
+        strncpy(sTemp, pFileUtilRecord->INMUTILN, sizeof(pFileUtilRecord->INMUTILN));
+        setVariable("INMUTILN", sTemp);
     }
 
     return iErr;
