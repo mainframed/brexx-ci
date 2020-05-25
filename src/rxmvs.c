@@ -982,7 +982,84 @@ void R_removedsn(int func)
     Licpy(ARGR,remrc);
     _style = _style_old;
 }
+// -------------------------------------------------------------------------------------
+// Rename DSN-old,DSN-new
+// -------------------------------------------------------------------------------------
+void R_renamedsn(int func)
+{
+    char sFileNameOld[45];
+    char sFileNameNew[45];
+    char sFunctionCode[3];
+    int remrc, iErr=0;
 
+    QuotationType quotationType;
+
+    char* _style_old = _style;
+
+    memset(sFileNameOld,0,45);
+    memset(sFileNameNew,0,45);
+    memset(sFunctionCode,0,3);
+
+    if (ARGN != 2) Lerror(ERR_INCORRECT_CALL,0);
+
+    LASCIIZ(*ARG1)
+    LASCIIZ(*ARG2)
+    get_s(1)
+    get_s(2)
+#ifndef __CROSS__
+    Lupper(ARG1);
+    Lupper(ARG2);
+#endif
+
+    _style = "//DSN:";
+ // Check old DSN
+    quotationType = CheckQuotation((char *)LSTR(*ARG1));
+    switch (quotationType) {
+        case UNQUOTED:
+            if (environment->SYSPREF[0] != '\0') {
+                strcat(sFileNameOld, environment->SYSPREF);
+                strcat(sFileNameOld, ".");
+                strcat(sFileNameOld, (const char *) LSTR(*ARG1));
+            }
+            break;
+        case PARTIALLY_QUOTED:
+            strcat(sFunctionCode, "16");
+            iErr = 2;
+            break;
+        case FULL_QUOTED:
+            strncpy(sFileNameOld, (const char *) (LSTR(*ARG1)) + 1, ARG1->len - 2);
+            break;
+        default:
+            Lerror(ERR_DATA_NOT_SPEC, 0);
+    }
+ // Check old DSN
+    quotationType = CheckQuotation((char *)LSTR(*ARG2));
+    switch (quotationType) {
+        case UNQUOTED:
+            if (environment->SYSPREF[0] != '\0') {
+                strcat(sFileNameNew, environment->SYSPREF);
+                strcat(sFileNameNew, ".");
+                strcat(sFileNameNew, (const char *) LSTR(*ARG2));
+            }
+            break;
+        case PARTIALLY_QUOTED:
+            strcat(sFunctionCode, "16");
+            iErr = 2;
+            break;
+        case FULL_QUOTED:
+            strncpy(sFileNameNew, (const char *) (LSTR(*ARG2)) + 1, ARG2->len - 2);
+            break;
+        default:
+            Lerror(ERR_DATA_NOT_SPEC, 0);
+    }
+    // if no errors occurred so far, perform the renamee
+    if (iErr == 0) {
+        remrc = rename(sFileNameOld,sFileNameNew);
+    }
+
+    Licpy(ARGR,remrc);
+    _style = _style_old;
+}
 
 void R_listxmi(int func)
 {
@@ -1252,7 +1329,8 @@ void RxMvsRegFunctions()
     RxRegFunction("VXGET",      R_vxget,   0);
     RxRegFunction("VXPUT",      R_vxput,   0);
     RxRegFunction("STEMCOPY",   R_stemcopy,0);
-    RxRegFunction("REMOVE",   R_removedsn,0);
+    RxRegFunction("REMOVE",     R_removedsn,0);
+    RxRegFunction("RENAME",     R_renamedsn,0);
 #ifndef WIN32
     RxRegFunction("TCPOPEN",    R_tcpopen, 0);
     RxRegFunction("TCPRECEIVE", R_tcprecv,0);
