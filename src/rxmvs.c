@@ -875,6 +875,9 @@ void _rotate(PLstr to, PLstr from, int start, int frlen) {
     LLEN(*to) = (size_t) flen;
     LTYPE(*to) = LSTRING_TY;
 }
+// -------------------------------------------------------------------------------------
+// Rotate String (registered stub)
+// -------------------------------------------------------------------------------------
 void R_rotate(int func) {
     int start, slen;
     must_exist(1);
@@ -883,7 +886,9 @@ void R_rotate(int func) {
     get_oi0(3,slen);
     _rotate(ARGR,ARG1,start,slen);
 }
-
+// -------------------------------------------------------------------------------------
+// RHASH function
+// -------------------------------------------------------------------------------------
 void Lhash(const PLstr to, const PLstr from, long slots) {
     int ki,value=0, pcn,pwr,islots=INT32_MAX;
     size_t	lhlen=0;
@@ -914,8 +919,9 @@ void Lhash(const PLstr to, const PLstr from, long slots) {
     value=labs(value%slots);
     Licpy(to,labs(value));
 }
-
-
+// -------------------------------------------------------------------------------------
+// RHASH (registered stub)
+// -------------------------------------------------------------------------------------
 void R_rhash(int func) {
     int     slots=0;
 
@@ -924,6 +930,59 @@ void R_rhash(int func) {
 
     Lhash(ARGR,ARG1,slots);
 }
+// -------------------------------------------------------------------------------------
+// Remove DSN
+// -------------------------------------------------------------------------------------
+void R_removedsn(int func)
+{
+    char sFileName[45];
+    char sFunctionCode[3];
+    int remrc, iErr=0;
+
+    QuotationType quotationType;
+
+    char* _style_old = _style;
+
+    memset(sFileName,0,45);
+    memset(sFunctionCode,0,3);
+
+    if (ARGN != 1) Lerror(ERR_INCORRECT_CALL,0);
+
+    LASCIIZ(*ARG1)
+    get_s(1)
+#ifndef __CROSS__
+    Lupper(ARG1);
+#endif
+
+    _style = "//DSN:";
+    quotationType = CheckQuotation((char *)LSTR(*ARG1));
+    switch (quotationType) {
+        case UNQUOTED:
+            if (environment->SYSPREF[0] != '\0') {
+                strcat(sFileName, environment->SYSPREF);
+                strcat(sFileName, ".");
+                strcat(sFileName, (const char *) LSTR(*ARG1));
+            }
+            break;
+        case PARTIALLY_QUOTED:
+            strcat(sFunctionCode, "16");
+            iErr = 2;
+            break;
+        case FULL_QUOTED:
+            strncpy(sFileName, (const char *) (LSTR(*ARG1)) + 1, ARG1->len - 2);
+            break;
+        default:
+            Lerror(ERR_DATA_NOT_SPEC, 0);
+    }
+ // if no errors occurred so far, perform the remove
+    if (iErr == 0) {
+       remrc = remove(sFileName);
+    }
+
+    Licpy(ARGR,remrc);
+    _style = _style_old;
+}
+
 
 void R_listxmi(int func)
 {
@@ -1193,6 +1252,7 @@ void RxMvsRegFunctions()
     RxRegFunction("VXGET",      R_vxget,   0);
     RxRegFunction("VXPUT",      R_vxput,   0);
     RxRegFunction("STEMCOPY",   R_stemcopy,0);
+    RxRegFunction("REMOVE",   R_removedsn,0);
 #ifndef WIN32
     RxRegFunction("TCPOPEN",    R_tcpopen, 0);
     RxRegFunction("TCPRECEIVE", R_tcprecv,0);
