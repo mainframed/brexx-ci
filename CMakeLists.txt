@@ -169,6 +169,7 @@ add_executable(brexx
         inc/variable.h
         inc/rxtso.h
         inc/netdata.h
+        inc/rxnetdata.h
         lstring/abbrev.c
         lstring/abs.c
         lstring/add.c
@@ -272,6 +273,7 @@ add_executable(brexx
         src/rxfiles.c
         src/rxmath.c
         src/rxmvs.c
+        src/rxnetdata.c
         src/rxstr.c
         src/rxtso.c
         src/rxword.c

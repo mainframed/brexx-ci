@@ -30,7 +30,7 @@
 #include "rxmvsext.h"
 #include "rxtso.h"
 #include "util.h"
-#include "netdata.h"
+#include "rxnetdata.h"
 #ifdef __DEBUG__
 #include "bmem.h"
 #endif
@@ -69,10 +69,6 @@ int SetClistVar(PLstr name, PLstr value);
 
 void parseArgs(char **array, char *str);
 void parseDCB(FILE *pFile);
-void parseXMI(FILE *pFile);
-int  parseINMR01(P_ND_SEGMENT pSegment);
-int  parseINMR02(P_ND_SEGMENT pSegment);
-int  parseINMR03(P_ND_SEGMENT pSegment);
 int checkNameLength(long lName);
 int checkValueLength(long lValue);
 int checkVariableBlacklist(PLstr name);
@@ -1061,69 +1057,6 @@ void R_renamedsn(int func)
     _style = _style_old;
 }
 
-void R_listxmi(int func)
-{
-    char sFileName[45];
-    char sFunctionCode[3];
-
-    FILE *pFile;
-    int iErr;
-
-    QuotationType quotationType;
-
-    char* _style_old = _style;
-
-    memset(sFileName,0,45);
-    memset(sFunctionCode,0,3);
-
-    iErr = 0;
-
-    if (ARGN != 1)
-        Lerror(ERR_INCORRECT_CALL,0);
-
-    LASCIIZ(*ARG1)
-    get_s(1)
-#ifndef __CROSS__
-    Lupper(ARG1);
-#endif
-
-    _style = "//DSN:";
-    quotationType = CheckQuotation((char *)LSTR(*ARG1));
-    switch (quotationType) {
-        case UNQUOTED:
-            if (environment->SYSPREF[0] != '\0') {
-                strcat(sFileName, environment->SYSPREF);
-                strcat(sFileName, ".");
-                strcat(sFileName, (const char *) LSTR(*ARG1));
-            }
-            break;
-        case PARTIALLY_QUOTED:
-            strcat(sFunctionCode, "16");
-            iErr = 2;
-            break;
-        case FULL_QUOTED:
-            strncpy(sFileName, (const char *) (LSTR(*ARG1)) + 1, ARG1->len - 2);
-            break;
-        default:
-            Lerror(ERR_DATA_NOT_SPEC, 0);
-    }
-
-    if (iErr == 0) {
-        unsigned long sz = 0;
-        pFile = FOPEN(sFileName,"r+b");
-        if (pFile != NULL) {
-            parseXMI(pFile);
-            FCLOSE(pFile);
-        } else {
-            strcat(sFunctionCode,"16");
-        }
-    }
-
-    Lscpy(ARGR,sFunctionCode);
-
-    _style = _style_old;
-}
-
 #ifdef __DEBUG__
 void R_magic(int func)
 {
@@ -1313,6 +1246,8 @@ int reopen(int fp) {
 
 void RxMvsRegFunctions()
 {
+    RxNetDataRegFunctions();
+
     /* MVS specific functions */
     RxRegFunction("ENCRYPT",    R_crypt,0);
     RxRegFunction("DECRYPT",    R_decrypt,0);
@@ -1337,8 +1272,6 @@ void RxMvsRegFunctions()
     RxRegFunction("TCPSEND",    R_tcpsend,0);
 #endif
     RxRegFunction("RHASH",      R_rhash,0);
-    RxRegFunction("LISTXMI",    R_listxmi,0);
-
 #ifdef __DEBUG__
     RxRegFunction("MAGIC",  R_magic, 0);
     RxRegFunction("DUMMY",  R_dummy, 0);
@@ -1440,178 +1373,6 @@ void parseDCB(FILE *pFile)
 
     free(flags);
 }
-
-void parseXMI(FILE *pFile) {
-
-    int                     iErr            = 0;
-
-    ND_SEGMENT              segment;
-    P_ND_SEGMENT            pSegment        = &segment;
-
-    // clear segment
-    bzero(pSegment, sizeof(ND_SEGMENT));
-
-    // read first segment from file
-    iErr = readSegment(pFile, pSegment);
-    if (iErr == 0) {
-        iErr == parseINMR01(pSegment);
-    }
-
-    // clear segment
-    bzero(pSegment, sizeof(ND_SEGMENT));
-
-    // read second segment from file
-    if (iErr == 0) {
-        iErr = readSegment(pFile, pSegment);
-    }
-
-    if (iErr == 0) {
-        iErr == parseINMR02(pSegment);
-    }
-
-}
-
-int
-parseINMR01(P_ND_SEGMENT pSegment)
-{
-    int iErr = 0;
-
-    ND_HEADER_RECORD        headerRecord;
-    P_ND_HEADER_RECORD      pHeaderRecord   = &headerRecord;
-
-    ND_CTRL_RECORD_FORMAT   ctrlRecFormat   = UNKNOWN_CTRL_REC_FORMAT;
-
-    char                    sTemp[256];
-
-    // first segment must be a INMR01 control record
-    if (iErr == 0) {
-        if (isControlRecord(pSegment)) {
-            ctrlRecFormat = getControlRecordFormat(pSegment);
-            if (ctrlRecFormat != INMR01) {
-                iErr = 1;
-            }
-        } else {
-            iErr = 2;
-        }
-    }
-
-    if (iErr == 0) {
-        iErr = getHeaderRecord(pSegment, pHeaderRecord);
-    }
-
-    if (iErr == 0) {
-
-#ifdef __CROSS__
-        /* mandatory fields */
-        ebcdicToAscii((BYTE *) &pHeaderRecord->INMFNODE, sizeof(pHeaderRecord->INMFNODE));
-        ebcdicToAscii((BYTE *) &pHeaderRecord->INMFTIME, sizeof(pHeaderRecord->INMFTIME));
-        ebcdicToAscii((BYTE *) &pHeaderRecord->INMFUID, sizeof(pHeaderRecord->INMFUID));
-        ebcdicToAscii((BYTE *) &pHeaderRecord->INMTNODE, sizeof(pHeaderRecord->INMTNODE));
-        ebcdicToAscii((BYTE *) &pHeaderRecord->INMTUID, sizeof(pHeaderRecord->INMTUID));
-        /* optional fields */
-        ebcdicToAscii((BYTE *) &pHeaderRecord->INMFACK, sizeof(pHeaderRecord->INMFACK));
-        ebcdicToAscii((BYTE *) &pHeaderRecord->INMUSERP, sizeof(pHeaderRecord->INMUSERP));
-#endif
-
-        bzero(sTemp, sizeof(sTemp));
-        strncpy(sTemp, pHeaderRecord->INMFNODE, sizeof(pHeaderRecord->INMFNODE));
-        setVariable("INMFNODE", sTemp);
-
-        bzero(sTemp, sizeof(sTemp));
-        sprintf(sTemp, "%.2s.%.2s.%.4s  %.2s:%.2s:%.2s",
-                pHeaderRecord->INMFTIME.day,
-                pHeaderRecord->INMFTIME.month,
-                pHeaderRecord->INMFTIME.year,
-                pHeaderRecord->INMFTIME.hour,
-                pHeaderRecord->INMFTIME.minute,
-                pHeaderRecord->INMFTIME.second);
-        setVariable("INMFTIME", sTemp);
-
-        bzero(sTemp, sizeof(sTemp));
-        strncpy(sTemp, pHeaderRecord->INMFUID, sizeof(pHeaderRecord->INMFUID));
-        setVariable("INMFUID", sTemp);
-
-        bzero(sTemp, sizeof(sTemp));
-        strncpy(sTemp, pHeaderRecord->INMTNODE, sizeof(pHeaderRecord->INMTNODE));
-        setVariable("INMTNODE", sTemp);
-
-        bzero(sTemp, sizeof(sTemp));
-        strncpy(sTemp, pHeaderRecord->INMTUID, sizeof(pHeaderRecord->INMTUID));
-        setVariable("INMTUID", sTemp);
-
-        bzero(sTemp, sizeof(sTemp));
-        sprintf(sTemp, "%d", pHeaderRecord->INMLRECL);
-        setVariable("INMLRECL", sTemp);
-
-        bzero(sTemp, sizeof(sTemp));
-        strncpy(sTemp, pHeaderRecord->INMFACK, sizeof(pHeaderRecord->INMFACK));
-        setVariable("INMFACK", sTemp);
-
-        bzero(sTemp, sizeof(sTemp));
-        sprintf(sTemp, "%d", pHeaderRecord->INMFVERS);
-        setVariable("INMFVERS", sTemp);
-
-        bzero(sTemp, sizeof(sTemp));
-        sprintf(sTemp, "%d", pHeaderRecord->INMNUMF);
-        setVariable("INMNUMF", sTemp);
-
-        bzero(sTemp, sizeof(sTemp));
-        strncpy(sTemp, pHeaderRecord->INMUSERP, sizeof(pHeaderRecord->INMUSERP));
-        setVariable("INMUSERP", sTemp);
-    }
-
-    return iErr;
-}
-
-int
-parseINMR02(P_ND_SEGMENT pSegment)
-{
-    int iErr = 0;
-
-    ND_FILE_UTIL_RECORD     fileUtilRecord;
-    P_ND_FILE_UTIL_RECORD   pFileUtilRecord = &fileUtilRecord;
-
-    ND_CTRL_RECORD_FORMAT   ctrlRecFormat   = UNKNOWN_CTRL_REC_FORMAT;
-
-    char                    sTemp[256];
-
-    // second segment must be a INMR02 control record
-    if (iErr == 0) {
-        if (isControlRecord(pSegment)) {
-            ctrlRecFormat = getControlRecordFormat(pSegment);
-            if (ctrlRecFormat != INMR02) {
-                iErr = 3;
-            }
-        } else {
-            iErr = 4;
-        }
-    }
-
-    if (iErr == 0) {
-        iErr = getFileUtilRecord(pSegment, pFileUtilRecord);
-    }
-
-    if (iErr == 0) {
-
-#ifdef __CROSS__
-        /* mandatory fields */
-        ebcdicToAscii((BYTE *) &pFileUtilRecord->INMDSNAM, sizeof(pFileUtilRecord->INMDSNAM));
-        ebcdicToAscii((BYTE *) &pFileUtilRecord->INMUTILN, sizeof(pFileUtilRecord->INMUTILN));
-        /* optional fields */
-#endif
-
-        bzero(sTemp, sizeof(sTemp));
-        strncpy(sTemp, pFileUtilRecord->INMDSNAM, sizeof(pFileUtilRecord->INMDSNAM));
-        setVariable("INMDSNAM", sTemp);
-
-        bzero(sTemp, sizeof(sTemp));
-        strncpy(sTemp, pFileUtilRecord->INMUTILN, sizeof(pFileUtilRecord->INMUTILN));
-        setVariable("INMUTILN", sTemp);
-    }
-
-    return iErr;
-}
-
 
 void *
 _getEctEnvBk()
