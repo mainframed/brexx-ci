@@ -8,6 +8,7 @@ SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -D__DEBUG__")
 include_directories(inc)
 include_directories(fss)
 include_directories(mvs)
+include_directories(cross)
 
 add_executable(test
         src/test.c
@@ -145,6 +146,8 @@ add_executable(test
         src/variable.c lstring/d2p.c lstring/p2d.c)
 
 add_executable(brexx
+        cross/jccdummy.h
+        cross/jccdummy.c
         inc/bintree.h
         inc/bmem.h
         inc/compile.h
@@ -169,7 +172,7 @@ add_executable(brexx
         inc/variable.h
         inc/rxtso.h
         inc/netdata.h
-        inc/rxnetdata.h
+        inc/rxnetdat.h
         lstring/abbrev.c
         lstring/abs.c
         lstring/add.c
@@ -273,7 +276,7 @@ add_executable(brexx
         src/rxfiles.c
         src/rxmath.c
         src/rxmvs.c
-        src/rxnetdata.c
+        src/rxnetdat.c
         src/rxstr.c
         src/rxtso.c
         src/rxword.c

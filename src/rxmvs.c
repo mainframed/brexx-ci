@@ -30,7 +30,7 @@
 #include "rxmvsext.h"
 #include "rxtso.h"
 #include "util.h"
-#include "rxnetdata.h"
+#include "rxnetdat.h"
 #ifdef __DEBUG__
 #include "bmem.h"
 #endif
