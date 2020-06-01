@@ -75,6 +75,35 @@ int getDatasetName(RX_ENVIRONMENT_CTX_PTR pEnvironmentCtx,  const char *datasetN
     return iErr;
 }
 
+int  createDataset(char *sNAME, char *sMODE, char *sRECFM, unsigned int uiLRECL, unsigned int uiBLKSIZE,
+                    unsigned int uiDIR, unsigned int uiPRI, unsigned int uiSEC)
+{
+    int iErr = 0;
+
+    FILE *pFile;
+
+    char sDCBString[256];
+
+    sprintf(sDCBString, "%s,recfm=%s,lrecl=%d,blksize=%d,dirblks=%d,pri=%d,sec=%d,unit=sysda,rlse"  , sMODE
+                                                                                                    , sRECFM
+                                                                                                    , uiLRECL
+                                                                                                    , uiBLKSIZE
+                                                                                                    , uiDIR
+                                                                                                    , uiPRI
+                                                                                                    , uiSEC);
+
+    printf("DBG> [ALLOC] '%s' with \"%s\"\n", sNAME, sDCBString);
+
+    pFile = fopen(sNAME, sDCBString);
+    if (pFile == NULL) {
+        iErr = -1;
+    } else {
+        iErr = fclose(pFile);
+    }
+
+    return iErr;
+}
+
 long getFileSize(FILE *pFile)
 {
     int iErr;

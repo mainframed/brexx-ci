@@ -5,14 +5,19 @@ int getBinaryValue(BYTE *ptr, int len)
 {
     int				binaryValue, i;
     BYTE	        aByte;
-    // TODO: only length of 1, 2 and 4 are permitted (short/int)
+
+    binaryValue = 0;
+
+    // TODO: only length of 1, 2, 3 and 4 are permitted (short/int)
 #ifndef __CROSS__
     if (len == 1) {
-         binaryValue = (int) *ptr;
+        binaryValue = (int) *ptr;
     } else if (len == 2) {
-         binaryValue = *(short *) ptr;
+        binaryValue = *(short *) ptr;
+    } else if (len == 3) {
+        binaryValue = (ptr[0] << 16) | (ptr[1] << 8) | ptr[2];
     } else if (len == 4) {
-         binaryValue = *(int *)   ptr;
+        binaryValue = *(int *)   ptr;
     }
 #else
 

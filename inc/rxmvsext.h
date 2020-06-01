@@ -220,7 +220,7 @@ unsigned int call_rxabend (RX_ABEND_PARAMS_PTR params);
 extern int  call_rxinit(RX_INIT_PARAMS_PTR params);
 extern int  call_rxtso(RX_TSO_PARAMS_PTR params);
 extern void call_rxsvc(RX_SVC_PARAMS_PTR params);
-int  call_rxdynalc(RX_DYNALC_PARAMS_PTR params);
+extern int  call_rxdynalc(RX_DYNALC_PARAMS_PTR params);
 extern int  call_rxvsam(RX_VSAM_PARAMS_PTR params);
 extern int  call_rxptime (RX_PTIME_PARAMS_PTR params);
 extern int  call_rxstime (RX_STIME_PARAMS_PTR params);

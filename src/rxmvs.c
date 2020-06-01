@@ -1941,4 +1941,14 @@ unsigned int call_rxabend (RX_ABEND_PARAMS_PTR params)
 #endif
     return 0;
 }
+
+int call_rxdynalc (RX_DYNALC_PARAMS_PTR  params)
+{
+#ifdef __DEBUG__
+    if (params != NULL)
+        printf("DBG> DUMMY RXDYNALC ...\n");
+#endif
+    return 0;
+}
+
 #endif
