@@ -6,6 +6,7 @@
 #include <time.h>
 #include "sockets.h"
 #include "mvsutils.h"
+#include "rxmvsext.h"
 #elif WIN32
 #else
 # include <sys/socket.h>
@@ -1056,7 +1057,49 @@ void R_renamedsn(int func)
     Licpy(ARGR,remrc);
     _style = _style_old;
 }
+// -------------------------------------------------------------------------------------
+// DYNFREE  ddname
+// -------------------------------------------------------------------------------------
+void R_dynfree(int func)
+{
+    int iErr=0;
+    RX_DYNALC_PARAMS_PTR sysinParams;
 
+    if (ARGN != 1) Lerror(ERR_INCORRECT_CALL,0);
+
+    LASCIIZ(*ARG1)
+    get_s(1)
+
+    sysinParams = MALLOC(sizeof(RX_DYNALC_PARAMS), "SYSIN_PARMS");
+    memset(sysinParams, ' ', sizeof(RX_DYNALC_PARAMS));
+    memcpy(sysinParams->ALCFUNC, "FREE", 4);
+    memcpy(sysinParams->ALCDDN, LSTR(*ARG1), 8);
+    iErr = call_rxdynalc(sysinParams);
+    Licpy(ARGR,iErr);
+}
+// -------------------------------------------------------------------------------------
+// DYNALLOC ddname DSN SHR
+// -------------------------------------------------------------------------------------
+void R_dynalloc(int func)
+{
+    int iErr=0;
+    RX_DYNALC_PARAMS_PTR sysinParams;
+
+    if (ARGN != 2) Lerror(ERR_INCORRECT_CALL,0);
+
+    LASCIIZ(*ARG1)
+    LASCIIZ(*ARG2)
+    get_s(1)
+    get_s(2)
+
+    sysinParams = MALLOC(sizeof(RX_DYNALC_PARAMS), "SYSIN_PARMS");
+    memset(sysinParams, ' ', sizeof(RX_DYNALC_PARAMS));
+    memcpy(sysinParams->ALCFUNC, "ALLOC", 5);
+    memcpy(sysinParams->ALCDDN, LSTR(*ARG1), 8);
+    memcpy(sysinParams->ALCDSN, LSTR(*ARG2), 44);
+    iErr = call_rxdynalc(sysinParams);
+    Licpy(ARGR,iErr);
+}
 #ifdef __DEBUG__
 void R_magic(int func)
 {
@@ -1251,6 +1294,8 @@ void RxMvsRegFunctions()
     /* MVS specific functions */
     RxRegFunction("ENCRYPT",    R_crypt,0);
     RxRegFunction("DECRYPT",    R_decrypt,0);
+    RxRegFunction("DYNFREE",    R_dynfree,0);
+    RxRegFunction("DYNALC",     R_dynalloc,0);
     RxRegFunction("DUMPIT",     R_dumpIt,  0);
     RxRegFunction("LISTIT",     R_listIt,  0);
     RxRegFunction("WAIT",       R_wait,    0);

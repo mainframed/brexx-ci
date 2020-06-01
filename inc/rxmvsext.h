@@ -104,6 +104,17 @@ typedef struct trx_svc_params
 } RX_SVC_PARAMS, *RX_SVC_PARAMS_PTR;
 
 /* ---------------------------------------------------------- */
+/* assembler module RXDYNALC                                  */
+/* ---------------------------------------------------------- */
+typedef  struct trx_rxdynalc_params
+{
+    char            ALCFUNC[8];
+    char            ALCDDN[8];
+    char            ALCDSN[44];
+    char            ALCMEM[8];
+} RX_DYNALC_PARAMS, *RX_DYNALC_PARAMS_PTR;
+
+/* ---------------------------------------------------------- */
 /* assembler module RXVSAM                                    */
 /* ---------------------------------------------------------- */
 typedef  struct trx_vsam_params
@@ -197,6 +208,7 @@ int findLoadModule(char moduleName[8]);
 int  call_rxinit(RX_INIT_PARAMS_PTR params);
 int  call_rxtso(RX_TSO_PARAMS_PTR params);
 void call_rxsvc(RX_SVC_PARAMS_PTR params);
+int  call_rxdynalc(RX_DYNALC_PARAMS_PTR params);
 int  call_rxvsam(RX_VSAM_PARAMS_PTR params);
 unsigned int call_rxikj441 (RX_IKJCT441_PARAMS_PTR params);
 int  call_rxptime (RX_PTIME_PARAMS_PTR params);
@@ -208,6 +220,7 @@ unsigned int call_rxabend (RX_ABEND_PARAMS_PTR params);
 extern int  call_rxinit(RX_INIT_PARAMS_PTR params);
 extern int  call_rxtso(RX_TSO_PARAMS_PTR params);
 extern void call_rxsvc(RX_SVC_PARAMS_PTR params);
+int  call_rxdynalc(RX_DYNALC_PARAMS_PTR params);
 extern int  call_rxvsam(RX_VSAM_PARAMS_PTR params);
 extern int  call_rxptime (RX_PTIME_PARAMS_PTR params);
 extern int  call_rxstime (RX_STIME_PARAMS_PTR params);
