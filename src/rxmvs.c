@@ -933,16 +933,10 @@ void R_rhash(int func) {
 void R_removedsn(int func)
 {
     char sFileName[45];
-    char sFunctionCode[3];
-    int remrc, iErr=0;
-
-    QuotationType quotationType;
-
+    int remrc=-2, iErr=0;
     char* _style_old = _style;
 
     memset(sFileName,0,45);
-    memset(sFunctionCode,0,3);
-
     if (ARGN != 1) Lerror(ERR_INCORRECT_CALL,0);
 
     LASCIIZ(*ARG1)
@@ -950,32 +944,13 @@ void R_removedsn(int func)
 #ifndef __CROSS__
     Lupper(ARG1);
 #endif
-
+    get_s(1)
     _style = "//DSN:";
-    quotationType = CheckQuotation((char *)LSTR(*ARG1));
-    switch (quotationType) {
-        case UNQUOTED:
-            if (environment->SYSPREF[0] != '\0') {
-                strcat(sFileName, environment->SYSPREF);
-                strcat(sFileName, ".");
-                strcat(sFileName, (const char *) LSTR(*ARG1));
-            }
-            break;
-        case PARTIALLY_QUOTED:
-            strcat(sFunctionCode, "16");
-            iErr = 2;
-            break;
-        case FULL_QUOTED:
-            strncpy(sFileName, (const char *) (LSTR(*ARG1)) + 1, ARG1->len - 2);
-            break;
-        default:
-            Lerror(ERR_DATA_NOT_SPEC, 0);
-    }
+    iErr = getDatasetName(environment, (const char *) LSTR(*ARG1), sFileName);
  // if no errors occurred so far, perform the remove
     if (iErr == 0) {
        remrc = remove(sFileName);
     }
-
     Licpy(ARGR,remrc);
     _style = _style_old;
 }
@@ -988,16 +963,12 @@ void R_renamedsn(int func)
     char sFileNameNew[45];
     char sFunctionCode[3];
     int remrc, iErr=0;
-
-    QuotationType quotationType;
-
     char* _style_old = _style;
+
+    if (ARGN != 2) Lerror(ERR_INCORRECT_CALL,0);
 
     memset(sFileNameOld,0,45);
     memset(sFileNameNew,0,45);
-    memset(sFunctionCode,0,3);
-
-    if (ARGN != 2) Lerror(ERR_INCORRECT_CALL,0);
 
     LASCIIZ(*ARG1)
     LASCIIZ(*ARG2)
@@ -1007,54 +978,15 @@ void R_renamedsn(int func)
     Lupper(ARG1);
     Lupper(ARG2);
 #endif
-
     _style = "//DSN:";
- // Check old DSN
-    quotationType = CheckQuotation((char *)LSTR(*ARG1));
-    switch (quotationType) {
-        case UNQUOTED:
-            if (environment->SYSPREF[0] != '\0') {
-                strcat(sFileNameOld, environment->SYSPREF);
-                strcat(sFileNameOld, ".");
-                strcat(sFileNameOld, (const char *) LSTR(*ARG1));
-            }
-            break;
-        case PARTIALLY_QUOTED:
-            strcat(sFunctionCode, "16");
-            iErr = 2;
-            break;
-        case FULL_QUOTED:
-            strncpy(sFileNameOld, (const char *) (LSTR(*ARG1)) + 1, ARG1->len - 2);
-            break;
-        default:
-            Lerror(ERR_DATA_NOT_SPEC, 0);
-    }
- // Check old DSN
-    quotationType = CheckQuotation((char *)LSTR(*ARG2));
-    switch (quotationType) {
-        case UNQUOTED:
-            if (environment->SYSPREF[0] != '\0') {
-                strcat(sFileNameNew, environment->SYSPREF);
-                strcat(sFileNameNew, ".");
-                strcat(sFileNameNew, (const char *) LSTR(*ARG2));
-            }
-            break;
-        case PARTIALLY_QUOTED:
-            strcat(sFunctionCode, "16");
-            iErr = 2;
-            break;
-        case FULL_QUOTED:
-            strncpy(sFileNameNew, (const char *) (LSTR(*ARG2)) + 1, ARG2->len - 2);
-            break;
-        default:
-            Lerror(ERR_DATA_NOT_SPEC, 0);
-    }
-    // if no errors occurred so far, perform the renamee
+    iErr = getDatasetName(environment, (const char *) LSTR(*ARG1), sFileNameOld);
     if (iErr == 0) {
-        remrc = rename(sFileNameOld,sFileNameNew);
+        iErr = getDatasetName(environment, (const char *) LSTR(*ARG2), sFileNameNew);
     }
-
-    Licpy(ARGR,remrc);
+    if (iErr == 0) {   // if no errors occurred so far, perform the rename
+        remrc = rename(sFileNameOld,sFileNameNew);
+        Licpy(ARGR,remrc);
+    } else Lerror(ERR_DATA_NOT_SPEC, 0);
     _style = _style_old;
 }
 // -------------------------------------------------------------------------------------
