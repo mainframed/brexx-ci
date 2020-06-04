@@ -32,6 +32,7 @@
 #include "rxtso.h"
 #include "util.h"
 #include "rxnetdat.h"
+#include "dynit.h"
 #ifdef __DEBUG__
 #include "bmem.h"
 #endif
@@ -995,19 +996,20 @@ void R_renamedsn(int func)
 void R_dynfree(int func)
 {
     int iErr=0;
-    RX_DYNALC_PARAMS_PTR sysinParams;
+
+    __dyn_t dyn_parms;
 
     if (ARGN != 1) Lerror(ERR_INCORRECT_CALL,0);
 
     LASCIIZ(*ARG1)
     get_s(1)
 
-    sysinParams = MALLOC(sizeof(RX_DYNALC_PARAMS), "SYSIN_PARMS");
-    memset(sysinParams, ' ', sizeof(RX_DYNALC_PARAMS));
-    memcpy(sysinParams->ALCFUNC, "FREE", 4);
-    memcpy(sysinParams->ALCDDN, LSTR(*ARG1), 8);
-    iErr = call_rxdynalc(sysinParams);
-    Licpy(ARGR,iErr);
+    dyninit(&dyn_parms);
+    dyn_parms.__ddname = (char *) LSTR(*ARG1);
+
+    iErr = dynfree(&dyn_parms);
+
+    Licpy(ARGR, iErr);
 }
 // -------------------------------------------------------------------------------------
 // DYNALLOC ddname DSN SHR

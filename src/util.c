@@ -92,8 +92,6 @@ int  createDataset(char *sNAME, char *sMODE, char *sRECFM, unsigned int uiLRECL,
                                                                                                     , uiPRI
                                                                                                     , uiSEC);
 
-    printf("DBG> [ALLOC] '%s' with \"%s\"\n", sNAME, sDCBString);
-
     pFile = fopen(sNAME, sDCBString);
     if (pFile == NULL) {
         iErr = -1;

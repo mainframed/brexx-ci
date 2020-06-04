@@ -8,6 +8,7 @@ SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -D__DEBUG__")
 include_directories(inc)
 include_directories(fss)
 include_directories(mvs)
+include_directories(dynit)
 include_directories(cross)
 
 add_executable(test
@@ -285,7 +286,11 @@ add_executable(brexx
         src/trace.c
         src/util.c
         src/variable.c
-        src/netdata.c)
+        src/netdata.c
+        dynit/dynit.h
+        dynit/dynit.c
+        dynit/svc99.h
+        dynit/svc99.c)
 
 if(UNIX AND NOT APPLE)
    target_link_libraries(brexx m)

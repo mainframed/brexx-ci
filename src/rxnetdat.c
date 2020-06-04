@@ -12,11 +12,13 @@ extern char* _style;
 #include "lstring.h"
 #include "netdata.h"
 #include "util.h"
+#include "dynit.h"
+#include "svc99.h"
 
 extern RX_ENVIRONMENT_CTX_PTR environment;
 
 /* internal function prototypes */
-int receive(char sDataSetNameIn[45], char sDataSetNameOut[45]);
+int receive(char sInputDataSetName[45], char sOutputDataSetName[45]);
 int transmit(char sFileNameIn[45], char sFileNameOut[45]);
 
 int checkHeaderRecord(P_ND_SEGMENT pSegment);
@@ -31,16 +33,20 @@ int readDataRecord(FILE *pFile, P_ND_DATA_RECORD pDataRecord);
 
 unsigned int calculateTracks(long lFileSize, unsigned int uiBlkSize);
 
-int receivePO(FILE *pF_IN, char sDataSetNameTemp[45], char sDataSetNameOut[45], P_ND_FILE_UTIL_CTRL_RECORD pFileUtilCtrlRecord);
-int receivePS(FILE *pF_IN, char sDataSetNameOut[45], P_ND_FILE_UTIL_CTRL_RECORD pFileUtilCtrlRecord);
+int receivePO(FILE *pF_IN, char sTargetDataSetName[45], P_ND_FILE_UTIL_CTRL_RECORD pFileUtilCtrlRecord);
+int receivePS(FILE *pF_IN, char sOutputDataSetName[45], P_ND_FILE_UTIL_CTRL_RECORD pFileUtilCtrlRecord);
 
 int receiveRecords(FILE *pFileIn, FILE *pFileOut, ND_RECFM recfm, unsigned int uiMaxLRECL);
 void writeRecord(FILE *pFileOut, BYTE *pRecord, unsigned int uiBytesToWrite, ND_RECFM recfm);
 
-int allocateTargetDataSet(char *sDataSetName, P_ND_FILE_UTIL_CTRL_RECORD pFileUtilCtrlRecord, FILE *pSourceFile);
+int allocateTargetDataSet(char *sDataSetName, P_ND_FILE_UTIL_CTRL_RECORD pFileUtilCtrlRecord, FILE *pSourceFile, int add);
 
-void getDataSetName2(FILE *pF, char sDataSetName[45]);
-void getDataDiscriptorName(FILE *pF, char sDataDiscriptorName[9]);
+int dinfo(const char *ddname, char *dsname, char *memname);
+int dfree(char * ddn);
+int allocateSYSIN();
+int allocateSYSUT1(char *sDataSetName);
+int allocateSYSUT2(char *sDataSetName, P_ND_FILE_UTIL_CTRL_RECORD pFileUtilCtrlRecord, FILE *pF_IN);
+int allocateTMPSEQ(P_ND_FILE_UTIL_CTRL_RECORD pFileUtilCtrlRecord, FILE *pF_IN);
 
 /* rexx functions */
 void R_receive(int func)
@@ -127,7 +133,7 @@ void R_transmit(int func)
         iErr = getDatasetName(environment, (const char*)LSTR(*ARG2), sFileNameOut);
 
     if (iErr == 0) {
-        printf("FOO> function <transmit()> not yet implemented.\n");
+        printf("ERR> function <transmit()> not yet implemented.\n");
     }
 
     Licpy(ARGR, iErr);
@@ -143,11 +149,9 @@ void RxNetDataRegFunctions()
 } /* RxNetDataRegFunctions() */
 
 /* internal functions */
-int receive(char sDataSetNameIn[45], char sDataSetNameOut[45])
+int receive(char sInputDataSetName[44 + 1], char sOutputDataSetName[44 + 1])
 {
     int iErr = 0;
-
-    char                        sDataSetNameTemp[45];
 
     FILE                        *pF_IN;
 
@@ -157,22 +161,12 @@ int receive(char sDataSetNameIn[45], char sDataSetNameOut[45])
     ND_FILE_UTIL_CTRL_RECORD    fileUtilCtrlRecord;
     P_ND_FILE_UTIL_CTRL_RECORD  pFileUtilCtrlRecord = &fileUtilCtrlRecord;
 
-    bzero(sDataSetNameTemp, 45);
-    strcat(sDataSetNameTemp, "//DSN:&&TMPSEQ");
-
-#ifdef __CROSS__
-    bzero(sDataSetNameTemp, 45);
-    strncpy(sDataSetNameTemp, sDataSetNameOut, 40);
-    strcat(sDataSetNameTemp, ".TMP");
-#endif
-
     // #1 try to open the input dataset
-    pF_IN = FOPEN(sDataSetNameIn, "r+b");
+    printf("DBG> #1 opening input data set '%s' \n", sInputDataSetName);
+    pF_IN = FOPEN(sInputDataSetName, "r+b");
     if (pF_IN == NULL) {
         printf("ERR> Input data set could not be opened.\n");
         iErr = -1;
-    } else {
-        printf("DBG> Input data set '%s' opened.\n", sDataSetNameIn);
     }
     //
 
@@ -192,17 +186,17 @@ int receive(char sDataSetNameIn[45], char sDataSetNameOut[45])
     if (iErr == 0) {
         switch (pFileUtilCtrlRecord->INMDSORG) {
             case PO:
-                iErr = receivePO(pF_IN, sDataSetNameTemp, sDataSetNameOut, pFileUtilCtrlRecord);
+                iErr = receivePO(pF_IN, sOutputDataSetName, pFileUtilCtrlRecord);
                 break;
             case PS:
-                iErr = allocateTargetDataSet(sDataSetNameOut, pFileUtilCtrlRecord, pF_IN);
+                iErr = allocateTargetDataSet(sOutputDataSetName, pFileUtilCtrlRecord, pF_IN, 1);
                 if (iErr != 0) {
                     printf("ERR> Output data set could not be allocated.\n");
                 } else {
-                    printf("DBG> Output data set '%s' allocated.\n", sDataSetNameOut);
+                    printf("DBG> Output data set '%s' allocated.\n", sOutputDataSetName);
                 }
                 //
-                iErr = receivePS(pF_IN, sDataSetNameOut, pFileUtilCtrlRecord);
+                iErr = receivePS(pF_IN, sOutputDataSetName, pFileUtilCtrlRecord);
                 break;
             default:
                 break;
@@ -397,7 +391,7 @@ unsigned int calculateTracks(long lFileSize, unsigned int uiBlkSize)
 {
     unsigned int uiTracks;
 
-    const int TRACK_SIZE = 19064;
+    const int TRACK_SIZE = 35616;
 
     unsigned int uiBlkTrk;
     unsigned int uiBlocks;
@@ -405,12 +399,12 @@ unsigned int calculateTracks(long lFileSize, unsigned int uiBlkSize)
     uiBlkTrk = TRACK_SIZE / uiBlkSize;
 
     uiBlocks = ceil(((1.0 * (unsigned int)lFileSize) / uiBlkSize));
-    uiTracks = ceil(((1.5 * uiBlocks) / uiBlkTrk));
+    uiTracks = ceil(((1.1 * uiBlocks) / uiBlkTrk));
 
     return uiTracks;
 }
 
-int receivePS(FILE *pF_IN, char sDataSetNameOut[45], P_ND_FILE_UTIL_CTRL_RECORD pFileUtilCtrlRecord)
+int receivePS(FILE *pF_IN, char sOutputDataSetName[44 + 1], P_ND_FILE_UTIL_CTRL_RECORD pFileUtilCtrlRecord)
 {
     int                         iErr            = 0;
 
@@ -426,12 +420,10 @@ int receivePS(FILE *pF_IN, char sDataSetNameOut[45], P_ND_FILE_UTIL_CTRL_RECORD 
     //
 
     // #1 try to open the output data set
-    pF_OUT = FOPEN(sDataSetNameOut, "wb,vmode=1");
+    pF_OUT = FOPEN(sOutputDataSetName, "wb,vmode=1");
     if (pF_OUT == NULL) {
         printf("ERR> Output data set could not be opened.\n");
         iErr = -1;
-    } else {
-        printf("DBG> Output data set '%s' opened.\n", sDataSetNameOut);
     }
     //
 
@@ -449,143 +441,74 @@ int receivePS(FILE *pF_IN, char sDataSetNameOut[45], P_ND_FILE_UTIL_CTRL_RECORD 
     return iErr;
 }
 
-int receivePO(FILE *pF_IN, char sDataSetNameTemp[45], char sDataSetNameOut[45], P_ND_FILE_UTIL_CTRL_RECORD pFileUtilCtrlRecordPO)
+int receivePO(FILE *pF_IN, char sTargetDataSetName[44 + 1], P_ND_FILE_UTIL_CTRL_RECORD pFileUtilCtrlRecord)
 {
     int                         iErr = 0;
-
-    FILE                        *pF_TMP;
-    FILE                        *pF_OUT;
-    FILE                        *pF_SYSIN;
 
     ND_FILE_UTIL_CTRL_RECORD    fileUtilCtrlRecordPS;
     P_ND_FILE_UTIL_CTRL_RECORD  pFileUtilCtrlRecordPS = &fileUtilCtrlRecordPS;
 
-    char                        inddn[9];
-    char                        outddn[9];
-
-    char                        sDataDefinitionNameTemp[8];
     // #1 read the next file utility control record from input data set
+    printf("DBG> #2 reading file utility control record from input data set\n");
     iErr = readFileUtilCtrlRecord(pF_IN, pFileUtilCtrlRecordPS);
     //
 
     // #2 allocate the temporary data set
     if (iErr == 0) {
-        iErr = allocateTargetDataSet(sDataSetNameTemp, pFileUtilCtrlRecordPS, pF_IN);
+        printf("DBG> #3 allocating temp data set\n");
+        iErr = allocateTMPSEQ(pFileUtilCtrlRecordPS, pF_IN);
         if (iErr != 0) {
-            printf("ERR> Temp data set could not be allocated.\n");
-        } else {
-#ifndef __CROSS__
-            bzero(sDataDefinitionNameTemp, sizeof(sDataDefinitionNameTemp));
-            pF_TMP = fopen(sDataSetNameTemp, "r");
-            getDataSetName2(pF_TMP, sDataSetNameTemp);
-            getDataDiscriptorName(pF_TMP, sDataDefinitionNameTemp);
-            printf("DBG> Temporary data set '%s' allocated as %.8s.\n", sDataSetNameTemp, sDataDefinitionNameTemp);
-            fclose(pF_TMP);
-#else
-            printf("DBG> Temporary data set '%s' allocated.\n", sDataSetNameTemp);
-#endif
+            printf("ERR> temp data set could not be allocated.\n");
         }
     }
     //
 
-    // #3 allocate the output / target  data set
+    // #3 extract the sequential part to the temp data set
     if (iErr == 0) {
-        iErr = allocateTargetDataSet(sDataSetNameOut, pFileUtilCtrlRecordPO, pF_IN);
+        char sTempDataSetName[44 + 1];
+        bzero(sTempDataSetName, 45);
+        dinfo("TMPSEQ", sTempDataSetName,  "");
+        printf("DBG> #4 extracting the sequential part to the temp data set\n");
+        iErr = receivePS(pF_IN, sTempDataSetName, pFileUtilCtrlRecordPS);
         if (iErr != 0) {
-            printf("ERR> Target data set '%s' could not be allocated.\n", sDataSetNameOut);
-        } else {
-#ifndef __CROSS__
-            char ddn[9];
-            bzero(ddn, 9);
-            pF_OUT = fopen(sDataSetNameOut, "r");
-            getDataSetName2(pF_OUT, sDataSetNameOut);
-            getDataDiscriptorName(pF_OUT, ddn);
-            printf("DBG> Target data set '%s' allocated as %s.\n", sDataSetNameOut, ddn);
-            fclose(pF_OUT);
-#else
-            printf("DBG> Target data set '%s' allocated.\n", sDataSetNameTemp);
-#endif
+            printf("ERR> sequential file could not be extracted.\n");
         }
     }
     //
 
-    // #4 extract the sequential part to a temporary data set
-    if (iErr == 0) {
-        iErr = receivePS(pF_IN, sDataSetNameTemp, pFileUtilCtrlRecordPS);
-    }
-    //
-
     if (iErr == 0) {
 
-        char  dsn[44 +1];
-        char c;
-        RX_DYNALC_PARAMS_PTR inputParams;
-        RX_DYNALC_PARAMS_PTR sysinParams;
-        RX_DYNALC_PARAMS_PTR targetParams;
+        printf("DBG> #5 freeing SYSIN\n");
+        dfree("SYSIN");
 
-        printf("DBG> Sequential file extracted.\n");
+        printf("DBG> #6 allocating SYSIN to DUMMY\n");
+        iErr = allocateSYSIN();
 
-
-        inputParams = MALLOC(sizeof(RX_DYNALC_PARAMS), "TARGET_PARMS");
-        memset(inputParams, ' ', sizeof(RX_DYNALC_PARAMS));
-        memcpy(inputParams->ALCFUNC, "ALLOC", 5);
-        memcpy(inputParams->ALCDDN,  "BRXINDD ", 8);
-        memcpy(inputParams->ALCDSN,  sDataSetNameTemp, strlen(sDataSetNameTemp));
-        iErr = call_rxdynalc(inputParams);
-        FREE(inputParams);
-
-        targetParams = MALLOC(sizeof(RX_DYNALC_PARAMS), "TARGET_PARMS");
-        memset(targetParams, ' ', sizeof(RX_DYNALC_PARAMS));
-        memcpy(targetParams->ALCFUNC, "ALLOC", 5);
-        memcpy(targetParams->ALCDDN,  "BRXOUTDD", 8);
-        memcpy(targetParams->ALCDSN,  sDataSetNameOut, strlen(sDataSetNameOut));
-        iErr = call_rxdynalc(targetParams);
-        FREE(targetParams);
-
-
-        pF_SYSIN = fopen("//DSN:&&TMPSYSIN","wt,recfm=fb,lrecl=80,blksize=80,pri=1,dirblks=0,unit=sysda");
-        if (pF_SYSIN != NULL)
-        {
-            char temp[79];
-            bzero(temp, 79);
-            bzero(dsn, sizeof(dsn));
-            getDataSetName2(pF_SYSIN, dsn);
-            printf("DBG> SYSIN will be %s\n", dsn);
-
-            sprintf(temp, " COPY OUTDD=BRXOUTDD,INDD=BRXINDD\n");
-            printf("DBG> sending \"%s\" to SYSIN\n", temp);
-            fwrite(&temp, strlen(temp),1,pF_SYSIN);
-            fflush(pF_SYSIN);
-            fwrite("\\*", 2, 1, pF_SYSIN);
-            fflush(pF_SYSIN);
-            fclose(pF_SYSIN);
-            printf("FOO> SYSIN written\n");
-
-        } else {
-            printf("DBG> SYSIN could not be created.\n");
-            iErr = -2;
+        if (iErr == 0) {
+            char sTempDataSetName[44 + 1];
+            bzero(sTempDataSetName, 45);
+            dinfo("TMPSEQ", sTempDataSetName,  "");
+            printf("DBG> #7 allocating SYSUT1\n");
+            iErr = allocateSYSUT1(sTempDataSetName);
         }
 
         if (iErr == 0) {
-            sysinParams = MALLOC(sizeof(RX_DYNALC_PARAMS), "SYSIN_PARMS");
-            memset(sysinParams, ' ', sizeof(RX_DYNALC_PARAMS));
-            memcpy(sysinParams->ALCFUNC, "ALLOC", 5);
-            memcpy(sysinParams->ALCDDN, "SYSIN", 5);
-            memcpy(sysinParams->ALCDSN, dsn, strlen(dsn));
-
-            iErr = call_rxdynalc(sysinParams);
-            FREE(sysinParams);
-
+            printf("DBG> #8 allocating SYSUT2\n");
+            iErr = allocateSYSUT2(sTargetDataSetName, pFileUtilCtrlRecord, pF_IN);
         }
 
-        pF_TMP = fopen("//DDN:BRXINDD", "rb");
-        while ((c = fgetc(pF_TMP)) != EOF) {
-            printf("%c", c);
+        if (iErr == 0) {
+            printf("DBG> #8 calling IEBCOPY\n");
+            system("IEBCOPY");
         }
-        printf("DBG> calling IEBCOPY\n");
-        system("IEBCOPY");
+
+        printf("DBG> #10 freeing temp data set\n");
 
     }
+
+    dfree("SYSUT1");
+    dfree("SYSUT2");
+    dfree("TMPSEQ");
 
     return iErr;
 }
@@ -673,7 +596,7 @@ void writeRecord(FILE *pFileOut, BYTE *pRecord, unsigned int uiBytesToWrite, ND_
     }
 }
 
-int allocateTargetDataSet(char *sDataSetName, P_ND_FILE_UTIL_CTRL_RECORD pFileUtilCtrlRecord, FILE *pSourceFile)
+int allocateTargetDataSet(char *sDataSetName, P_ND_FILE_UTIL_CTRL_RECORD pFileUtilCtrlRecord, FILE *pSourceFile, int add)
 {
     int iErr = 0;
 
@@ -711,7 +634,7 @@ int allocateTargetDataSet(char *sDataSetName, P_ND_FILE_UTIL_CTRL_RECORD pFileUt
             strcpy(sRECFM, "u");
             break;
         default:
-            printf("FOO> Unknown RECFM found \n");
+            printf("ERR> Unknown RECFM found \n");
             strcpy(sRECFM, "u");
             break;
     }
@@ -722,7 +645,9 @@ int allocateTargetDataSet(char *sDataSetName, P_ND_FILE_UTIL_CTRL_RECORD pFileUt
     // TODO: check the 0x02 flag in recfm to decide wether to add 4 byte to lrecl or not
     if (pFileUtilCtrlRecord->INMRECFM == V ||
         pFileUtilCtrlRecord->INMRECFM == VB) {
-        uiLRECL += 4;
+        if (add) {
+            uiLRECL += 4;
+        }
     }
     //
 
@@ -752,12 +677,257 @@ int allocateTargetDataSet(char *sDataSetName, P_ND_FILE_UTIL_CTRL_RECORD pFileUt
     return iErr;
 }
 
-void getDataSetName2(FILE *pF, char sDataSetName[45])
+// SVC99 STUFF
+int dinfo(const char *ddname, char *dsname, char *memname)
 {
-    __get_ddndsnmemb(fileno(pF),NULL, sDataSetName, NULL, NULL, NULL);
+    int rcsvc, len;
+
+    __S99parms parmlist;
+
+    unsigned char tu[3][50];
+    unsigned char *tup[3];
+
+    memset(&parmlist, 0, sizeof(parmlist));
+    parmlist.__S99RBLN = 20;
+    parmlist.__S99VERB = 7;
+    parmlist.__S99TXTPP = tup;
+
+    memcpy(tu[0], "\x00\x01\x00\x01\x00", 5);
+    tu[0][5] = (unsigned char) strlen(ddname);
+    memcpy((void *) &(tu[0][6]), ddname, strlen(ddname));
+
+    memcpy(tu[1], "\x00\x05\x00\x01\x00\x2C"
+                  "                                            ",
+           6 + 44);
+
+    memcpy(tu[2], "\x00\x06\x00\x01\x00\x08"
+                  "        ",
+           6 + 8);
+
+    tup[0] = tu[0];
+    tup[1] = tu[1];
+    tup[2] = tu[2];
+
+    tup[2] = (unsigned char *) ((unsigned long) tup[2] | 0x80000000);
+
+    rcsvc = svc99(&parmlist);
+
+    if (rcsvc != 0) {
+        printf("ERR> error from svc99: %d/%hu/%hu\n",
+               rcsvc,
+               parmlist.__S99ERROR,
+               parmlist.__S99INFO);
+    } else {
+        len = (int) (tup[1][5]);
+        sprintf(dsname, "%-*.*s", len, len, &(tup[1][6]));
+
+        len = (int) (tup[2][5]);
+        sprintf(memname, "%-*.*s", len, len, &(tup[2][6]));
+    }
+
+    return rcsvc;
 }
 
-void getDataDiscriptorName(FILE *pF, char sDataDiscriptorName[9])
+int dfree(char * ddn)
 {
-    __get_ddndsnmemb(fileno(pF),sDataDiscriptorName, NULL, NULL, NULL, NULL);
+    int iErr = 0;
+
+    __dyn_t ip;
+    dyninit(&ip);
+
+    ip.__ddname = ddn;
+
+    iErr = dynfree(&ip);
+
+    return iErr;
+}
+
+int allocateSYSIN()
+{
+    int iErr;
+
+    __dyn_t dyn_parms;
+
+    dyninit(&dyn_parms);
+
+    dyn_parms.__ddname      = "SYSIN";
+    dyn_parms.__misc_flags  = __DUMMY_DSN;
+
+    iErr = dynalloc(&dyn_parms);
+
+    return iErr;
+}
+
+int allocateSYSUT1(char *sDataSetName)
+{
+    int iErr;
+
+    __dyn_t dyn_parms;
+
+    dyninit(&dyn_parms);
+
+    dyn_parms.__ddname      = "SYSUT1";
+    dyn_parms.__dsname      = sDataSetName;
+    dyn_parms.__status      = __DISP_SHR;
+
+    iErr = dynalloc(&dyn_parms);
+
+    if (iErr == 0) {
+        printf("DBG>    SYSUT1 was allocated to %s\n", sDataSetName);
+    }
+
+    return iErr;
+}
+
+int allocateSYSUT2(char *sDataSetName, P_ND_FILE_UTIL_CTRL_RECORD pFileUtilCtrlRecord, FILE *pF_IN)
+{
+    int iErr;
+
+    __dyn_t dyn_parms;
+
+    unsigned int uiFileSze;
+    unsigned int uiFileSze2;
+    unsigned int uiPriTracks;
+    unsigned int uiSecTracks;
+    unsigned int uiBlkSize;
+    unsigned int uiDirBlks;
+
+    const int TRACK_SIZE = 19069 - 8; // 3350 track size - 8 byte overhead
+
+    // get block size
+    uiBlkSize = pFileUtilCtrlRecord->INMBLKSZ;
+
+    // get directory blocks
+    uiDirBlks = pFileUtilCtrlRecord->INMDIR;
+
+    // calculate number of tracks for the primary / secondary allocation
+    uiFileSze = pFileUtilCtrlRecord->INMSIZE;
+    uiFileSze2 = getFileSize(pF_IN);
+    if (uiFileSze <= 0 ||
+        (uiFileSze * 1.5 > uiFileSze2)) {
+        uiFileSze = uiFileSze2;
+    }
+    uiPriTracks = calculateTracks(uiFileSze, uiBlkSize);
+    uiSecTracks = uiPriTracks / 2;
+    //
+
+    dyninit(&dyn_parms);
+
+    dyn_parms.__ddname      = "SYSUT2";
+    dyn_parms.__dsname      = sDataSetName;
+    dyn_parms.__status      = __DISP_NEW;
+    dyn_parms.__normdisp    = __DISP_CATLG;
+    dyn_parms.__dsorg       = __DSORG_PO;
+    dyn_parms.__alcunit     = __TRK;
+    dyn_parms.__misc_flags  = __RELEASE;
+    dyn_parms.__primary     = (int) uiPriTracks;
+    dyn_parms.__secondary   = (int) uiSecTracks;
+    dyn_parms.__dirblk      = (int) uiDirBlks;
+
+    if (dyn_parms.__blksize <= TRACK_SIZE) {
+        dyn_parms.__unit        = "SYSDA";
+    } else {
+        dyn_parms.__unit        = "3390";
+    }
+
+    iErr = dynalloc(&dyn_parms);
+
+    if (iErr == 0) {
+        printf("DBG>    SYSUT2 was allocated to %s with %d tracks and %d dir blocks\n", sDataSetName, uiPriTracks, uiDirBlks);
+    }
+
+    return iErr;
+}
+
+int allocateTMPSEQ(P_ND_FILE_UTIL_CTRL_RECORD pFileUtilCtrlRecord, FILE *pF_IN)
+{
+    int iErr;
+
+
+    __dyn_t dyn_parms;
+
+    unsigned int uiFSIZE;
+    unsigned int uiFSIZE2;
+
+    const int TRACK_SIZE = 19069 - 8; // 3350 track size - 8 byte overhead
+
+    dyninit(&dyn_parms);
+
+    dyn_parms.__ddname      = "TMPSEQ";
+    dyn_parms.__dsorg       = __DSORG_PS;
+    dyn_parms.__status      = __DISP_NEW;
+    dyn_parms.__normdisp    = __DISP_DELETE;
+    dyn_parms.__alcunit     = __TRK;
+    dyn_parms.__misc_flags  = __RELEASE;
+
+    switch (pFileUtilCtrlRecord->INMRECFM) {
+        case F:
+            dyn_parms.__recfm = _F_;
+            break;
+        case FB:
+            dyn_parms.__recfm = _FB_;
+            break;
+        case V:
+            dyn_parms.__recfm = _V_;
+            break;
+        case VB:
+            dyn_parms.__recfm = _VB_;
+            break;
+        case VS:
+            dyn_parms.__recfm = _VS_;
+            break;
+        case VBS:
+            dyn_parms.__recfm = _VBS_;
+            break;
+        case U:
+            dyn_parms.__recfm = _U_;
+            break;
+        default:
+            printf("ERR> Unknown RECFM found \n");
+            dyn_parms.__recfm = _U_;
+            break;
+    }
+
+    dyn_parms.__dirblk      = (short) pFileUtilCtrlRecord->INMDIR;
+    dyn_parms.__blksize     = (short) pFileUtilCtrlRecord->INMBLKSZ;
+
+    if (dyn_parms.__blksize <= TRACK_SIZE) {
+        dyn_parms.__unit        = "WORK";
+    } else {
+        dyn_parms.__unit        = "3390";
+    }
+
+    //
+    dyn_parms.__lrecl = pFileUtilCtrlRecord->INMLRECL;
+    // TODO: check the 0x02 flag in recfm to decide wether to add 4 byte to lrecl or not
+    if (pFileUtilCtrlRecord->INMRECFM == V ||
+        pFileUtilCtrlRecord->INMRECFM == VB) {
+        dyn_parms.__lrecl += 4;
+    }
+    //
+
+    //
+    uiFSIZE  = pFileUtilCtrlRecord->INMSIZE;
+    uiFSIZE2 = getFileSize(pF_IN);
+    if (uiFSIZE <= 0 ||
+        (uiFSIZE * 1.5 > uiFSIZE2)) {
+        uiFSIZE = uiFSIZE2;
+    }
+    //
+
+    dyn_parms.__primary     = (int) calculateTracks(uiFSIZE, dyn_parms.__blksize);
+    dyn_parms.__secondary   = dyn_parms.__primary / 2;
+    //
+
+    iErr = dynalloc(&dyn_parms);
+
+    if (iErr == 0) {
+        char dsname[44 +1];
+        dinfo(dyn_parms.__ddname, dsname, "");
+        printf("DBG>    TMPSEQ was allocated to %s with %d tracks and %d dir blocks\n", dsname
+                                                                                        , dyn_parms.__primary
+                                                                                        , dyn_parms.__dirblk);
+    }
+
+    return iErr;
 }
