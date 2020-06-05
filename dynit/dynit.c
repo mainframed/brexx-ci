@@ -38,6 +38,15 @@ int dynalloc (__dyn_t * dyn_parms)
         tu_idx++;
     }
 
+    // DALMEMBR
+    if (dyn_parms->__member != NULL && strlen(dyn_parms->__member) > 0)
+    {
+        memcpy(tu[tu_idx], "\x00\x03\x00\x01\x00", 5);
+        tu[tu_idx][5] = (unsigned char) strlen(dyn_parms->__member);
+        memcpy((void *) &(tu[tu_idx][6]), dyn_parms->__member, strlen(dyn_parms->__member));
+        tu_idx++;
+    }
+
     // DALBLKSZ
     if ((dyn_parms->__blksize > 0))
     {
