@@ -928,42 +928,6 @@ void R_rhash(int func) {
 
     Lhash(ARGR,ARG1,slots);
 }
-// -------------------------------------------------------------------------------------
-// Split DSN in DSN and Member (if coded)
-// -------------------------------------------------------------------------------------
-// Return string at a certain position til it's end and continued substring before starting position
-void _splitDSN(PLstr dsn, PLstr member, PLstr from) {
-    int slen,dsni,dsnl=0, memi=0,dsnm=0;
-
-    LINITSTR(*dsn);
-    LINITSTR(*member);
-    Lfx(dsn,44+1);
-    Lfx(member,8+1);
-
-    slen=LLEN(*from);
-    if (slen<1) {                  // is string empty? then return null string
-        LZEROSTR(*dsn);
-        LZEROSTR(*member);
-        return;
-    }
-
-   for (dsni=0;dsni<slen;dsni++) {
-       if (LSTR(*from)[dsni] == '(') dsnm = 1;
-       else if (LSTR(*from)[dsni] ==')' ) dsnm = 0;
-       else if (dsnm == 0) {
-          LSTR(*dsn)[dsnl] = LSTR(*from)[dsni];
-          dsnl++;
-       }else {
-          LSTR(*member)[memi] = LSTR(*from)[dsni];
-          memi++;
-       }
-    }
-    LLEN(*dsn) = (size_t) dsnl;
-    LTYPE(*dsn) = LSTRING_TY;
-    LLEN(*member) = (size_t) memi;
-    LTYPE(*member) = LSTRING_TY;
-}
-
 
 // -------------------------------------------------------------------------------------
 // Remove DSN
@@ -990,7 +954,7 @@ void R_removedsn(int func)
     iErr = getDatasetName(environment, (const char *) LSTR(*ARG1), sFileName);
  // no errors occurred so far, perform the remove
     if (iErr == 0) remrc = remove(sFileName);
-       else remrc=iErr;
+        else remrc=iErr;
 
     if (dbg==1) {
        printf("Remove %s\n",sFileName);
@@ -1033,8 +997,8 @@ void R_renamedsn(int func)
 // * ---------------------------------------------------------------------------------------
 // * Split DSN and Member
 // * ---------------------------------------------------------------------------------------
-    _splitDSN(&oldDSN,&oldMember, ARG1);
-    _splitDSN(&newDSN,&newMember, ARG2);
+    splitDSN(&oldDSN, &oldMember, ARG1);
+    splitDSN(&newDSN, &newMember, ARG2);
 // * ---------------------------------------------------------------------------------------
 // * Auto complete DSNs
 // * ---------------------------------------------------------------------------------------
@@ -1048,12 +1012,12 @@ void R_renamedsn(int func)
 //* Add Member Names if there are any
      if (LLEN(oldMember)>0) {
         strcat(sFileNameOld, "(");
-        strcat(sFileNameOld, LSTR(oldMember));
+        strcat(sFileNameOld, (const char *) LSTR(oldMember));
         strcat(sFileNameOld, ")");
      }
      if (LLEN(newMember)>0) {
         strcat(sFileNameNew, "(");
-        strcat(sFileNameNew, LSTR(newMember));
+        strcat(sFileNameNew, (const char *) LSTR(newMember));
         strcat(sFileNameNew, ")");
       }
 // * ---------------------------------------------------------------------------------------
@@ -1063,14 +1027,14 @@ void R_renamedsn(int func)
     if (strcmp(sFileNameOld,sFileNameNew)==0 ){
         if (LLEN(oldMember)==0 && LLEN(newMember)==0) goto STequal;
         if (LLEN(oldMember)>0 && LLEN(newMember)>0) {
-           if (strcmp(LSTR(oldMember),LSTR(newMember))==0) goto STequal;
+           if (strcmp((const char *) LSTR(oldMember),(const char *) LSTR(newMember))==0) goto STequal;
            goto doRename;  // perform Member Rename
         }
     }
-     if (strcmp(sFileNameOld,sFileNameNew)!=0 ) {
-         if (LLEN(oldMember) > 0 && LLEN(newMember) > 0) goto invalren;
-         else if (LLEN(oldMember) == 0 && LLEN(newMember) == 0) goto doRename;
-     }
+    if (strcmp(sFileNameOld,sFileNameNew)!=0 ) {
+       if (LLEN(oldMember) > 0 && LLEN(newMember) > 0) goto invalren;
+       else if (LLEN(oldMember) == 0 && LLEN(newMember) == 0) goto doRename;
+    }
     goto doRename;  // no match with special secenarious, just try the rename/*
 // * ---------------------------------------------------------------------------------------
 // * Incomplete Member definition in either from or to DSN
@@ -1130,7 +1094,7 @@ void R_free(int func)
 
     LASCIIZ(*ARG1)
     get_s(1)
-    if (ARGN = 2) LASCIIZ(*ARG2)
+    if (ARGN == 2) LASCIIZ(*ARG2)
 
 #ifndef __CROSS__
     Lupper(ARG1);
@@ -1164,7 +1128,7 @@ void R_allocate(int func) {
 
     LASCIIZ(*ARG1)
     LASCIIZ(*ARG2)
-    if (ARGN = 3) LASCIIZ(*ARG3)
+    if (ARGN == 3) LASCIIZ(*ARG3)
     get_s(1)
     get_s(2)
 
@@ -1175,7 +1139,7 @@ void R_allocate(int func) {
 #endif
     if (ARGN==3) if(LSTR(*ARG3)[0]=='D') dbg=1;
     _style = "//DSN:";    // Complete DSN if necessary
-    _splitDSN(&DSN,&Member, ARG2);
+    splitDSN(&DSN, &Member, ARG2);
     iErr = getDatasetName(environment, (const char *) LSTR(DSN), sFileName);
     if (iErr == 0) {
         dyninit(&dyn_parms);
@@ -1215,7 +1179,7 @@ void R_create(int func) {
 
     LASCIIZ(*ARG1)
     LASCIIZ(*ARG2)
-    if (ARGN = 3) LASCIIZ(*ARG3)
+    if (ARGN == 3) LASCIIZ(*ARG3)
     get_s(1)
     get_s(2)
 
@@ -1258,6 +1222,36 @@ void R_create(int func) {
     Licpy(ARGR,iErr);
     _style = _style_old;
 }
+// -------------------------------------------------------------------------------------
+// EXISTS does Dataset exist
+// -------------------------------------------------------------------------------------
+void R_exists(int func) {
+    int iErr = 0;
+    char sFileName[55];
+    char *_style_old = _style;
+    FILE *fk; // file handle
+
+    if (ARGN != 1) Lerror(ERR_INCORRECT_CALL, 0);
+
+    LASCIIZ(*ARG1)
+    get_s(1)
+#ifndef __CROSS__
+    Lupper(ARG1);
+#endif
+    _style = "//DSN:";    // Complete DSN if necessary
+    iErr = getDatasetName(environment, (const char *) LSTR(*ARG1), sFileName);
+    if (iErr == 0) {
+        fk = FOPEN((char *) sFileName, "RB");
+        if (fk != NULL) { // File already defined, error
+            FCLOSE(fk);
+            iErr = 1;
+        } else iErr=0;
+    }
+    Licpy(ARGR,iErr);
+    _style = _style_old;
+}
+
+
 
 #ifdef __DEBUG__
 void R_magic(int func)
@@ -1455,7 +1449,10 @@ void RxMvsRegFunctions()
     RxRegFunction("DECRYPT",    R_decrypt,0);
     RxRegFunction("FREE",       R_free, 0);
     RxRegFunction("ALLOCATE",   R_allocate,0);
-    RxRegFunction("CREATE",   R_create,0);
+    RxRegFunction("CREATE",     R_create,0);
+    RxRegFunction("EXISTS",     R_exists,0);
+    RxRegFunction("RENAME",     R_renamedsn,0);
+    RxRegFunction("REMOVE",     R_removedsn,0);
     RxRegFunction("DUMPIT",     R_dumpIt,  0);
     RxRegFunction("LISTIT",     R_listIt,  0);
     RxRegFunction("WAIT",       R_wait,    0);
@@ -1464,19 +1461,17 @@ void RxMvsRegFunctions()
     RxRegFunction("USERID",     R_userid,  0);
     RxRegFunction("LISTDSI",    R_listdsi, 0);
     RxRegFunction("ROTATE",     R_rotate,0);
+    RxRegFunction("RHASH",      R_rhash,0);
     RxRegFunction("SYSDSN",     R_sysdsn,  0);
     RxRegFunction("SYSVAR",     R_sysvar,  0);
     RxRegFunction("VXGET",      R_vxget,   0);
     RxRegFunction("VXPUT",      R_vxput,   0);
     RxRegFunction("STEMCOPY",   R_stemcopy,0);
-    RxRegFunction("REMOVE",     R_removedsn,0);
-    RxRegFunction("RENAME",     R_renamedsn,0);
 #ifndef WIN32
     RxRegFunction("TCPOPEN",    R_tcpopen, 0);
     RxRegFunction("TCPRECEIVE", R_tcprecv,0);
     RxRegFunction("TCPSEND",    R_tcpsend,0);
 #endif
-    RxRegFunction("RHASH",      R_rhash,0);
 #ifdef __DEBUG__
     RxRegFunction("MAGIC",  R_magic, 0);
     RxRegFunction("DUMMY",  R_dummy, 0);

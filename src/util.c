@@ -75,6 +75,43 @@ int getDatasetName(RX_ENVIRONMENT_CTX_PTR pEnvironmentCtx,  const char *datasetN
     return iErr;
 }
 
+// -------------------------------------------------------------------------------------
+// Split DSN in DSN and Member (if coded)
+// -------------------------------------------------------------------------------------
+// Return string at a certain position til it's end and continued substring before starting position
+void splitDSN(PLstr dsn, PLstr member, PLstr fromDSN) {
+    int slen,dsni,dsnl=0, memi=0,dsnm=0;
+
+    LINITSTR(*dsn);
+    LINITSTR(*member);
+    Lfx(dsn,44+1);
+    Lfx(member,8+1);
+
+    slen=LLEN(*fromDSN);
+    if (slen<1) {                  // is string empty? then return null string
+        LZEROSTR(*dsn);
+        LZEROSTR(*member);
+        return;
+    }
+
+    for (dsni=0;dsni<slen;dsni++) {
+        if (LSTR(*fromDSN)[dsni] == '(') dsnm = 1;
+        else if (LSTR(*fromDSN)[dsni] == ')') dsnm = 0;
+        else if (dsnm == 0) {
+            LSTR(*dsn)[dsnl]    = LSTR(*fromDSN)[dsni];
+            dsnl++;
+        } else {
+            LSTR(*member)[memi] = LSTR(*fromDSN)[dsni];
+            memi++;
+        }
+    }
+    LLEN(*dsn) = (size_t) dsnl;
+    LTYPE(*dsn) = LSTRING_TY;
+    LLEN(*member) = (size_t) memi;
+    LTYPE(*member) = LSTRING_TY;
+}
+
+
 int  createDataset(char *sNAME, char *sMODE, char *sRECFM, unsigned int uiLRECL, unsigned int uiBLKSIZE,
                     unsigned int uiDIR, unsigned int uiPRI, unsigned int uiSEC)
 {
