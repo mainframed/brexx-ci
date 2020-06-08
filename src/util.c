@@ -49,11 +49,11 @@ QuotationType CheckQuotation(const char *sDSName)
     return quotationType;
 }
 
-int getDatasetName(RX_ENVIRONMENT_CTX_PTR pEnvironmentCtx,  const char *datasetNameIn, char datasetNameOut[44 + 1])
+int getDatasetName(RX_ENVIRONMENT_CTX_PTR pEnvironmentCtx,  const char *datasetNameIn, char datasetNameOut[54 + 1])
 {
     int iErr = 0;
 
-    bzero(datasetNameOut, 45);
+    bzero(datasetNameOut, 55);
 
     switch (CheckQuotation(datasetNameIn)) {
         case UNQUOTED:

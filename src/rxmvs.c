@@ -929,29 +929,74 @@ void R_rhash(int func) {
     Lhash(ARGR,ARG1,slots);
 }
 // -------------------------------------------------------------------------------------
+// Split DSN in DSN and Member (if coded)
+// -------------------------------------------------------------------------------------
+// Return string at a certain position til it's end and continued substring before starting position
+void _splitDSN(PLstr dsn, PLstr member, PLstr from) {
+    int slen,dsni,dsnl=0, memi=0,dsnm=0;
+
+    LINITSTR(*dsn);
+    LINITSTR(*member);
+    Lfx(dsn,44+1);
+    Lfx(member,8+1);
+
+    slen=LLEN(*from);
+    if (slen<1) {                  // is string empty? then return null string
+        LZEROSTR(*dsn);
+        LZEROSTR(*member);
+        return;
+    }
+
+   for (dsni=0;dsni<slen;dsni++) {
+       if (LSTR(*from)[dsni] == '(') dsnm = 1;
+       else if (LSTR(*from)[dsni] ==')' ) dsnm = 0;
+       else if (dsnm == 0) {
+          LSTR(*dsn)[dsnl] = LSTR(*from)[dsni];
+          dsnl++;
+       }else {
+          LSTR(*member)[memi] = LSTR(*from)[dsni];
+          memi++;
+       }
+    }
+    LLEN(*dsn) = (size_t) dsnl;
+    LTYPE(*dsn) = LSTRING_TY;
+    LLEN(*member) = (size_t) memi;
+    LTYPE(*member) = LSTRING_TY;
+}
+
+
+// -------------------------------------------------------------------------------------
 // Remove DSN
 // -------------------------------------------------------------------------------------
 void R_removedsn(int func)
 {
-    char sFileName[45];
-    int remrc=-2, iErr=0;
+    char sFileName[55];
+    int remrc=-2, iErr=0,dbg=0;
     char* _style_old = _style;
 
-    memset(sFileName,0,45);
-    if (ARGN != 1) Lerror(ERR_INCORRECT_CALL,0);
-
+    memset(sFileName,0,55);
+    if (ARGN >2 || ARGN<1) Lerror(ERR_INCORRECT_CALL,0);
     LASCIIZ(*ARG1)
-    get_s(1)
-#ifndef __CROSS__
+ #ifndef __CROSS__
     Lupper(ARG1);
+    if (ARGN==2) {
+       LASCIIZ(*ARG2);
+       Lupper(ARG2);
+    }
 #endif
     get_s(1)
+    if (ARGN==2) if(LSTR(*ARG2)[0]=='D') dbg=1;
     _style = "//DSN:";
     iErr = getDatasetName(environment, (const char *) LSTR(*ARG1), sFileName);
- // if no errors occurred so far, perform the remove
-    if (iErr == 0) {
-       remrc = remove(sFileName);
+ // no errors occurred so far, perform the remove
+    if (iErr == 0) remrc = remove(sFileName);
+       else remrc=iErr;
+
+    if (dbg==1) {
+       printf("Remove %s\n",sFileName);
+       printf("   RC  %i\n",remrc);
     }
+
     Licpy(ARGR,remrc);
     _style = _style_old;
 }
@@ -960,80 +1005,260 @@ void R_removedsn(int func)
 // -------------------------------------------------------------------------------------
 void R_renamedsn(int func)
 {
-    char sFileNameOld[45];
-    char sFileNameNew[45];
+    char sFileNameOld[55];
+    Lstr oldDSN, oldMember;
+    char sFileNameNew[55];
+    Lstr newDSN, newMember;
     char sFunctionCode[3];
-    int remrc, iErr=0;
+    int renrc=-9, iErr=0, p=0, dbg=0;
     char* _style_old = _style;
 
-    if (ARGN != 2) Lerror(ERR_INCORRECT_CALL,0);
+    if (ARGN > 3 || ARGN<2) Lerror(ERR_INCORRECT_CALL,0);
 
-    memset(sFileNameOld,0,45);
-    memset(sFileNameNew,0,45);
+    memset(sFileNameOld,0,55);
+    memset(sFileNameNew,0,55);
 
     LASCIIZ(*ARG1)
     LASCIIZ(*ARG2)
     get_s(1)
     get_s(2)
+    if (ARGN==3) LASCIIZ(*ARG3)
+
 #ifndef __CROSS__
     Lupper(ARG1);
     Lupper(ARG2);
+    if (ARGN==3) Lupper(ARG3);
 #endif
+    if (ARGN==3) if(LSTR(*ARG3)[0]=='D') dbg=1;
+// * ---------------------------------------------------------------------------------------
+// * Split DSN and Member
+// * ---------------------------------------------------------------------------------------
+    _splitDSN(&oldDSN,&oldMember, ARG1);
+    _splitDSN(&newDSN,&newMember, ARG2);
+// * ---------------------------------------------------------------------------------------
+// * Auto complete DSNs
+// * ---------------------------------------------------------------------------------------
     _style = "//DSN:";
-    iErr = getDatasetName(environment, (const char *) LSTR(*ARG1), sFileNameOld);
+    iErr = getDatasetName(environment, (const char *) LSTR(oldDSN), sFileNameOld);
     if (iErr == 0) {
-        iErr = getDatasetName(environment, (const char *) LSTR(*ARG2), sFileNameNew);
+        iErr = getDatasetName(environment, (const char *) LSTR(newDSN), sFileNameNew);
+        if (iErr != 0) renrc=-2;
+    } else renrc=-2;
+    if (iErr != 0) goto leave;
+//* Add Member Names if there are any
+     if (LLEN(oldMember)>0) {
+        strcat(sFileNameOld, "(");
+        strcat(sFileNameOld, LSTR(oldMember));
+        strcat(sFileNameOld, ")");
+     }
+     if (LLEN(newMember)>0) {
+        strcat(sFileNameNew, "(");
+        strcat(sFileNameNew, LSTR(newMember));
+        strcat(sFileNameNew, ")");
+      }
+// * ---------------------------------------------------------------------------------------
+// * Test certain RENAME some scenarios
+// * ---------------------------------------------------------------------------------------
+    if (LLEN(oldMember)==0 && LLEN(newMember)!=0 || LLEN(oldMember)!=0 && LLEN(newMember)==0) goto incomplete;
+    if (strcmp(sFileNameOld,sFileNameNew)==0 ){
+        if (LLEN(oldMember)==0 && LLEN(newMember)==0) goto STequal;
+        if (LLEN(oldMember)>0 && LLEN(newMember)>0) {
+           if (strcmp(LSTR(oldMember),LSTR(newMember))==0) goto STequal;
+           goto doRename;  // perform Member Rename
+        }
     }
-    if (iErr == 0) {   // if no errors occurred so far, perform the rename
-        remrc = rename(sFileNameOld,sFileNameNew);
-        Licpy(ARGR,remrc);
-    } else Lerror(ERR_DATA_NOT_SPEC, 0);
+     if (strcmp(sFileNameOld,sFileNameNew)!=0 ) {
+         if (LLEN(oldMember) > 0 && LLEN(newMember) > 0) goto invalren;
+         else if (LLEN(oldMember) == 0 && LLEN(newMember) == 0) goto doRename;
+     }
+    goto doRename;  // no match with special secenarious, just try the rename/*
+// * ---------------------------------------------------------------------------------------
+// * Incomplete Member definition in either from or to DSN
+// * ---------------------------------------------------------------------------------------
+   incomplete:
+      if (dbg==1) printf("incomplete Member definition in Rename\n");
+      renrc=-3;
+   goto leave;
+// * ---------------------------------------------------------------------------------------
+// * From / To DSNs are equal, no Rename necessary
+// * ---------------------------------------------------------------------------------------
+   STequal:
+    if (dbg==1) printf("Source and Target DSN are equal\n");
+      renrc=-4;
+   goto leave;
+//  * ---------------------------------------------------------------------------------------
+//  * DSN Rename and Member Rename at the same time are not allowed
+//  * ---------------------------------------------------------------------------------------
+   invalren:
+    if (dbg==1) printf("Invalid Rename of DSN and Member at the same time\n");
+      renrc = -5;
+    goto leave;
+// * ---------------------------------------------------------------------------------------
+// * Perform the Rename
+// * ---------------------------------------------------------------------------------------
+   doRename:
+    #ifndef __CROSS__
+      renrc = rename(sFileNameOld,sFileNameNew);
+     #else
+       renrc=0;
+     #endif
+// * ---------------------------------------------------------------------------------------
+// * Clean up and exit
+// * ---------------------------------------------------------------------------------------
+    leave:
+      if (dbg==1) {
+         printf("Rename from %s\n",sFileNameOld);
+         printf("         To %s\n",sFileNameNew);
+         printf("         RC %i\n",renrc);
+      }
+    LFREESTR(oldDSN);
+    LFREESTR(oldMember);
+    LFREESTR(newDSN);
+    LFREESTR(newMember);
+    Licpy(ARGR,renrc);
     _style = _style_old;
 }
 // -------------------------------------------------------------------------------------
 // DYNFREE  ddname
 // -------------------------------------------------------------------------------------
-void R_dynfree(int func)
+void R_free(int func)
 {
-    int iErr=0;
-
+    int iErr=0,dbg=0;
     __dyn_t dyn_parms;
 
-    if (ARGN != 1) Lerror(ERR_INCORRECT_CALL,0);
+    if (ARGN > 2 || ARGN<1) Lerror(ERR_INCORRECT_CALL,0);
 
     LASCIIZ(*ARG1)
     get_s(1)
+    if (ARGN = 2) LASCIIZ(*ARG2)
+
+#ifndef __CROSS__
+    Lupper(ARG1);
+    if (ARGN=2) Lupper(ARG2);
+#endif
+    if (ARGN==2) if(LSTR(*ARG2)[0]=='D') dbg=1;
+
 
     dyninit(&dyn_parms);
     dyn_parms.__ddname = (char *) LSTR(*ARG1);
 
     iErr = dynfree(&dyn_parms);
+    if (dbg==1) {
+       printf("FREE DD %s\n",LSTR(*ARG1));
+       printf("     RC %i\n",iErr);
+    }
 
     Licpy(ARGR, iErr);
 }
 // -------------------------------------------------------------------------------------
 // DYNALLOC ddname DSN SHR
 // -------------------------------------------------------------------------------------
-void R_dynalloc(int func)
-{
-    int iErr=0;
-    RX_DYNALC_PARAMS_PTR sysinParams;
+void R_allocate(int func) {
+    int iErr = 0, dbg=0;
+    char *_style_old = _style;
+    char sFileName[55];
+    Lstr DSN, Member;
 
-    if (ARGN != 2) Lerror(ERR_INCORRECT_CALL,0);
+    __dyn_t dyn_parms;
+    if (ARGN < 2 || ARGN > 3) Lerror(ERR_INCORRECT_CALL, 0);
 
     LASCIIZ(*ARG1)
     LASCIIZ(*ARG2)
+    if (ARGN = 3) LASCIIZ(*ARG3)
     get_s(1)
     get_s(2)
 
-    sysinParams = MALLOC(sizeof(RX_DYNALC_PARAMS), "SYSIN_PARMS");
-    memset(sysinParams, ' ', sizeof(RX_DYNALC_PARAMS));
-    memcpy(sysinParams->ALCFUNC, "ALLOC", 5);
-    memcpy(sysinParams->ALCDDN, LSTR(*ARG1), 8);
-    memcpy(sysinParams->ALCDSN, LSTR(*ARG2), 44);
-    iErr = call_rxdynalc(sysinParams);
+#ifndef __CROSS__
+    Lupper(ARG1);
+    Lupper(ARG2);
+    if (ARGN=3) Lupper(ARG3);
+#endif
+    if (ARGN==3) if(LSTR(*ARG3)[0]=='D') dbg=1;
+    _style = "//DSN:";    // Complete DSN if necessary
+    _splitDSN(&DSN,&Member, ARG2);
+    iErr = getDatasetName(environment, (const char *) LSTR(DSN), sFileName);
+    if (iErr == 0) {
+        dyninit(&dyn_parms);
+        dyn_parms.__ddname = (char *) LSTR(*ARG1);
+     // free DDNAME, just in case it's allocated
+        iErr = dynfree(&dyn_parms);
+
+        dyn_parms.__dsname = (char *) sFileName;
+        if (LLEN(Member)>0) dyn_parms.__member = (char *) LSTR(Member);
+        dyn_parms.__status = __DISP_SHR;
+
+        iErr = dynalloc(&dyn_parms);
+        if (dbg==1) {
+            printf("ALLOC DD %s\n",LSTR(*ARG1));
+            printf("     DSN %s\n",sFileName);
+            if (LLEN(Member)>0)  printf("  Member %s\n",LSTR(Member));
+            printf("      RC %i\n",iErr);
+        }
+    }
     Licpy(ARGR,iErr);
+    LFREESTR(DSN);
+    LFREESTR(Member);
+
+    _style = _style_old;
 }
+// -------------------------------------------------------------------------------------
+// CREATE new Dataset
+// -------------------------------------------------------------------------------------
+void R_create(int func) {
+    int iErr = 0,dbg=0;
+    char sFileName[55];
+    char sFileDCB[128];
+    char *_style_old = _style;
+    FILE *fk ; // file handle
+
+    if (ARGN >3 || ARGN<2 ) Lerror(ERR_INCORRECT_CALL, 0);
+
+    LASCIIZ(*ARG1)
+    LASCIIZ(*ARG2)
+    if (ARGN = 3) LASCIIZ(*ARG3)
+    get_s(1)
+    get_s(2)
+
+#ifndef __CROSS__
+    Lupper(ARG1);
+    Lupper(ARG2);
+    if (ARGN=3) Lupper(ARG2);
+#endif
+    if (ARGN==3) if(LSTR(*ARG3)[0]=='D') dbg=1;
+    memset(sFileDCB,0,80);
+    strcat(sFileDCB, "WB, ");
+    strcat(sFileDCB, (const char *) LSTR(*ARG2));
+    _style = "//DSN:";    // Complete DSN if necessary
+    iErr = getDatasetName(environment, (const char *) LSTR(*ARG1), sFileName);
+    if (iErr == 0) {
+        fk=FOPEN((char*) sFileName,"RB");
+        if (fk!=NULL) { // File already defined, error
+            FCLOSE(fk);
+            if (dbg==1) printf("DSN already catalogued %s\n", sFileName);
+            iErr = -2;
+        }
+    }
+    if (iErr == 0) {
+        fk=FOPEN((char*) sFileName,sFileDCB);
+        if (fk!=NULL) { // File sucessfully created
+            FCLOSE(fk);
+            if (dbg==1) printf("DSN created successfully %s\n", sFileName);
+            iErr = 0;
+        } else {
+            if (dbg==1) printf("DSN cannot be created %s\n", sFileName);
+            iErr = -1;
+        }
+    }
+    if (dbg==1) {
+        printf("CREATE     %s\n",sFileName);
+        printf("  DCB etc. %s\n",sFileDCB);
+        printf("       RC  %i\n",iErr);
+    }
+
+    Licpy(ARGR,iErr);
+    _style = _style_old;
+}
+
 #ifdef __DEBUG__
 void R_magic(int func)
 {
@@ -1228,8 +1453,9 @@ void RxMvsRegFunctions()
     /* MVS specific functions */
     RxRegFunction("ENCRYPT",    R_crypt,0);
     RxRegFunction("DECRYPT",    R_decrypt,0);
-    RxRegFunction("DYNFREE",    R_dynfree,0);
-    RxRegFunction("DYNALC",     R_dynalloc,0);
+    RxRegFunction("FREE",       R_free, 0);
+    RxRegFunction("ALLOCATE",   R_allocate,0);
+    RxRegFunction("CREATE",   R_create,0);
     RxRegFunction("DUMPIT",     R_dumpIt,  0);
     RxRegFunction("LISTIT",     R_listIt,  0);
     RxRegFunction("WAIT",       R_wait,    0);
