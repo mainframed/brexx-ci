@@ -164,6 +164,23 @@ int dynalloc (__dyn_t * dyn_parms)
         tu_idx++;
     }
 
+    // DALSYSOU
+    if (dyn_parms->__sysout > 0)
+    {
+        memcpy(tu[tu_idx], "\x00\x18\x00\x01\x00\x01", 6);
+        tu[tu_idx][6] = dyn_parms->__sysout;
+        tu_idx++;
+    }
+
+    // DALSPGNM
+    if (dyn_parms->__sysoutname != NULL && strlen(dyn_parms->__sysoutname) > 0)
+    {
+        memcpy(tu[tu_idx], "\x00\x19\x00\x01\x00", 5);
+        tu[tu_idx][5] = (unsigned char) strlen(dyn_parms->__sysoutname);
+        memcpy((void *) &(tu[tu_idx][6]), dyn_parms->__sysoutname, strlen(dyn_parms->__sysoutname));
+        tu_idx++;
+    }
+
     for (ii = 0; ii <= tu_idx - 1; ii++)
     {
         tup[ii] = tu[ii];
