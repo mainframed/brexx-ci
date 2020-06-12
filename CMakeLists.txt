@@ -290,7 +290,9 @@ add_executable(brexx
         dynit/dynit.h
         dynit/dynit.c
         dynit/svc99.h
-        dynit/svc99.c)
+        dynit/svc99.c
+        inc/rxtcp.h
+        src/rxtcp.c )
 
 if(UNIX AND NOT APPLE)
    target_link_libraries(brexx m)

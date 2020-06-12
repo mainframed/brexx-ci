@@ -8,5 +8,7 @@ void ** entry_R13;
 int __get_ddndsnmemb (int handle, char * ddn, char * dsn,
                       char * member, char * serial, unsigned char * flags);
 
+//long ioctlsocket  (long, long, long *);
+
 #endif
 #endif //__JCCDUMMY_H

@@ -265,7 +265,7 @@ open_file( const PLstr fn, const char *mode)
                         }
                     } else {
                         LFREESTR(str)
-                        Lerror(ERR_ILLEGAL_DDN, 0, fn);
+                        return -1;
                     }
 
                 }
