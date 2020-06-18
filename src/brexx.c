@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <string.h>
-
 #include "lstring.h"
+
 #include "rexx.h"
-#include "rxdefs.h"
+#include "rxtcp.h"
 
 /* ------- Includes for any other external library ------- */
 #if defined(__MVS__) || defined(__CROSS__)
@@ -160,6 +160,8 @@ main(int ac, char *av[])
 
 	/* --- Free everything --- */
 	RxFinalize();
+    // TODO: call brxterm
+    ResetTcpIp();
 	for (ia=0; ia<MAXARGS; ia++) LFREESTR(args[ia]);
 	LFREESTR(tracestr);
 	LFREESTR(file);

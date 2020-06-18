@@ -12,7 +12,7 @@ int  createDataset(char *sNAME, char *sMODE, char *sRECFM, unsigned int uiLRECL,
 long getFileSize(FILE *pFile);
 int IsReturnCode(char * input);
 void DumpHex(const unsigned char* data, size_t size);
-
+void PrintErrno();
 void ebcdicToAscii(unsigned char *s, unsigned int length);
 
 #endif //BREXX_UTIL_H

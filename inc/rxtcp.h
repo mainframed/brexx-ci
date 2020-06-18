@@ -7,25 +7,40 @@
 #include "sockets.h"
 #include "mvsutils.h"
 #include "rxmvsext.h"
+
 #define __unused
-#elif WIN32
-#else
-# include <sys/socket.h>
-# include <sys/time.h>
-# include <netinet/in.h>
-# include <netinet/ip.h> /* superset of previous */
-# include <netdb.h>
-# include <arpa/inet.h>
-# include <errno.h>
-# define SOCKET      long
-# define SOCKADDR_IN struct sockaddr_in
-# define LPSOCKADDR  struct sockaddr *
-# define SOCKET      long
-# define INVALID_SOCKET (-1)
-# define SOCKET_ERROR   (-1)
-# define WSAGetLastError() errno
+typedef long    socklen_t;
 #endif
 
+#ifdef __CROSS__
+#    define ENABLE_NBIO(FD) {                            \
+                              int flag = 1;              \
+                              ioctl (FD, FIONBIO, &flag);\
+                            }
+#    define DISBLE_NBIO(FD) {                            \
+                              int flag = 0;              \
+                              ioctl (FD, FIONBIO, &flag);\
+                            }
+#else
+#    define ENABLE_NBIO(FD)                              \
+                            while(0);
+#    define DISBLE_NBIO(FD)                              \
+                            while(0);
+#endif
+
+/* events */
+#define CONNECT_EVENT     1
+#define RECEIVE_EVENT     2
+#define TIMEOUT_EVENT     3
+#define CLOSE_EVENT       4
+#define ERROR_EVENT       5
+#define STOP_EVENT        6
+
+/* return values */
+#define EOT             -55
+
+/* functions */
 void RxTcpRegFunctions();
+void ResetTcpIp();
 
 #endif //__RXTCP_H

@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <ctype.h>
-
+#include <errno.h>
 #include "lstring.h"
 #include "lerror.h"
 #include "rxmvsext.h"
@@ -207,6 +207,15 @@ void DumpHex(const unsigned char* data, size_t size)
         }
     }
 }
+
+void PrintErrno()
+{
+    int errnum = errno;
+    fprintf(stderr, "Value of errno: %d\n", errno);
+    perror("Error printed by perror");
+    fprintf(stderr, "Error opening file: %s\n", strerror( errnum ));
+}
+
 
 static const unsigned char e2a[256] = {
         0,  1,  2,  3,156,  9,134,127,151,141,142, 11, 12, 13, 14, 15,
