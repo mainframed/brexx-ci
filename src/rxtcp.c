@@ -15,7 +15,6 @@
 #define MAX_CLIENTS 256
 #define BUFFER_SIZE 4096
 
-#ifndef WIN32   // don't compile in Windows
 SOCKET server_socket;
 SOCKET client_sockets[MAX_CLIENTS];
 size_t num_clients;
@@ -410,7 +409,7 @@ void R_tcprecv(__unused int func) {
 
     unsigned int timeout;
 
-    int result;
+    int result = 0;
 
     char buffer[BUFFER_SIZE];
     struct timeval timeoutValue;
@@ -504,7 +503,6 @@ void RxTcpRegFunctions() {
     RxRegFunction("TCPTERM", R_tcpterm, 0);
 #endif
 } /* RxTcpRegFunctions() */
-#endif    // not in Windows
 
 /* internal functions */
 int checkSocket(SOCKET socket) {
@@ -572,21 +570,3 @@ char *inet_ntoa(struct in_addr in) {
     return (b);
 }
 #endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
