@@ -7,6 +7,7 @@
 #include "rxtso.h"
 #include "util.h"
 #include "rxtcp.h"
+#include "rxrac.h"
 #include "rxnetdat.h"
 #include "dynit.h"
 #ifdef __DEBUG__
@@ -1268,6 +1269,7 @@ int reopen(int fp) {
 
 void RxMvsRegFunctions()
 {
+    RxRacRegFunctions();
     RxTcpRegFunctions();
     RxNetDataRegFunctions();
 

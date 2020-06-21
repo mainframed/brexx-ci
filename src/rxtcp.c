@@ -1,51 +1,53 @@
 #include "rexx.h"
 #include "rxdefs.h"
 #include "rxtcp.h"
-// TODO: should be removed and setvar extracted to its own file
-#include "rxmvsext.h"
+#include "rxmvsext.h" // TODO: set*VAR* functions should get it's own source file
 #include "lstring.h"
 #include <errno.h>
+
 #ifdef __CROSS__
 # include "jccdummy.h"
+#else
+  char *inet_ntoa(struct in_addr in);
 #endif
 
-#define  MAX_CLIENTS 256
-#define  BUFFER_SIZE 1024
+#define SELECT_TIMEOUT 2
+#define MAX_CLIENTS 256
+#define BUFFER_SIZE 4096
 
 #ifndef WIN32   // don't compile in Windows
-
 SOCKET server_socket;
 SOCKET client_sockets[MAX_CLIENTS];
 size_t num_clients;
+size_t wakeup_counter;
 
-char * inet_ntoa   (struct in_addr in);
-void   deleteClient(int client_socket);
-void   closeAllSockets();
+int  checkSocket(SOCKET socket);
+int  closeSocket(int client_socket);
+void closeAllSockets();
 
-void ResetTcpIp()
-{
+void ResetTcpIp() {
     closeAllSockets();
 }
 
-void R_tcpinit(__unused int func)
-{
+void R_tcpinit(__unused int func) {
+    wakeup_counter = 0;
+
     // event constants
-    setIntegerVariable("#CONNECT",    CONNECT_EVENT);
-    setIntegerVariable("#RECEIVE",    RECEIVE_EVENT);
-    setIntegerVariable("#TIMEOUT",    TIMEOUT_EVENT);
-    setIntegerVariable("#CLOSE",      CLOSE_EVENT);
-    setIntegerVariable("#ERROR",      ERROR_EVENT);
-    setIntegerVariable("#STOP",       STOP_EVENT);
+    setIntegerVariable("#CONNECT", CONNECT_EVENT);
+    setIntegerVariable("#RECEIVE", RECEIVE_EVENT);
+    setIntegerVariable("#TIMEOUT", TIMEOUT_EVENT);
+    setIntegerVariable("#CLOSE", CLOSE_EVENT);
+    setIntegerVariable("#ERROR", ERROR_EVENT);
+    setIntegerVariable("#STOP", STOP_EVENT);
 
     // error constants
-    setIntegerVariable("#EOT",        EOT);
+    setIntegerVariable("#EOT", EOT);
 }
 
-void R_tcpserve(__unused int func)
-{
+void R_tcpserve(__unused int func) {
     int rc = 0;
 
-    unsigned int  port;
+    unsigned int port;
 
     struct sockaddr_in sockAddrIn;
 
@@ -64,7 +66,7 @@ void R_tcpserve(__unused int func)
         sockAddrIn.sin_addr.s_addr = htonl (INADDR_ANY);
         sockAddrIn.sin_port = htons(port);
 
-        rc = bind(server_socket, (struct sockaddr*)&sockAddrIn, sizeof(struct sockaddr));
+        rc = bind(server_socket, (struct sockaddr *) &sockAddrIn, sizeof(struct sockaddr));
     }
 
     if (rc == 0) {
@@ -74,167 +76,153 @@ void R_tcpserve(__unused int func)
     Licpy(ARGR, rc);
 }
 
-void R_tcpwait(__unused int func)
-{
+void R_tcpwait(__unused int func) {
     int rc = 0;
 
     int j;
-    int highest;
-
+    unsigned int highest;
     unsigned int timeout;
+    unsigned int max_wakeup_counter;
     struct timeval timeoutValue;
 
     fd_set read_set;
 
-    if (ARGN != 1) Lerror(ERR_INCORRECT_CALL, 0);
+    if (ARGN > 1) Lerror(ERR_INCORRECT_CALL, 0);
 
-    if (ARGN == 1)
-    {
+    if (ARGN == 1) {
         get_i(1, timeout)
-    }
-    else
-    {
-        timeout = 60;
+    } else {
+        timeout = 0;
     }
 
-    // set receive timeout
-    timeoutValue.tv_sec = timeout;
+    if (timeout >= SELECT_TIMEOUT) {
+        max_wakeup_counter = timeout / SELECT_TIMEOUT;
+    } else {
+        max_wakeup_counter = 0;
+    }
+
+    // set select timeout
+    timeoutValue.tv_sec = SELECT_TIMEOUT;
     timeoutValue.tv_usec = 0;
 
-    FD_ZERO(&read_set);
+    Licpy(ARGR, 0);
 
-    if (server_socket >= 0)
-    {
-        highest = (int)server_socket;
+    while (LINT(*ARGR) == 0) {
+        FD_ZERO(&read_set);
 
-        FD_SET(server_socket, &read_set);
-        if (num_clients > 0)
-        {
-            int ii;
+        if (server_socket >= 0) {
+            highest = (int) server_socket;
 
-            for (ii = 0; ii < num_clients ; ii++)
-            {
-                if (highest < client_sockets[ii])
-                {
-                    highest = (int)client_sockets[ii];
-                }
+            FD_SET(server_socket, &read_set);
+            if (num_clients > 0) {
+                int ii;
 
-                FD_SET(client_sockets[ii], &read_set);
-            }
-        }
-
-        // TODO: not sure what to do with this magic stuff
-        /* copied by Jason Winters FTPD */
-        {
-            j = ((highest + 31) / 32) - 1; /* Get word ptr to last 'long' */
-            while ((j > 0) && ((long *)&read_set)[j] == 0) j--;
-
-            j = ((j + 1) * 32) - 1; /* Highest Socket to check */
-            if (j > highest) j = highest; /* may be greater than the known value */
-
-            while ((j >= 0) && (FD_ISSET (j, &read_set) == 0)) j--;
-
-            if (j < 0) j = 0; // Algorithm fix for IBM sockets (descr 0 allowed)
-        }
-
-    }
-    else
-    {
-        rc = -1; // NO SERVER SOCKET
-    }
-
-    if (rc == 0)
-    {
-        bool stop = 0;
-
-        // TODO: timeOutVal / 2 (fixer select timeout) = counter
-        // alle n counter send TIMEOUT EVENT
-
-        // check if the socket is ready to receive
-        rc = select(j + 1, &read_set, NULL , NULL, &timeoutValue);
-        if (rc == 0)
-        {
-            long * s;
-
-            s = (*((long **)548));       // 548->ASCB
-            s = ((long **)s) [14];       //  56->CSCB
-            if (s) {
-                s = ((long **)s) [11];   //  44->CIB
-
-                while (s)
-                {
-                    if (((unsigned char *)s) [4] == 0x40)
-                    {
-                        stop = 1;
-                        break;
+                for (ii = 0; ii < num_clients; ii++) {
+                    if (highest < client_sockets[ii]) {
+                        highest = (int) client_sockets[ii];
                     }
-                    s = ((long **)s) [0];//   0->NEXT-CIB
+
+                    FD_SET(client_sockets[ii], &read_set);
                 }
             }
 
-            if (stop)
+            // TODO: not sure what to do with this magic stuff
+            /* copied by Jason Winters FTPD */
             {
-                Licpy(ARGR, STOP_EVENT);
-            } else
-            {
-                Licpy(ARGR, TIMEOUT_EVENT);
+                j = ((highest + 31) / 32) - 1; /* Get word ptr to last 'long' */
+                while ((j > 0) && ((long *) &read_set)[j] == 0) j--;
+
+                j = ((j + 1) * 32) - 1; /* Highest Socket to check */
+                if (j > highest) j = highest; /* may be greater than the known value */
+
+                while ((j >= 0) && (FD_ISSET (j, &read_set) == 0)) j--;
+
+                if (j < 0) j = 0; // Algorithm fix for IBM sockets (descr 0 allowed)
             }
-        }
-        else if (rc < 0)
-        {
-            Licpy(ARGR, ERROR_EVENT);
-        }
-        else
-        {
-            int current_socket;
 
-            rc = 0;  // SET NO ERROR
-            for (current_socket = 0; current_socket < FD_SETSIZE; ++current_socket)
-            {
-                if (FD_ISSET (current_socket, &read_set))
-                {
-                    if (current_socket == server_socket)
+        } else {
+            rc = -1; // NO SERVER SOCKET
+        }
+
+        if (rc == 0) {
+            bool stop = 0;
+
+            // check if the socket is ready to receive
+            rc = select(j + 1, &read_set, NULL, NULL, &timeoutValue);
+            if (rc == 0) {
+#ifndef __CROSS__
+                long *s;
+
+                s = (*((long **)548));       // 548->ASCB
+                s = ((long **)s) [14];       //  56->CSCB
+                if (s) {
+                    s = ((long **)s) [11];   //  44->CIB
+
+                    while (s)
                     {
-                        struct sockaddr_in clientname;
-                        socklen_t size;
-
-                        size = sizeof (clientname);
-
-                        num_clients++;
-                        client_sockets[num_clients - 1] = accept (server_socket,
-                                                                  (struct sockaddr *) &clientname,
-                                                                  &size);
-
-                        if (client_sockets[num_clients - 1] < 0)
+                        if (((unsigned char *)s) [4] == 0x40)
                         {
-                            num_clients--;
-                            rc = -2; // ACCEPT FAILED
+                            stop = 1;
+                            break;
                         }
-
-                        if (rc == 0)
-                        {
-                            setVariable       ("_IP", inet_ntoa(clientname.sin_addr));
-                            setIntegerVariable("_PORT", ntohs (clientname.sin_port));
-                            setIntegerVariable("_FD", client_sockets[num_clients - 1]);
-
-                            Licpy(ARGR, CONNECT_EVENT);
+                        s = ((long **)s) [0];//   0->NEXT-CIB
+                    }
+                }
+#endif
+                if (stop) {
+                    Licpy(ARGR, STOP_EVENT);
+                } else {
+                    if (max_wakeup_counter > 0) {
+                        wakeup_counter++;
+                        if (wakeup_counter >= max_wakeup_counter) {
+                            wakeup_counter = 0;
+                            Licpy(ARGR, TIMEOUT_EVENT);
                         }
                     }
-                    else
-                    {
-                        long available = 0;
+                }
+            } else if (rc < 0) {
+                Licpy(ARGR, ERROR_EVENT);
+            } else {
+                int current_socket;
 
-                        setIntegerVariable("_FD", current_socket);
-                        ioctlsocket(current_socket, FIONREAD, &available);
-                        if (available > 0)
-                        {
-                            setIntegerVariable("_AVAILABLE", (int)available);
-                            Licpy(ARGR, RECEIVE_EVENT);
-                        } else
-                        {
-                            closesocket(current_socket);
-                            deleteClient(current_socket);
-                            Licpy(ARGR, CLOSE_EVENT);
+                rc = 0;  // SET NO ERROR
+                for (current_socket = 0; current_socket < FD_SETSIZE; ++current_socket) {
+                    if (FD_ISSET (current_socket, &read_set)) {
+                        if (current_socket == server_socket) {
+                            struct sockaddr_in clientname;
+                            socklen_t size;
+
+                            size = sizeof(clientname);
+
+                            num_clients++;
+                            client_sockets[num_clients - 1] = accept(server_socket,
+                                                                     (struct sockaddr *) &clientname,
+                                                                     &size);
+
+                            if (client_sockets[num_clients - 1] < 0) {
+                                num_clients--;
+                                rc = -2; // ACCEPT FAILED
+                            }
+
+                            if (rc == 0) {
+                                setVariable("_IP", inet_ntoa(clientname.sin_addr));
+                                setIntegerVariable("_PORT", ntohs (clientname.sin_port));
+                                setIntegerVariable("_FD", client_sockets[num_clients - 1]);
+
+                                Licpy(ARGR, CONNECT_EVENT);
+                            }
+                        } else {
+                            long available = 0;
+
+                            setIntegerVariable("_FD", current_socket);
+                            ioctlsocket(current_socket, FIONREAD, &available);
+                            if (available > 0) {
+                                setIntegerVariable("_AVAILABLE", (int) available);
+                                Licpy(ARGR, RECEIVE_EVENT);
+                            } else {
+                                closeSocket(current_socket);
+                                Licpy(ARGR, CLOSE_EVENT);
+                            }
                         }
                     }
                 }
@@ -242,14 +230,12 @@ void R_tcpwait(__unused int func)
         }
     }
 
-    if (rc != 0)
-    {
+    if (rc != 0) {
         Licpy(ARGR, rc);
     }
 }
 
-void R_tcpopen(__unused int func)
-{
+void R_tcpopen(__unused int func) {
     int rc = 0;
 
     SOCKET client_socket;
@@ -316,8 +302,7 @@ void R_tcpopen(__unused int func)
 
         // check if the socket is ready
         select(client_socket + 1, NULL, &write_set, NULL, &timeoutValue);
-        if (!FD_ISSET(client_socket, &write_set))
-        {
+        if (!FD_ISSET(client_socket, &write_set)) {
             rc = -3;
         }
 
@@ -331,9 +316,8 @@ void R_tcpopen(__unused int func)
     Licpy(ARGR, rc);
 }
 
-void R_tcpclose(__unused int func)
-{
-    int rc = -4;
+void R_tcpclose(__unused int func) {
+    int rc = 0;
 
     SOCKET client_socket;
 
@@ -341,26 +325,17 @@ void R_tcpclose(__unused int func)
 
     get_i(1, client_socket)
 
-    if (num_clients > 0) {
-        int ii;
+    if (checkSocket(client_socket == FALSE)) Lerror(ERR_INCORRECT_CALL, 0);
 
-        for (ii = 0; ii <= num_clients - 1; ii++) {
-            if (client_sockets[ii] == client_socket) {
-                rc = closesocket(client_socket);
-            }
-        }
-    }
-
-    deleteClient(client_socket);
+    rc = closeSocket(client_socket);
 
     Licpy(ARGR, rc);
 }
 
-void R_tcpsend(__unused int func)
-{
+void R_tcpsend(__unused int func) {
     int rc = 0;
 
-    SOCKET Ccom_han;
+    SOCKET client_socket;
 
     unsigned int timeout;
 
@@ -372,54 +347,48 @@ void R_tcpsend(__unused int func)
 
     fd_set write_set;
 
-    if (ARGN < 2)                     Lerror(ERR_INCORRECT_CALL, 0);
-    if (ARGN > 3)                     Lerror(ERR_INCORRECT_CALL, 0);
+    if (ARGN < 2) Lerror(ERR_INCORRECT_CALL, 0);
+    if (ARGN > 3) Lerror(ERR_INCORRECT_CALL, 0);
     if (LLEN(*ARG2) > BUFFER_SIZE) Lerror(ERR_INCORRECT_CALL, 0);
 
     LASCIIZ(*ARG2)
 
-    get_i(1, Ccom_han)
+    get_i(1, client_socket)
     get_s(2);
-    if (ARGN == 3)
-    {
+    if (ARGN == 3) {
         get_i(3, timeout)
-    }
-    else
-    {
+    } else {
         timeout = 5;
     }
+
+    if (checkSocket(client_socket == FALSE)) Lerror(ERR_INCORRECT_CALL, 0);
 
     // set send timeout
     timeoutValue.tv_sec = timeout;
     timeoutValue.tv_usec = 0;
 
     bzero(buffer, BUFFER_SIZE);
-    strcpy (buffer, (char *)LSTR(*ARG2));
+    strncpy (buffer, (char *) LSTR(*ARG2), MIN(BUFFER_SIZE, LLEN(*ARG2)));
 
     remaining = strlen(buffer);
 
-    ENABLE_NBIO(Ccom_han)   // in __CROSS__ only
+    ENABLE_NBIO(client_socket)   // in __CROSS__ only
 
-    while (rc == 0 && remaining > 0)
-    {
+    while (rc == 0 && remaining > 0) {
         FD_ZERO(&write_set);
-        FD_SET(Ccom_han, &write_set);
+        FD_SET(client_socket, &write_set);
 
         // check if the socket is ready to send
-        select(Ccom_han + 1, NULL, &write_set, NULL, &timeoutValue);
-        if (!FD_ISSET(Ccom_han, &write_set))
-        {
+        select(client_socket + 1, NULL, &write_set, NULL, &timeoutValue);
+        if (!FD_ISSET(client_socket, &write_set)) {
             rc = -2;
         }
 
-        if (rc == 0)
-        {
-            result = send(Ccom_han, buffer, remaining, 0);
-            if (result == SOCKET_ERROR)
-            {
+        if (rc == 0) {
+            result = send(client_socket, buffer, remaining, 0);
+            if (result == SOCKET_ERROR) {
                 result = WSAGetLastError();
-                if (result != WSAEWOULDBLOCK)
-                {
+                if (result != WSAEWOULDBLOCK) {
                     rc = -1;
                     break;
                 }
@@ -431,11 +400,10 @@ void R_tcpsend(__unused int func)
     // return count of bytes send
     LINT(*ARGR) = rc;
     LTYPE(*ARGR) = LINTEGER_TY;
-    LLEN(*ARGR)  = sizeof(long);
+    LLEN(*ARGR) = sizeof(long);
 }
 
-void R_tcprecv(__unused int func)
-{
+void R_tcprecv(__unused int func) {
     int rc = 0;
 
     SOCKET client_socket;
@@ -449,8 +417,8 @@ void R_tcprecv(__unused int func)
 
     fd_set read_set;
 
-    if (ARGN < 1)                     Lerror(ERR_INCORRECT_CALL, 0);
-    if (ARGN > 2)                     Lerror(ERR_INCORRECT_CALL, 0);
+    if (ARGN < 1) Lerror(ERR_INCORRECT_CALL, 0);
+    if (ARGN > 2) Lerror(ERR_INCORRECT_CALL, 0);
 
     get_i(1, client_socket)
     if (ARGN == 2) {
@@ -458,6 +426,8 @@ void R_tcprecv(__unused int func)
     } else {
         timeout = 30;
     }
+
+    if (checkSocket(client_socket == FALSE)) Lerror(ERR_INCORRECT_CALL, 0);
 
     // set receive timeout
     timeoutValue.tv_sec = timeout;
@@ -472,14 +442,12 @@ void R_tcprecv(__unused int func)
     FD_SET(client_socket, &read_set);
 
     // check if the socket is ready to receive
-    select(client_socket + 1, &read_set, NULL , NULL, &timeoutValue);
-    if (!FD_ISSET(client_socket, &read_set))
-    {
+    select(client_socket + 1, &read_set, NULL, NULL, &timeoutValue);
+    if (!FD_ISSET(client_socket, &read_set)) {
         rc = -1;
     }
 
-    if (rc == 0)
-    {
+    if (rc == 0) {
         long available = 0;
         long read = 0;
         ioctlsocket(client_socket, FIONREAD, &available);
@@ -489,11 +457,9 @@ void R_tcprecv(__unused int func)
         result = recv(client_socket, buffer, read, 0);
 
         // receive data
-        if (result == SOCKET_ERROR)
-        {
+        if (result == SOCKET_ERROR) {
             result = WSAGetLastError();
-            if (result != WSAEWOULDBLOCK)
-            {
+            if (result != WSAEWOULDBLOCK) {
                 result = 0;
                 rc = -2;
             } else {
@@ -514,20 +480,16 @@ void R_tcprecv(__unused int func)
     }
     */
 
-    if (rc == 0 && result > 0)
-    {
+    if (rc == 0 && result > 0) {
         Licpy(ARGR, result);
     } else {
         Licpy(ARGR, rc);
     }
 }
 
-void R_tcpterm(__unused int func)
-{
+void R_tcpterm(__unused int func) {
     closeAllSockets();
 }
-
-#endif    // not in Windows
 
 /* register rexx functions to brexx/370 */
 void RxTcpRegFunctions() {
@@ -541,56 +503,90 @@ void RxTcpRegFunctions() {
     RxRegFunction("TCPSEND", R_tcpsend, 0);
     RxRegFunction("TCPTERM", R_tcpterm, 0);
 #endif
-} /* RxNetDataRegFunctions() */
+} /* RxTcpRegFunctions() */
+#endif    // not in Windows
 
 /* internal functions */
-void deleteClient(int client_socket)
-{
-    if (num_clients > 0)
-    {
+int checkSocket(SOCKET socket) {
+    bool found = FALSE;
+
+    if (num_clients > 0) {
+        int ii;
+
+        for (ii = 0; ii <= num_clients - 1; ii++) {
+            if (client_sockets[ii] == socket) {
+                found = TRUE;
+            }
+        }
+    }
+
+    return found;
+}
+
+int closeSocket(int client_socket) {
+    int rc = 0;
+
+    if (num_clients > 0) {
         int ii;
         int pos = 0;
 
-        for(ii = 0; ii <= num_clients - 1; ii++)
-        {
-            if (client_sockets[ii] == client_socket)
-            {
+        for (ii = 0; ii <= num_clients - 1; ii++) {
+            if (client_sockets[ii] == client_socket) {
+                rc  = closesocket(client_socket);
                 pos = ii;
             }
         }
 
-        for(ii = pos ; ii <= num_clients - 1; ii++)
-        {
-            client_sockets[ii] = client_sockets[ii + 1];
+        if (rc == 0) {
+            for (ii = pos; ii <= num_clients - 1; ii++) {
+                client_sockets[ii] = client_sockets[ii + 1];
+            }
         }
 
         num_clients--;
     }
+
+    return rc;
 }
 
-void closeAllSockets()
-{
+void closeAllSockets() {
     int ii;
 
     closesocket(server_socket);
 
-    for (ii = 0; ii < num_clients; ++ii)
-    {
+    for (ii = 0; ii < num_clients; ++ii) {
         closesocket(client_sockets[ii]);
     }
 }
 
 // TODO: copyright notiz hinzufügen
-char * inet_ntoa(struct in_addr in)
-{
+#ifndef __CROSS__
+char *inet_ntoa(struct in_addr in) {
     static char b[18];
     register char *p;
 
-    p = (char *)&in;
-#define	UC(b)	(((int)b)&0xff)
-    (void)snprintf(b, sizeof(b),
-                   "%d.%d.%d.%d", UC(p[0]), UC(p[1]), UC(p[2]), UC(p[3]));
+    p = (char *) &in;
+#define    UC(b)    (((int)b)&0xff)
+    (void) snprintf(b, sizeof(b),
+                    "%d.%d.%d.%d", UC(p[0]), UC(p[1]), UC(p[2]), UC(p[3]));
     return (b);
 }
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

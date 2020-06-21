@@ -9,6 +9,7 @@ include_directories(inc)
 include_directories(fss)
 include_directories(mvs)
 include_directories(dynit)
+include_directories(rac)
 include_directories(cross)
 
 add_executable(test
@@ -167,6 +168,8 @@ add_executable(brexx
         inc/rxdefs.h
         inc/rxmvs.h
         inc/rxmvsext.h
+        inc/rxrac.h
+        inc/rxtcp.h
         inc/stack.h
         inc/trace.h
         inc/util.h
@@ -279,6 +282,8 @@ add_executable(brexx
         src/rxmvs.c
         src/rxnetdat.c
         src/rxstr.c
+        src/rxrac.c
+        src/rxtcp.c
         src/rxtso.c
         src/rxword.c
         src/stack.c
@@ -291,8 +296,8 @@ add_executable(brexx
         dynit/dynit.c
         dynit/svc99.h
         dynit/svc99.c
-        inc/rxtcp.h
-        src/rxtcp.c )
+        rac/rac.h
+        rac/rac.c)
 
 if(UNIX AND NOT APPLE)
    target_link_libraries(brexx m)
