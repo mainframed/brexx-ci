@@ -299,6 +299,9 @@ add_executable(brexx
         rac/rac.h
         rac/rac.c)
 
+add_executable(brxvar
+        src/brxvar.c)
+
 if(UNIX AND NOT APPLE)
    target_link_libraries(brexx m)
 endif()
