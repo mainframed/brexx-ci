@@ -5,6 +5,9 @@
 
 int __libc_arch = 0;
 
+#define	MALLOC(s,d)	    malloc_or_die(s)
+#define	REALLOC(p,s)    realloc_or_die(p,s)
+
 #ifndef SVC
 #define SVC
 struct SVCREGS
@@ -30,9 +33,6 @@ void _tput(const char *data, int length);
 void _itoa(int n, char s[]);
 BinTree *findTree(const unsigned char *name);
 void Lsccpy( const PLstr to, unsigned char *from );
-/*
-void Lfx( const PLstr s, const size_t len );
-*/
 void *malloc_or_die(size_t size);
 void *realloc_or_die(void *ptr, size_t size);
 
@@ -46,11 +46,9 @@ GETVAR(unsigned char *name, size_t nameLength, unsigned char *pBuffer, size_t bu
     PBinLeaf leaf;
 
     Lstr lName;
-
     tree = findTree(name);
 
     if (tree != NULL) {
-
         lName.pstr = name;
         lName.len  = nameLength;
         lName.maxlen = nameLength;
@@ -227,13 +225,7 @@ findTree(const unsigned char *name) {
 
     if (envBlock != NULL) {
         scope = envBlock->envblock_userfield;
-
-        /* initialise hash table */
-        for (i=0; i<255; i++) {
-            hashchar[i] = i % 7;
-        }
-
-        tree = scope + hashchar[ (byte)name[0] ];
+        tree = scope;
     } else {
         tree = NULL;
     }
@@ -409,41 +401,68 @@ realloc_or_die(void *oPtr, size_t size)
     */
 }
 
-/* -------------------- LeafBalance --------------------- */
-static void
-LeafBalance( BinLeaf *leaf, BinLeaf **head, BinLeaf **tail )
-{
-    BinLeaf *Lhead, *Ltail;
-    BinLeaf *Rhead, *Rtail;
 
+
+// TODO: to be removed later
+/* -------------------- toThreaded ---------------------- */
+static PBinLeaf
+toThreaded(PBinLeaf leaf)
+{
     if (leaf == NULL) {
-        *head = NULL;
-        *tail = NULL;
+        return NULL;
+    }
+
+    if (leaf->left == NULL &&
+        leaf->right == NULL) {
+        return leaf;
+    }
+
+    // Find predecessor if it exists
+    if (leaf->left != NULL)
+    {
+        // Find predecessor of root (Rightmost
+        // child in left subtree)
+        BinLeaf* l = toThreaded(leaf->left);
+
+        // Link a thread from predecessor to
+        // root.
+        l->right = leaf;
+        l->isThreaded = TRUE;
+    }
+
+    // If current node is rightmost child
+    if (leaf->right == NULL) {
+        return leaf;
+    }
+
+    // Recur for right subtree.
+    return toThreaded(leaf->right);
+} /* toThreaded */
+
+/* -------------------- toLinked ------------------------ */
+static void
+toLinked(BinTree *tree)
+{
+    PBinLeaf root;
+    PBinLeaf current;
+    PBinLeaf next;
+
+    if (tree == NULL || tree->parent == NULL) {
         return;
     }
 
-    LeafBalance(leaf->left,  &Lhead, &Ltail);
-    LeafBalance(leaf->right, &Rhead, &Rtail);
+    root = BinMin(tree->parent);
 
-    /* connect nodes */
-    /*  head - left - middle - right - tail */
+    current = root;
+    while ((next = BinSuccessor(current)) != NULL) {
+        current->isThreaded = FALSE;
+        current->right = next;
+        next->left     = current;
+        current        = next;
+    }
 
-    if (Ltail) Ltail->right = leaf;
-    leaf->left   = Ltail;
-
-    leaf->right  = Rhead;
-    if (Rhead) Rhead->left  = leaf;
-
-    if (Lhead)
-        *head = Lhead;
-    else
-        *head = leaf;
-
-    if (Rtail)
-        *tail = Rtail;
-    else
-        *tail = leaf;
-} /* LeafBalance */
+    tree->parent = root;
+} /* toLinked */
 
 /* -------------------- LeafConstruct ------------------- */
 static BinLeaf *
@@ -490,35 +509,71 @@ LeafConstruct( BinLeaf *head, BinLeaf *tail, int n, int *maxdepth )
     return Midleaf;
 } /* LeafConstruct */
 
-/* ------------------ BinAdd ------------------ */
-BinLeaf* __CDECL
-BinAdd( BinTree *tree, PLstr name, void *dat )
+/* -------------------- BinMin -------------------------- */
+PBinLeaf __CDECL
+BinMin( PBinLeaf leaf )
 {
-    BinLeaf	*thisEntry;
-    BinLeaf	*lastEntry;
-    BinLeaf	*leaf;
-    bool	leftTaken=FALSE;
-    int	cmp, dep=0;
+    if (leaf == NULL) {
+        return NULL;
+    }
+
+    while (leaf->left != NULL) {
+        leaf = leaf -> left;
+    }
+
+    return leaf;
+} /* BinMin */
+
+/* -------------------- BinMax -------------------------- */
+PBinLeaf  __CDECL
+BinMax( PBinLeaf leaf )
+{
+    PBinLeaf tmp;
+
+    if (leaf == NULL) {
+        return NULL;
+    }
+
+    tmp  = leaf;
+    while ((tmp = BinSuccessor(tmp))!= NULL) {
+        leaf = tmp;
+    }
+
+    return leaf;
+} /* BinMax */
+
+/* ------------------ BinAdd ------------------ */
+PBinLeaf __CDECL
+BinAdd(BinTree *tree, PLstr name, void *dat) {
+    BinLeaf *thisEntry;
+    BinLeaf *lastEntry;
+    BinLeaf *leaf;
+    bool leftTaken = FALSE;
+    int cmp, dep = 0;
 
     /* If tree is NULL then it will produce an error */
     thisEntry = tree->parent;
     while (thisEntry != NULL) {
         lastEntry = thisEntry;
-        cmp = _Lstrcmp(name,&(thisEntry->key));
+        cmp = _Lstrcmp(name, &(thisEntry->key));
         if (cmp < 0) {
-            thisEntry = thisEntry->left;
             leftTaken = TRUE;
-        } else
-        if (cmp > 0) {
-            thisEntry = thisEntry->right;
+            thisEntry = thisEntry->left;
+        } else if (cmp > 0) {
             leftTaken = FALSE;
-        } else
+            if (thisEntry->isThreaded == FALSE) {
+                thisEntry = thisEntry->right;
+            } else {
+                thisEntry = NULL;
+            }
+        } else {
             return thisEntry;
+        }
         dep++;
     }
 
     /* Create a new entry */
-    leaf = (BinLeaf *) malloc_or_die( sizeof(BinLeaf));
+    leaf = (BinLeaf *) MALLOC(sizeof(BinLeaf), "BinLeaf");
 
     /* just move the data to the new Lstring */
     /* and initialise the name LSTR(*name)=NULL */
@@ -527,21 +582,30 @@ BinAdd( BinTree *tree, PLstr name, void *dat )
     leaf->value = dat;
     leaf->left = NULL;
     leaf->right = NULL;
-
+    leaf->isThreaded = TRUE;
     if (tree->parent==NULL)
         tree->parent = leaf;
     else {
-        if (leftTaken)
+        if (leftTaken) {
+            //leaf->left = lastEntry ->left;
+            leaf->right = lastEntry;
             lastEntry->left = leaf;
-        else
+        }
+        else {
+            //leaf->left  = lastEntry;
+            leaf->right = lastEntry->right;
             lastEntry->right = leaf;
+            lastEntry->isThreaded = FALSE;
+        }
     }
     tree->items++;
+
     if (dep>tree->maxdepth) {
         tree->maxdepth = dep;
         if (tree->maxdepth > tree->balancedepth)
             BinBalance(tree);
     }
+
     return leaf;
 } /* BinAdd */
 
@@ -558,29 +622,63 @@ BinFind( BinTree *tree, PLstr name )
         if (cmp < 0)
             leaf = leaf->left;
         else
-        if (cmp > 0)
-            leaf = leaf->right;
+        if (cmp > 0) {
+            if (leaf->isThreaded == FALSE)
+                leaf = leaf->right;
+            else
+                leaf = NULL;
+        }
         else
             return leaf;
     }
     return NULL;
 } /* BinFind */
 
+/* -------------------- BinSuccessor -------------------- */
+PBinLeaf __CDECL
+BinSuccessor( PBinLeaf leaf )
+{
+    if (leaf == NULL)
+    {
+        return NULL;
+    }
+
+    // if isThreaded is set, we can quickly find
+    if (leaf->isThreaded == TRUE)
+    {
+        return leaf->right;
+    }
+
+    // else return leftmost child of right subtree
+    leaf = leaf->right;
+    while (leaf && leaf->left)  // why?? thought of while node -> left != NULL
+    {
+        leaf = leaf->left;
+    }
+
+    return leaf;
+} /* BinSuccessor */
+
 /* -------------------- BinBalance ---------------------- */
 void __CDECL
 BinBalance( BinTree *tree )
 {
-    BinLeaf *head, *tail;
-    int	maxdepth=1;
+    PBinLeaf head, tail;
+    int	maxDepth = 1;
 
-    /* first we will make tree a double queue */
-    LeafBalance( tree->parent, &head, &tail );
+    head = BinMin(tree->parent);
+    tail = BinMax(tree->parent);
 
-    /* now we must reconstruct the tree */
-    tree->parent =
-            LeafConstruct( head, tail, tree->items, &maxdepth );
-    tree->maxdepth = maxdepth;
-    tree->balancedepth = maxdepth+BALANCE_INC;
+    /* first we convert the tree to an sorted double linked list */
+    toLinked(tree);
+
+    /* now we have to balance / reconstruct the tree */
+    tree->parent = LeafConstruct( head, tail, tree->items, &maxDepth );
+    tree->maxdepth = maxDepth;
+    tree->balancedepth = maxDepth + BALANCE_INC;
+
+    /* finally we have to all threads */
+    toThreaded(tree->parent);
 } /* BinBalance */
 
 void _tput(const char *data, int length)
