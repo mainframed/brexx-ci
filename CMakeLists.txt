@@ -300,7 +300,7 @@ add_executable(brexx
         rac/rac.c)
 
 add_executable(brxvar
-        src/brxvar.c)
+        src/brxvar.c printf/printf.c printf/printf.h)
 
 if(UNIX AND NOT APPLE)
    target_link_libraries(brexx m)

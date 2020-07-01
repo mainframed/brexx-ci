@@ -245,7 +245,7 @@ void R_listIt(int func)
         Lupper(ARG1);
         printf("List Variables with Prefix '%s'\n",ARG1->pstr);
         printf("%.*s\n", 29+ARG1->len,
-            "-------------------------------------------------------");
+               "-------------------------------------------------------");
         BinPrint(tree.parent, ARG1);
     }
 }
@@ -573,8 +573,8 @@ void R_stemcopy(int func)
     // look up Source stem
     from = BinFind(tree, ARG2);
     if (!from) {
-       printf("Invalid Stem %s\n", LSTR(*ARG2));
-       Lerror(ERR_INCORRECT_CALL,0);
+        printf("Invalid Stem %s\n", LSTR(*ARG2));
+        Lerror(ERR_INCORRECT_CALL,0);
     }
 
     //  look up Target stem, must be available, later set it up
@@ -630,7 +630,7 @@ int _EncryptString(const PLstr to, const PLstr from, const PLstr password) {
 // -------------------------------------------------------------------------------------
 void R_crypt(int func) {
     int rounds=7;
- // string to encrypt and password must exist
+    // string to encrypt and password must exist
     must_exist(1);
     must_exist(2);
     get_oi0(3,rounds);       /* drop rounds parameter, it might decrease security */
@@ -676,7 +676,7 @@ void Lcryptall(PLstr to, PLstr from, PLstr pw, int rounds,int mode) {
     hashv = LINT(pwt);
 
     if (mode == 0) {  // encode
-     // run through encryption in several rounds
+        // run through encryption in several rounds
         for (ki = 1; ki <= rounds; ki++) {    // Step 1: XOR String with Password
             for (kj = 0; kj < slen; kj++) {
                 LSTR(*to)[kj] = LSTR(*to)[kj] + hashv;
@@ -754,14 +754,14 @@ void Lhash(const PLstr to, const PLstr from, long slots) {
     if (!LISNULL(*from)) {
         switch (LTYPE(*from)) {
             case LINTEGER_TY:
-               lhlen = sizeof(long);
-               break;
+                lhlen = sizeof(long);
+                break;
             case LREAL_TY:
-               lhlen = sizeof(double);
-               break;
+                lhlen = sizeof(double);
+                break;
             case LSTRING_TY:
-               lhlen = LLEN(*from);
-               break;
+                lhlen = LLEN(*from);
+                break;
         }
 
         for (ki = 0; ki < lhlen; ki++) {
@@ -794,26 +794,21 @@ void R_removedsn(int func)
     char* _style_old = _style;
 
     memset(sFileName,0,55);
-    if (ARGN >2 || ARGN<1) Lerror(ERR_INCORRECT_CALL,0);
+    if (ARGN !=1) Lerror(ERR_INCORRECT_CALL,0);
     LASCIIZ(*ARG1)
- #ifndef __CROSS__
+#ifndef __CROSS__
     Lupper(ARG1);
-    if (ARGN==2) {
-       LASCIIZ(*ARG2);
-       Lupper(ARG2);
-    }
 #endif
     get_s(1)
-    if (ARGN==2) if(LSTR(*ARG2)[0]=='D') dbg=1;
     _style = "//DSN:";
     iErr = getDatasetName(environment, (const char *) LSTR(*ARG1), sFileName);
- // no errors occurred so far, perform the remove
+    // no errors occurred so far, perform the remove
     if (iErr == 0) remrc = remove(sFileName);
-        else remrc=iErr;
+    else remrc=iErr;
 
     if (dbg==1) {
-       printf("Remove %s\n",sFileName);
-       printf("   RC  %i\n",remrc);
+        printf("Remove %s\n",sFileName);
+        printf("   RC  %i\n",remrc);
     }
 
     Licpy(ARGR,remrc);
@@ -832,7 +827,7 @@ void R_renamedsn(int func)
     int renrc=-9, iErr=0, p=0, dbg=0;
     char* _style_old = _style;
 
-    if (ARGN > 3 || ARGN<2) Lerror(ERR_INCORRECT_CALL,0);
+    if (ARGN !=2) Lerror(ERR_INCORRECT_CALL,0);
 
     memset(sFileNameOld,0,55);
     memset(sFileNameNew,0,55);
@@ -841,14 +836,11 @@ void R_renamedsn(int func)
     LASCIIZ(*ARG2)
     get_s(1)
     get_s(2)
-    if (ARGN==3) LASCIIZ(*ARG3)
 
 #ifndef __CROSS__
     Lupper(ARG1);
     Lupper(ARG2);
-    if (ARGN==3) Lupper(ARG3);
 #endif
-    if (ARGN==3) if(LSTR(*ARG3)[0]=='D') dbg=1;
 // * ---------------------------------------------------------------------------------------
 // * Split DSN and Member
 // * ---------------------------------------------------------------------------------------
@@ -865,16 +857,16 @@ void R_renamedsn(int func)
     } else renrc=-2;
     if (iErr != 0) goto leave;
 //* Add Member Names if there are any
-     if (LLEN(oldMember)>0) {
+    if (LLEN(oldMember)>0) {
         strcat(sFileNameOld, "(");
         strcat(sFileNameOld, (const char *) LSTR(oldMember));
         strcat(sFileNameOld, ")");
-     }
-     if (LLEN(newMember)>0) {
+    }
+    if (LLEN(newMember)>0) {
         strcat(sFileNameNew, "(");
         strcat(sFileNameNew, (const char *) LSTR(newMember));
         strcat(sFileNameNew, ")");
-      }
+    }
 // * ---------------------------------------------------------------------------------------
 // * Test certain RENAME some scenarios
 // * ---------------------------------------------------------------------------------------
@@ -882,54 +874,54 @@ void R_renamedsn(int func)
     if (strcmp(sFileNameOld,sFileNameNew)==0 ){
         if (LLEN(oldMember)==0 && LLEN(newMember)==0) goto STequal;
         if (LLEN(oldMember)>0 && LLEN(newMember)>0) {
-           if (strcmp((const char *) LSTR(oldMember),(const char *) LSTR(newMember))==0) goto STequal;
-           goto doRename;  // perform Member Rename
+            if (strcmp((const char *) LSTR(oldMember),(const char *) LSTR(newMember))==0) goto STequal;
+            goto doRename;  // perform Member Rename
         }
     }
     if (strcmp(sFileNameOld,sFileNameNew)!=0 ) {
-       if (LLEN(oldMember) > 0 && LLEN(newMember) > 0) goto invalren;
-       else if (LLEN(oldMember) == 0 && LLEN(newMember) == 0) goto doRename;
+        if (LLEN(oldMember) > 0 && LLEN(newMember) > 0) goto invalren;
+        else if (LLEN(oldMember) == 0 && LLEN(newMember) == 0) goto doRename;
     }
     goto doRename;  // no match with special secenarious, just try the rename/*
 // * ---------------------------------------------------------------------------------------
 // * Incomplete Member definition in either from or to DSN
 // * ---------------------------------------------------------------------------------------
-   incomplete:
-      if (dbg==1) printf("incomplete Member definition in Rename\n");
-      renrc=-3;
-   goto leave;
+    incomplete:
+    if (dbg==1) printf("incomplete Member definition in Rename\n");
+    renrc=-3;
+    goto leave;
 // * ---------------------------------------------------------------------------------------
 // * From / To DSNs are equal, no Rename necessary
 // * ---------------------------------------------------------------------------------------
-   STequal:
+    STequal:
     if (dbg==1) printf("Source and Target DSN are equal\n");
-      renrc=-4;
-   goto leave;
+    renrc=-4;
+    goto leave;
 //  * ---------------------------------------------------------------------------------------
 //  * DSN Rename and Member Rename at the same time are not allowed
 //  * ---------------------------------------------------------------------------------------
-   invalren:
+    invalren:
     if (dbg==1) printf("Invalid Rename of DSN and Member at the same time\n");
-      renrc = -5;
+    renrc = -5;
     goto leave;
 // * ---------------------------------------------------------------------------------------
 // * Perform the Rename
 // * ---------------------------------------------------------------------------------------
-   doRename:
-    #ifndef __CROSS__
-      renrc = rename(sFileNameOld,sFileNameNew);
-     #else
-       renrc=0;
-     #endif
+    doRename:
+#ifndef __CROSS__
+    renrc = rename(sFileNameOld,sFileNameNew);
+#else
+    renrc=0;
+#endif
 // * ---------------------------------------------------------------------------------------
 // * Clean up and exit
 // * ---------------------------------------------------------------------------------------
     leave:
-      if (dbg==1) {
-         printf("Rename from %s\n",sFileNameOld);
-         printf("         To %s\n",sFileNameNew);
-         printf("         RC %i\n",renrc);
-      }
+    if (dbg==1) {
+        printf("Rename from %s\n",sFileNameOld);
+        printf("         To %s\n",sFileNameNew);
+        printf("         RC %i\n",renrc);
+    }
     LFREESTR(oldDSN);
     LFREESTR(oldMember);
     LFREESTR(newDSN);
@@ -945,26 +937,22 @@ void R_free(int func)
     int iErr=0,dbg=0;
     __dyn_t dyn_parms;
 
-    if (ARGN > 2 || ARGN<1) Lerror(ERR_INCORRECT_CALL,0);
+    if (ARGN !=1) Lerror(ERR_INCORRECT_CALL,0);
 
     LASCIIZ(*ARG1)
     get_s(1)
-    if (ARGN == 2) LASCIIZ(*ARG2)
 
 #ifndef __CROSS__
     Lupper(ARG1);
-    if (ARGN=2) Lupper(ARG2);
 #endif
-    if (ARGN==2) if(LSTR(*ARG2)[0]=='D') dbg=1;
-
 
     dyninit(&dyn_parms);
     dyn_parms.__ddname = (char *) LSTR(*ARG1);
 
     iErr = dynfree(&dyn_parms);
     if (dbg==1) {
-       printf("FREE DD %s\n",LSTR(*ARG1));
-       printf("     RC %i\n",iErr);
+        printf("FREE DD %s\n",LSTR(*ARG1));
+        printf("     RC %i\n",iErr);
     }
 
     Licpy(ARGR, iErr);
@@ -977,29 +965,24 @@ void R_allocate(int func) {
     char *_style_old = _style;
     char sFileName[55];
     Lstr DSN, Member;
-
     __dyn_t dyn_parms;
-    if (ARGN < 2 || ARGN > 3) Lerror(ERR_INCORRECT_CALL, 0);
+    if (ARGN !=2) Lerror(ERR_INCORRECT_CALL, 0);
 
     LASCIIZ(*ARG1)
     LASCIIZ(*ARG2)
-    if (ARGN == 3) LASCIIZ(*ARG3)
     get_s(1)
     get_s(2)
-
 #ifndef __CROSS__
     Lupper(ARG1);
     Lupper(ARG2);
-    if (ARGN=3) Lupper(ARG3);
 #endif
-    if (ARGN==3) if(LSTR(*ARG3)[0]=='D') dbg=1;
     _style = "//DSN:";    // Complete DSN if necessary
     splitDSN(&DSN, &Member, ARG2);
     iErr = getDatasetName(environment, (const char *) LSTR(DSN), sFileName);
     if (iErr == 0) {
         dyninit(&dyn_parms);
         dyn_parms.__ddname = (char *) LSTR(*ARG1);
-     // free DDNAME, just in case it's allocated
+        // free DDNAME, just in case it's allocated
         iErr = dynfree(&dyn_parms);
 
         dyn_parms.__dsname = (char *) sFileName;
@@ -1030,20 +1013,17 @@ void R_create(int func) {
     char *_style_old = _style;
     FILE *fk ; // file handle
 
-    if (ARGN >3 || ARGN<2 ) Lerror(ERR_INCORRECT_CALL, 0);
+    if (ARGN !=2) Lerror(ERR_INCORRECT_CALL, 0);
 
     LASCIIZ(*ARG1)
     LASCIIZ(*ARG2)
-    if (ARGN == 3) LASCIIZ(*ARG3)
     get_s(1)
     get_s(2)
 
 #ifndef __CROSS__
     Lupper(ARG1);
     Lupper(ARG2);
-    if (ARGN=3) Lupper(ARG2);
 #endif
-    if (ARGN==3) if(LSTR(*ARG3)[0]=='D') dbg=1;
     memset(sFileDCB,0,80);
     strcat(sFileDCB, "WB, ");
     strcat(sFileDCB, (const char *) LSTR(*ARG2));

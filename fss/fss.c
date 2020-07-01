@@ -63,10 +63,11 @@ struct sFields
 #define XC(attr) ((attr >>  8) & 0xFF)    // Return Extended Color Attribute
 #define BA(attr) (attr & 0xFF)            // Return Basic 3270 Attribute
 
-// Convert buffer offset to a 3270 buffer address
+// Convert buffer offset to a 12-bit 3270 buffer address
 #define bufAddr(p) ((xlate3270((p >> 6) & 0x3F) << 8) | (xlate3270(p & 0x3F) & 0xFF))
+#define bufAddr14(p) ((p & 0x3F00) | (p &  0xFF))
 
-// Convert a 3270 buffer address to an offset
+// Convert a 12-bit 3270 buffer address to an offset
 #define bufOff(addr) ( (addr & 0x3F) | ((addr & 0x3F00) >> 2) )
 
 
