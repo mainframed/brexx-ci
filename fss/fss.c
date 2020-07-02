@@ -36,7 +36,6 @@
 //
 //---------------------------------------------------------------
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -44,7 +43,7 @@
 #include "rxtso.h"
 #include "fss.h"
 #include "ldefs.h"
-#include "util.h"
+
 // Field Definition
 struct sFields
 {
@@ -93,8 +92,8 @@ static unsigned int offset2address(unsigned int offset, unsigned int max_row, un
             offset = MAXPOS12BIT;
         }
 
-        b0 = xlate3270(offset / 64);
-        b1 = xlate3270(offset % 64);
+        b0 = xlate3270((int) offset / 64);
+        b1 = xlate3270((int) offset % 64);
     }
 
     return (((unsigned int)b0 << 8U) | (b1));
@@ -223,7 +222,7 @@ static char * makePrint(char *str)
 //----------------------------------------
 int fssIsNumeric(char * data)
 {
-    int len;
+    size_t len;
     int i;
 
     len = strlen(data);                    // Get string length
@@ -244,7 +243,7 @@ int fssIsNumeric(char * data)
 //----------------------------------------
 int fssIsHex(char * data)
 {
-    int len;
+    size_t len;
     int i;
 
     len = strlen(data);                    // Get string length
@@ -289,7 +288,7 @@ int fssIsBlank(char * data)
 //----------------------------------------
 char * fssTrim(char * data)
 {
-    int len;
+    size_t len;
 
     len = strlen(data);                     // Get string length
     if(len == 0)
@@ -462,8 +461,8 @@ int fssTxt(int row, int col, int attr, char * text)
     // Fill In Field Array Values
     //----------------------------
     fssFields[ix].name    =  0;             // no name for a text field
-    fssFields[ix].bufaddr =  position2offset(row,col,fssAlternateCols);
-    fssFields[ix].attr    =  ((attr & 0xFFFF00) | xlate3270( attr & 0xFF));
+    fssFields[ix].bufaddr =  (int) position2offset(row,col,fssAlternateCols);
+    fssFields[ix].attr    =  fssAttr(attr);
     fssFields[ix].length  =  txtlen;
     fssFields[ix].data    =  (char *) malloc(txtlen+1);
     strcpy(fssFields[ix].data, text);
@@ -504,7 +503,7 @@ int fssFld(int row, int col, int attr, char * fldName, int len, char *text)
     fssFields[ix].name    =  (char *) malloc(strlen(fldName)+1);
     strcpy(fssFields[ix].name, fldName);
     fssFields[ix].bufaddr =  (int)position2offset(row,col,fssAlternateCols);
-    fssFields[ix].attr    =  ((attr & 0xFFFF00) | xlate3270( attr & 0xFF));
+    fssFields[ix].attr    =  fssAttr(attr);
     fssFields[ix].length  =  len;
     fssFields[ix].data    =  (char *) malloc(len + 1);
 
@@ -529,7 +528,6 @@ int fssFld(int row, int col, int attr, char * fldName, int len, char *text)
 int fssSetField(char *fldName, char *text)
 {
     int ix;
-    int txtLen;
 
     ix = findField(fldName);                // Locate Field by Name
     if(!ix)
@@ -557,24 +555,7 @@ int fssSetField(char *fldName, char *text)
 char * fssGetField(char *fldName)
 {
     int ix;
-    char * tName;
-    char * tData;
-    int ii = 0;
-    int jj = 0;
 
-/*
-    ii=fssFieldCnt;
-    for(jj=0;jj<ii;jj++) {
-        printf("ix: %d name: %s length: %d data: %s attr: %d bufaddr: %d\n",
-               jj,
-               fssFields[jj].name,
-               fssFields[jj].length,
-               fssFields[jj].data,
-               fssFields[jj].attr,
-               fssFields[jj].bufaddr
-              );
-    }
-*/
     ix = findField(fldName);                // Find Field by Name
     if(!ix)
         return (char *) 0;
@@ -599,7 +580,7 @@ int fssSetCursor(char *fldName)
 
     ix--;
 
-    fssCSRPOS = offset2address(fssFields[ix].bufaddr, fssAlternateRows, fssAlternateCols);   // Cursor pos = field start position
+    fssCSRPOS = (int) offset2address(fssFields[ix].bufaddr, fssAlternateRows, fssAlternateCols);   // Cursor pos = field start position
 
     return 0;
 }
@@ -620,7 +601,7 @@ int fssSetAttr(char *fldName, int attr)
 
     ix--;
     // Replace Basic 3270 Attribute data
-    fssFields[ix].attr = ((attr & 0xFFFF00) | xlate3270( attr & 0xFF));
+    fssFields[ix].attr = fssAttr(attr);
 
     return 0;
 }
@@ -700,7 +681,7 @@ static int doInput(char * buf, int len)
     p++;                                    // Skip over AID
     l--;
 
-    fssCSR = address2offset( (*p << 8) + *(p+1) );  // Save Cursor Position
+    fssCSR = (int) address2offset( (*p << 8) + *(p+1) );  // Save Cursor Position
 
     p += 2;                                 // skip over Cursor Position
     l -= 2;
