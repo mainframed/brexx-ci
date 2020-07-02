@@ -44,7 +44,7 @@
 #include "rxtso.h"
 #include "fss.h"
 #include "ldefs.h"
-
+#include "util.h"
 // Field Definition
 struct sFields
 {
@@ -55,21 +55,15 @@ struct sFields
     char *data;            // Field Data
 };
 
-// Calculate buffer offset from Row and Column
-#define bufPos(row,col,max_col) ( ((row-1) * max_col) + (col - 1) )
-
 // Return Attribute Values
 #define XH(attr) ((attr >> 16) & 0xFF)    // Return Extended Highlighting Attribute
 #define XC(attr) ((attr >>  8) & 0xFF)    // Return Extended Color Attribute
 #define BA(attr) (attr & 0xFF)            // Return Basic 3270 Attribute
 
-// Convert buffer offset to a 12-bit 3270 buffer address
-#define bufAddr(p) ((xlate3270((p >> 6) & 0x3F) << 8) | (xlate3270(p & 0x3F) & 0xFF))
-#define bufAddr14(p) ((p & 0x3F00) | (p &  0xFF))
+#define MAXPOS12BIT 4095
+#define MAXPOS14BIT 16383
 
-// Convert a 12-bit 3270 buffer address to an offset
-#define bufOff(addr) ( (addr & 0x3F) | ((addr & 0x3F00) >> 2) )
-
+#define is14BitAddr(altrows, altcols) ((altrows * altcols) > MAXPOS12BIT) ? TRUE : FALSE
 
 // FSS Environment Values
 static struct sFields fssFields[1024];   // Array of fields
@@ -82,10 +76,53 @@ static int            fssPrimaryRows;   // Primary screen screen size rows
 static int            fssAlternateCols; // Alternate screen screen size cols
 static int            fssAlternateRows; // Alternate screen screen size rows
 
-// Debugging TPUT - Used only for debugging purposes
-static void dput(char *txt)
-{
-    tput(txt,strlen(txt));
+static unsigned int offset2address(unsigned int offset, unsigned int max_row, unsigned int max_col) {
+
+    unsigned char b0;
+    unsigned char b1;
+
+    if (is14BitAddr(max_row, max_col)) {
+        if (offset > MAXPOS14BIT) {
+            offset = MAXPOS14BIT;
+        }
+
+        b0 = (unsigned char)((offset & 0x3F00U) >> 8U);
+        b1 = (unsigned char)(offset & 0xFFU);
+    } else {
+        if (offset > MAXPOS12BIT) {
+            offset = MAXPOS12BIT;
+        }
+
+        b0 = xlate3270(offset / 64);
+        b1 = xlate3270(offset % 64);
+    }
+
+    return (((unsigned int)b0 << 8U) | (b1));
+}
+
+static unsigned int address2offset(unsigned int address) {
+
+    unsigned char b0 = address >> 8U;
+    unsigned char b1 = address;
+
+    unsigned int position;
+
+    if (b0 & 0xC0U) {
+        position = ((address & 0x3FU) | ((address & 0x3F00U) >> 2U) );
+    } else {
+        position = ((unsigned int)b0 << 8U) | (unsigned int)b1;
+    }
+
+    return position;
+}
+
+static unsigned int position2offset(unsigned int row, unsigned int col, unsigned int max_col) {
+    return ( ((row - 1) * max_col) + (col - 1) );
+}
+
+static void offset2position(unsigned int offset, unsigned int *row, unsigned int *col, unsigned int max_col) {
+    *row = (offset / max_col) + 1;
+    *col = (offset % max_col) + 1;
 }
 
 //----------------------------------------
@@ -106,7 +143,6 @@ static int findFieldPos(int pos)
 
     return 0;                               // No match found
 }
-
 
 //----------------------------------------
 // Find a field by Field Name
@@ -130,7 +166,6 @@ static int findField(char *fldName)
 
     return 0;                               // No match found
 }
-
 
 //----------------------------------------
 //  Update Field Data
@@ -310,11 +345,6 @@ int fssInit(void)
     fssAlternateCols    = alternateScreenSize.bCols;
     fssAlternateRows    = alternateScreenSize.bRows;
 
-#ifdef __DEBUG__
-    printf("DBG> primary   screen size is %dx%d\n",fssPrimaryCols,fssPrimaryRows);
-    printf("DBG> alternate screen size is %dx%d\n",fssAlternateCols,fssAlternateRows);
-#endif
-
     stfsmode(1);                            // Begin TSO Fullscreen Mode
     sttmpmd(1);
 
@@ -432,7 +462,7 @@ int fssTxt(int row, int col, int attr, char * text)
     // Fill In Field Array Values
     //----------------------------
     fssFields[ix].name    =  0;             // no name for a text field
-    fssFields[ix].bufaddr =  bufPos(row,col,fssAlternateCols);
+    fssFields[ix].bufaddr =  position2offset(row,col,fssAlternateCols);
     fssFields[ix].attr    =  ((attr & 0xFFFF00) | xlate3270( attr & 0xFF));
     fssFields[ix].length  =  txtlen;
     fssFields[ix].data    =  (char *) malloc(txtlen+1);
@@ -473,7 +503,7 @@ int fssFld(int row, int col, int attr, char * fldName, int len, char *text)
     //----------------------------
     fssFields[ix].name    =  (char *) malloc(strlen(fldName)+1);
     strcpy(fssFields[ix].name, fldName);
-    fssFields[ix].bufaddr =  bufPos(row,col,fssAlternateCols);
+    fssFields[ix].bufaddr =  (int)position2offset(row,col,fssAlternateCols);
     fssFields[ix].attr    =  ((attr & 0xFFFF00) | xlate3270( attr & 0xFF));
     fssFields[ix].length  =  len;
     fssFields[ix].data    =  (char *) malloc(len + 1);
@@ -569,7 +599,7 @@ int fssSetCursor(char *fldName)
 
     ix--;
 
-    fssCSRPOS = bufAddr(fssFields[ix].bufaddr);   // Cursor pos = field start position
+    fssCSRPOS = offset2address(fssFields[ix].bufaddr, fssAlternateRows, fssAlternateCols);   // Cursor pos = field start position
 
     return 0;
 }
@@ -670,7 +700,7 @@ static int doInput(char * buf, int len)
     p++;                                    // Skip over AID
     l--;
 
-    fssCSR = bufOff( (*p << 8) + *(p+1) );  // Save Cursor Position
+    fssCSR = address2offset( (*p << 8) + *(p+1) );  // Save Cursor Position
 
     p += 2;                                 // skip over Cursor Position
     l -= 2;
@@ -683,7 +713,7 @@ static int doInput(char * buf, int len)
         p++;                                 // Skip over
         l--;
 
-        bufpos = bufOff( (*p << 8) + *(p+1) );  // Get buffer position
+        bufpos = (int) address2offset( (*p << 8U) + *(p+1) );  // Get buffer position
         p  += 2;                             // Skip over
         l  -= 2;
 
@@ -729,13 +759,12 @@ int fssRefresh(void)
     p = outBuf;                             // current position in 3270 data stream
 
     *p++ = 0x27;                            // Escape
-    //*p++ = 0xF5;                            // Write/Erase
     *p++ = 0x7E;                            // Write/Erase Alternate
     *p++ = 0xC3;                            // WCC
 
     for(ix = 0; ix < fssFieldCnt; ix++)     // Loop through fields
     {
-        ba   = bufAddr(fssFields[ix].bufaddr - 1);  // Back up one from field start position
+        ba   = (int)offset2address(fssFields[ix].bufaddr - 1, fssAlternateRows, fssAlternateCols);  // Back up one from field start position
         *p++ = 0x11;                         // SBA
         *p++ = (ba >> 8) & 0xFF;             // 3270 Buffer address
         *p++ = ba & 0xFF;                    // 3270 Buffer address
@@ -769,25 +798,27 @@ int fssRefresh(void)
             p += i;                           // update position in data stream
         }
 
-        // End of field position
-        ba   = bufAddr(fssFields[ix].bufaddr + fssFields[ix].length);
-        *p++ = 0x11;                         // SBA
-        *p++ = (ba >> 8) & 0xFF;             // 3270 buffer address
-        *p++ = ba & 0xFF;
-        *p++ = 0x1D;                         // start field
-        *p++ = xlate3270( fssPROT );         // attrubute = protected
+        // End of field position except we are at the end
+        if ((fssFields[ix].bufaddr + fssFields[ix].length) < (fssAlternateRows * fssAlternateCols)) {
+            ba = (int) offset2address(fssFields[ix].bufaddr + fssFields[ix].length, fssAlternateRows, fssAlternateCols);
+            *p++ = 0x11;                         // SBA
+            *p++ = (ba >> 8) & 0xFF;             // 3270 buffer address
+            *p++ = ba & 0xFF;
+            *p++ = 0x1D;                         // start field
+            *p++ = xlate3270(fssPROT);         // attrubute = protected
 
-        if(xHilight || xColor)               // If field had Extended Attribute values
-        {
-            *p++ = 0x28;                      // Set Attrubite
-            *p++ = 0x00;                      // Reset all
-            *p++ = 0x00;                      //    to Default
+            if (xHilight || xColor)               // If field had Extended Attribute values
+            {
+                *p++ = 0x28;                      // Set Attrubite
+                *p++ = 0x00;                      // Reset all
+                *p++ = 0x00;                      //    to Default
+            }
         }
     }
 
     if (!fssCSRPOS && fssCSR)
     {
-        fssCSRPOS = bufAddr(fssCSR);        // if no cursor position was specified,
+        fssCSRPOS = offset2address(fssCSR, fssAlternateRows, fssAlternateCols);        // if no cursor position was specified,
     }                                       // use last known position
 
     if (fssCSRPOS)                          // if cursor position was specified
@@ -798,6 +829,8 @@ int fssRefresh(void)
         *p++ = 0x13;                        // Insert Cursor
         fssCSRPOS = 0;
     }
+
+    //DumpHex(outBuf, p-outBuf);
 
     // Write Screen and Get Input
     do
