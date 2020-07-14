@@ -77,16 +77,18 @@ static int            fssAlternateRows; // Alternate screen screen size rows
 
 static unsigned int offset2address(unsigned int offset, unsigned int max_row, unsigned int max_col) {
 
+    unsigned int address;
+
     unsigned char b0;
     unsigned char b1;
 
-    if (is14BitAddr(max_row, max_col)) {
+    //if (is14BitAddr(max_row, max_col)) {
+    if (offset > MAXPOS12BIT) {
         if (offset > MAXPOS14BIT) {
             offset = MAXPOS14BIT;
         }
 
-        b0 = (unsigned char)((offset & 0x3F00U) >> 8U);
-        b1 = (unsigned char)(offset & 0xFFU);
+        address = offset & 0x3FFFU;
     } else {
         if (offset > MAXPOS12BIT) {
             offset = MAXPOS12BIT;
@@ -94,9 +96,11 @@ static unsigned int offset2address(unsigned int offset, unsigned int max_row, un
 
         b0 = xlate3270((int) offset / 64);
         b1 = xlate3270((int) offset % 64);
+
+        address = (((unsigned int)b0 << 8U) | (b1));
     }
 
-    return (((unsigned int)b0 << 8U) | (b1));
+    return address;
 }
 
 static unsigned int address2offset(unsigned int address) {
@@ -739,7 +743,7 @@ int fssRefresh(void)
 
     p = outBuf;                             // current position in 3270 data stream
 
-    *p++ = 0x27;                            // Escape
+    //*p++ = 0x27;                            // Escape
     *p++ = 0x7E;                            // Write/Erase Alternate
     *p++ = 0xC3;                            // WCC
 
@@ -810,8 +814,6 @@ int fssRefresh(void)
         *p++ = 0x13;                        // Insert Cursor
         fssCSRPOS = 0;
     }
-
-    //DumpHex(outBuf, p-outBuf);
 
     // Write Screen and Get Input
     do

@@ -35,12 +35,11 @@
 // Tommy Sprinkle - tommy@tommysprinkle.com
 // December, 2012
 //
-// exteneded by:
+// extended by:
 // Mike Grossmann - mike.grossmann.de@gmail.com
 // June, 2019
 //---------------------------------------------------------------
 
-#include <stdlib.h>
 #include "rxtso.h"
 #include "rxmvsext.h"
 
@@ -75,7 +74,6 @@ int tget(char *data, int length)
     return params.R1;
 }
 
-
 //----------------------------------------
 // STFSMODE - 0 = off, 1 = on
 //----------------------------------------
@@ -92,7 +90,6 @@ void stfsmode(int action)
 
     call_rxsvc(&params);
 }
-
 
 //----------------------------------------
 // STTMPMD
@@ -111,7 +108,6 @@ void sttmpmd(int action)
     call_rxsvc(&params);
 }
 
-
 //----------------------------------------
 // STLINENO
 //----------------------------------------
@@ -126,7 +122,6 @@ void stlineno(int line)
     call_rxsvc(&params);
 }
 
-
 //----------------------------------------
 // TPUT - Full Screen Write
 //----------------------------------------
@@ -134,15 +129,32 @@ int tput_fullscr(char *data, int len)
 {
     RX_SVC_PARAMS params;
 
+    struct tput_params
+    {
+        unsigned short asid;
+        unsigned short buf_size;
+        unsigned int   flags_addr;
+        unsigned int   userId;
+        unsigned int   flags2;
+
+    };
+
+    struct tput_params tputParams;
+
+    tputParams.asid       = 0;
+    tputParams.buf_size   = len;
+    tputParams.flags_addr = ((unsigned int) data & 0x00FFFFFF) | 0x03000000;
+    tputParams.userId     = 0;
+    tputParams.flags2     = 0x81000000;
+
     params.SVC = 93;
-    params.R0 = len;
-    params.R1 = ((unsigned int) data & 0x00FFFFFF) | 0x03000000;
+    params.R0  = ((unsigned int) data & 0x00FFFFFF) | 0x80000000;
+    params.R1  = (int)&tputParams;
 
     call_rxsvc(&params);
 
     return params.R15;
 }
-
 
 //----------------------------------------
 // TGET  ASIS
@@ -175,18 +187,6 @@ void gtterm(RX_GTTERM_PARAMS_PTR paramsPtr)
 }
 
 //----------------------------------------
-// Convert a 3270 Buffer Address into an offset
-//----------------------------------------
-int getBufOffset(int bufAddr) {
-    int offset;
-
-    offset = (bufAddr & 0x3f) | ((bufAddr & 0x3f00) >> 2);
-
-    return offset;
-}
-
-
-//----------------------------------------
 // Translate a byte into a 3270 compatable byte
 //----------------------------------------
 int xlate3270(int byte) {
@@ -209,47 +209,5 @@ int xlate3270(int byte) {
 }
 
 
-//----------------------------------------
-// Convert Row, Column into a 3270 Buffer Address
-//----------------------------------------
-int getBufAddr(int row, int col) {
-    int offset;
-    int hof;
-    int lof;
 
-    if (row < 1 || row > 24 || col < 1 || col > 80)
-        return 0;
-
-    offset = ((row - 1) * 80) + (col - 1);
-    hof = xlate3270((offset >> 6) & 0x3F);
-    lof = xlate3270(offset & 0x3F);
-
-    return (hof << 8) | lof;
-}
-
-
-//----------------------------------------
-// Translate a buffer offset into a
-// 3270 Buffer Address
-//----------------------------------------
-int offToBuf(int offset) {
-    int hof;
-    int lof;
-
-
-    hof = xlate3270((offset >> 6) & 0x3F);
-    lof = xlate3270(offset & 0x3F);
-
-    return (hof << 8) | lof;
-}
-
-//----------------------------------------
-// Convert a Row,Column to an offset
-//----------------------------------------
-int rcToOff(int row, int col) {
-    if (row < 1 || row > 24 || col < 1 || col > 80)
-        return 0;
-
-    return ((row - 1) * 80) + (col - 1);
-}
 
