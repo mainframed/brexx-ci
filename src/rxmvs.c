@@ -608,6 +608,119 @@ void R_stemcopy(int func)
     LFREESTR(tempKey)
 }
 
+/* --------------------------------------------------------------- */
+/*  DIR( file )                                                    */
+/* --------------------------------------------------------------- */
+#define maxdirent 3000
+#define endmark "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+#define SKIP_MASK ((int) 0x1F)
+#define ALIAS_MASK ((int) 0x80)
+void __CDECL
+R_dir( const int func )
+{
+    int iErr;
+
+    long   ii;
+    long   j;
+    FILE * fh;
+    char   line [256];
+    char   tstr [9];
+    char * a;
+    char * name;
+    short  b;
+    short  count;
+    short  skip;
+    long   quit;
+    int    info_byte;
+    short  l;
+    char sDSN[45];
+
+    int pdsecount = 0;
+
+    if (ARGN != 1) {
+        Lerror(ERR_INCORRECT_CALL,0);
+    }
+
+    must_exist(1);
+    get_s(1)
+
+    LASCIIZ(*ARG1)
+
+#ifndef __CROSS__
+    Lupper(ARG1);
+#endif
+
+    bzero(sDSN, 45);
+
+    _style = "//DSN:";
+
+    // #1 get the correct dsn for the input file
+    iErr = getDatasetName(environment, (const char*)LSTR(*ARG1), sDSN);
+
+    fh = fopen (sDSN, "rb,klen=0,lrecl=256,blksize=256,recfm=u,force");
+
+    if (fh != NULL) {
+
+        fread(&l, 1, 2, fh); /* Skip U length */
+
+        quit = 0;
+
+        while (fread(line, 1, 256, fh) == 256) {
+            a = &(line[2]);
+            b = ((short *) &(line[0]))[0];
+
+            count = 2;
+            while (count < b) {
+                if (memcmp(a, endmark, 8) == 0) {
+                    quit = 1;
+                    break;
+                }
+
+                name = a;
+                a += 8;
+
+//                ii = (((int *) a)[0]) & 0xFFFFFF00;
+                a += 3;
+
+                info_byte = (int) (*a);
+                a++;
+
+                skip = (info_byte & SKIP_MASK) * 2;
+
+                strncpy (tstr, name, 8);
+
+                j = 7;
+                while (tstr[j] == ' ') j--;
+                tstr[++j] = 0;
+
+                if (pdsecount == maxdirent) {
+                    quit = 1;
+                    break;
+                } else {
+                    char varName[16];
+                    bzero(varName, 16);
+                    sprintf(varName, "DIRENTRY.%d", ++pdsecount);
+                    setVariable(varName, tstr);
+                }
+
+                a += skip;
+
+                count += (8 + 4 + skip);
+            }
+
+            if (quit) break;
+
+            fread(&l, 1, 2, fh); /* Skip U length */
+        }
+
+        fclose(fh);
+
+        setIntegerVariable("DIRENTRY.0", pdsecount);
+
+    }
+
+}
+
 // -------------------------------------------------------------------------------------
 // Encrypt/Decrypt  String Sub procedure
 // -------------------------------------------------------------------------------------
@@ -1288,6 +1401,7 @@ void RxMvsRegFunctions()
     RxRegFunction("VXGET",      R_vxget,   0);
     RxRegFunction("VXPUT",      R_vxput,   0);
     RxRegFunction("STEMCOPY",   R_stemcopy,0);
+    RxRegFunction("DIR",   R_dir, 0);
     RxRegFunction("CATCHIT",   R_catchIt,0);
 #ifdef __DEBUG__
     RxRegFunction("MAGIC",  R_magic, 0);

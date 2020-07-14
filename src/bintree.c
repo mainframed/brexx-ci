@@ -20,6 +20,111 @@
 #include "variable.h"
 #include "bintree.h"
 
+/* -------------------- toThreaded ---------------------- */
+static PBinLeaf
+toThreaded(PBinLeaf leaf)
+{
+    if (leaf == NULL) {
+        return NULL;
+    }
+
+    if (leaf->left == NULL &&
+        leaf->right == NULL) {
+        return leaf;
+    }
+
+    // Find predecessor if it exists
+    if (leaf->left != NULL)
+    {
+        // Find predecessor of root (Rightmost
+        // child in left subtree)
+        BinLeaf* l = toThreaded(leaf->left);
+
+        // Link a thread from predecessor to
+        // root.
+        l->right = leaf;
+        l->isThreaded = TRUE;
+    }
+
+    // If current node is rightmost child
+    if (leaf->right == NULL) {
+        return leaf;
+    }
+
+    // Recur for right subtree.
+    return toThreaded(leaf->right);
+} /* toThreaded */
+
+/* -------------------- toLinked ------------------------ */
+static void
+toLinked(BinTree *tree)
+{
+    PBinLeaf root;
+    PBinLeaf current;
+    PBinLeaf next;
+
+    if (tree == NULL || tree->parent == NULL) {
+        return;
+    }
+
+    root = BinMin(tree->parent);
+
+    current = root;
+    while ((next = BinSuccessor(current)) != NULL) {
+        current->isThreaded = FALSE;
+        current->right = next;
+        next->left     = current;
+        current        = next;
+    }
+
+    tree->parent = root;
+} /* toLinked */
+
+/* -------------------- LeafConstruct ------------------- */
+static BinLeaf *
+LeafConstruct( BinLeaf *head, BinLeaf *tail, int n, int *maxdepth )
+{
+    int	Lmaxd, Rmaxd, i, mid;
+    BinLeaf	*Lleaf, *Rleaf, *LMidleaf, *Midleaf, *RMidleaf;
+
+    if (n==0) return NULL;
+    if (n==1) {
+        /* then head must be equal to tail */
+        head->left = NULL;
+        head->right = NULL;
+        return head;
+    }
+    if (n==2) {
+        (*maxdepth)++;
+        head->left = NULL;
+        head->right = tail;
+        tail->left = NULL;
+        tail->right = NULL;
+        return head;
+    }
+
+    /* --- find middle --- */
+    mid = n/2;
+    LMidleaf = head;
+    for (i=0; i<mid-1; i++)
+        LMidleaf = LMidleaf->right;
+    Midleaf = LMidleaf->right;
+    RMidleaf = Midleaf->right;
+
+    /* --- do the same for left and right branch --- */
+    Lmaxd = Rmaxd = *maxdepth+1;
+
+    Lleaf = LeafConstruct(head,LMidleaf,mid,&Lmaxd);
+    Rleaf = LeafConstruct(RMidleaf,tail,n-mid-1,&Rmaxd);
+
+    *maxdepth = MAX(Lmaxd, Rmaxd);
+
+    Midleaf->left = Lleaf;
+    Midleaf->right = Rleaf;
+
+    return Midleaf;
+} /* LeafConstruct */
+
 /* ------------------ BinAdd ------------------ */
 PBinLeaf __CDECL
 BinAdd(BinTree *tree, PLstr name, void *dat) {
@@ -182,170 +287,49 @@ BinDisposeTree( BinTree *tree, void (__CDECL *BinFreeData)(void *) )
 void __CDECL
 BinDel( BinTree *tree, PLstr name, void (__CDECL *BinFreeData)(void *) )
 {
-	BinLeaf	*thisid, *previous=NULL, *par_newid, *newid;
-	bool	lefttaken=FALSE;
-	int	cmp;
+	BinLeaf	*leaf, *head, *tail;
+    int	maxDepth = 1;
 
-	thisid = tree->parent;
-	while (thisid != NULL) {
-		cmp=_Lstrcmp(name,&(thisid->key));
-		if (cmp < 0) {
-			previous = thisid;
-			thisid = thisid->left;
-			lefttaken = TRUE;
-		} else
-		if (cmp > 0) {
-			previous = thisid;
-			thisid = thisid->right;
-			lefttaken = FALSE;
-		} else
-			break;
-	}
-	if (thisid == NULL) return;	/* Not Found */
+    head = BinMin(tree->parent);
+    tail = BinMax(tree->parent);
 
-	if (thisid->right == NULL)
-		newid = thisid->left;
-	else
-	if (thisid->left == NULL)
-		newid = thisid->right;
-	else {		/* when no node is empty */
+    leaf = BinFind(tree, name);
 
-		/* find the right most id of the */
-		/* left branch of thisid         */
+    if (leaf != NULL) {
+        toLinked(tree);
 
-		par_newid = thisid;
-		newid = thisid->left;
-		while (newid->right != NULL) {
-			par_newid = newid;
-			newid = newid->right;
-		}
+        if (leaf->left != NULL) {
+            leaf->left->right = leaf->right;
+        }
 
-		/* newid must now replace thisid */
-		newid->right = thisid->right;
+        if (leaf->right != NULL) {
+            leaf->right->left = leaf->left;
+        }
 
-		if (par_newid != thisid) {
-			par_newid->right = newid->left;
-			newid->left = thisid->left;
-		}
-	}
+        if (head == leaf) {
+            head = leaf->right;
+        }
 
-	if (thisid == tree->parent)
-		tree->parent = newid;
-	else {
-		if (lefttaken)
-			previous->left = newid;
-		else
-			previous->right = newid;
-	}
-	thisid->left = NULL;
-	thisid->right = NULL;
-	BinDisposeLeaf(tree,thisid,BinFreeData);
+        if (tail == leaf) {
+            tail = leaf->left;
+        }
+
+        /* now we have to balance / reconstruct the tree */
+        tree->parent = LeafConstruct( head, tail, tree->items-1, &maxDepth );
+        tree->maxdepth = maxDepth;
+        tree->balancedepth = maxDepth + BALANCE_INC;
+
+        /* finally we have to all rebuild the threaded binary tree */
+        toThreaded(tree->parent);
+
+        leaf->left = NULL;
+        leaf->right = NULL;
+
+        BinDisposeLeaf(tree,leaf,BinFreeData);
+    }
+
+
 } /* BinDel */
-
-/* -------------------- toThreaded ---------------------- */
-static PBinLeaf
-toThreaded(PBinLeaf leaf)
-{
-    if (leaf == NULL) {
-        return NULL;
-    }
-
-    if (leaf->left == NULL &&
-        leaf->right == NULL) {
-        return leaf;
-    }
-
-    // Find predecessor if it exists
-    if (leaf->left != NULL)
-    {
-        // Find predecessor of root (Rightmost
-        // child in left subtree)
-        BinLeaf* l = toThreaded(leaf->left);
-
-        // Link a thread from predecessor to
-        // root.
-        l->right = leaf;
-        l->isThreaded = TRUE;
-    }
-
-    // If current node is rightmost child
-    if (leaf->right == NULL) {
-        return leaf;
-    }
-
-    // Recur for right subtree.
-    return toThreaded(leaf->right);
-} /* toThreaded */
-
-/* -------------------- toLinked ------------------------ */
-static void
-toLinked(BinTree *tree)
-{
-    PBinLeaf root;
-    PBinLeaf current;
-    PBinLeaf next;
-
-    if (tree == NULL || tree->parent == NULL) {
-        return;
-    }
-
-    root = BinMin(tree->parent);
-
-    current = root;
-    while ((next = BinSuccessor(current)) != NULL) {
-        current->isThreaded = FALSE;
-        current->right = next;
-        next->left     = current;
-        current        = next;
-    }
-
-    tree->parent = root;
-} /* toLinked */
-
-/* -------------------- LeafConstruct ------------------- */
-static BinLeaf *
-LeafConstruct( BinLeaf *head, BinLeaf *tail, int n, int *maxdepth )
-{
-    int	Lmaxd, Rmaxd, i, mid;
-    BinLeaf	*Lleaf, *Rleaf, *LMidleaf, *Midleaf, *RMidleaf;
-
-    if (n==0) return NULL;
-    if (n==1) {
-        /* then head must be equal to tail */
-        head->left = NULL;
-        head->right = NULL;
-        return head;
-    }
-    if (n==2) {
-        (*maxdepth)++;
-        head->left = NULL;
-        head->right = tail;
-        tail->left = NULL;
-        tail->right = NULL;
-        return head;
-    }
-
-    /* --- find middle --- */
-    mid = n/2;
-    LMidleaf = head;
-    for (i=0; i<mid-1; i++)
-        LMidleaf = LMidleaf->right;
-    Midleaf = LMidleaf->right;
-    RMidleaf = Midleaf->right;
-
-    /* --- do the same for left and right branch --- */
-    Lmaxd = Rmaxd = *maxdepth+1;
-
-    Lleaf = LeafConstruct(head,LMidleaf,mid,&Lmaxd);
-    Rleaf = LeafConstruct(RMidleaf,tail,n-mid-1,&Rmaxd);
-
-    *maxdepth = MAX(Lmaxd, Rmaxd);
-
-    Midleaf->left = Lleaf;
-    Midleaf->right = Rleaf;
-
-    return Midleaf;
-} /* LeafConstruct */
 
 /* -------------------- BinBalance ---------------------- */
 void __CDECL
@@ -365,7 +349,7 @@ BinBalance( BinTree *tree )
 	tree->maxdepth = maxDepth;
 	tree->balancedepth = maxDepth + BALANCE_INC;
 
-	/* finally we have to all threads */
+	/* finally we have to all rebuild the threaded binary tree */
     toThreaded(tree->parent);
 
 } /* BinBalance */
