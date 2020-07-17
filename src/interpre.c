@@ -772,9 +772,6 @@ RxDoneInterpret( void )
 #endif
 		LFREESTR(_tmpstr[i]);
 	}
-
-	setEnvBlock(0);
-
 } /* RxDoneInterpret */
 
 /* ---------------- RxInterpret --------------- */

@@ -14,6 +14,7 @@
 #include <netinet/ip.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <setjmp.h>
 
 char* _style;
 void ** entry_R13;
@@ -21,6 +22,9 @@ int __libc_tso_status;
 
 int __get_ddndsnmemb (int handle, char * ddn, char * dsn,
                       char * member, char * serial, unsigned char * flags);
+
+int _setjmp_stae (jmp_buf jbs, char * sdwa104);
+int _setjmp_canc (void);
 
 #define SOCKET      int
 #define SOCKADDR_IN struct sockaddr_in

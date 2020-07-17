@@ -4,6 +4,8 @@
 
 #include "rexx.h"
 #include "rxtcp.h"
+#include "jccdummy.h"
+#include "util.h"
 
 /* ------- Includes for any other external library ------- */
 #if defined(__MVS__) || defined(__CROSS__)
@@ -18,145 +20,148 @@ extern int __libc_arch;
 int __libc_arch = 0;
 #endif
 
+void term();
+
 /* --------------------- main ---------------------- */
 int __CDECL
 main(int ac, char *av[])
 {
 	Lstr	args[MAXARGS], tracestr, file;
-	int	ia,ir,iaa,rc;
+	int	ia,ir,iaa,rc,staeret;
 	bool	input, loop_over_stdin, parse_args, interactive;
+    jmp_buf b;
+    char sdwa[104];
 
 	input           = FALSE;
 	loop_over_stdin = FALSE;
 	parse_args      = FALSE;
 	interactive     = FALSE;
 
-	rc = RxMvsInitialize();
-	if (rc != 0) {
-		printf("\nBRX0001E - ERROR IN INITIALIZATION OF THE BREXX/370 ENVIRONMENT: %d\n",rc);
+	atexit(term);
 
-		return rc;
-	}
+    staeret = _setjmp_stae(b, sdwa); // We don't want 104 bytes of abend data
+    if (staeret == 0) { // Normal return
+        rc = RxMvsInitialize();
+        if (rc != 0) {
+            printf("\nBRX0001E - ERROR IN INITIALIZATION OF THE BREXX/370 ENVIRONMENT: %d\n",rc);
+            return rc;
+        }
 
-	for (ia=0; ia<MAXARGS; ia++) LINITSTR(args[ia]);
-	LINITSTR(tracestr);
-	LINITSTR(file);
+        for (ia=0; ia<MAXARGS; ia++) LINITSTR(args[ia]);
+        LINITSTR(tracestr);
+        LINITSTR(file);
 
-    if (ac<2) {
-        puts(VERSIONSTR);
+        if (ac<2) {
+            puts(VERSIONSTR);
 
-#ifdef LATER
-        puts("\nsyntax: rexx [-[trace]|-F|-a|-i|-m] <filename> <args>...\n");
-        puts("options:");
-        puts("  -   to use stdin as input file");
-        puts("  -a  break words into multiple arguments");
-        puts("  -i  enter interactive mode");
-        puts("  -F  loop over standard input");
-        puts("      \'linein\' contains each line from stdin");
-        puts("  -m  machine architecture: 0=S/370, 1=Hercules s37x, 2=S/390, 3=z/Arch.\n");
-        puts(VERSIONSTR);
-        puts("Author: "AUTHOR);
-        puts("Maintainer: "MAINTAINER);
-        puts("Please report bugs, errors or comments at https://github.com/mgrossmann/brexx370\n");
-#endif
-        return 0;
-    }
+            return 0;
+        }
 #ifdef __DEBUG__
-	__debug__ = FALSE;
+        __debug__ = FALSE;
 #endif
 
-	RxInitialize(av[0]);
+        RxInitialize(av[0]);
 
-	/* --- Register functions of external libraries --- */
+        /* --- Register functions of external libraries --- */
 #if defined(__MVS__) || defined(__CROSS__)
-	RxMvsRegFunctions();
+        RxMvsRegFunctions();
 #endif
 
-	/* --- scan arguments --- */
-	ia = 1;
-	if (av[ia][0]=='-') {
-		if (av[ia][1]==0)
-			input = TRUE;
-		else
-		if (av[ia][1]=='F')
-			loop_over_stdin = input = TRUE;
-		else
-		if (av[ia][1]=='a')
-			parse_args = TRUE;
-		else
-		if (av[ia][1]=='i')
-			interactive = TRUE;
+        /* --- scan arguments --- */
+        ia = 1;
+        if (av[ia][0]=='-') {
+            if (av[ia][1]==0)
+                input = TRUE;
+            else
+            if (av[ia][1]=='F')
+                loop_over_stdin = input = TRUE;
+            else
+            if (av[ia][1]=='a')
+                parse_args = TRUE;
+            else
+            if (av[ia][1]=='i')
+                interactive = TRUE;
 #ifndef __CROSS__
-		else
+                else
 		if (av[ia][1]=='m')
 			__libc_arch = atoi(av[ia]+2);
 #endif
-		else
-			Lscpy(&tracestr,av[ia]+1);
-		ia++;
-	} else
-	if (av[ia][0]=='?' || av[ia][0]=='!') {
-		Lscpy(&tracestr,av[ia]);
-		ia++;
-	}
+            else
+                Lscpy(&tracestr,av[ia]+1);
+            ia++;
+        } else
+        if (av[ia][0]=='?' || av[ia][0]=='!') {
+            Lscpy(&tracestr,av[ia]);
+            ia++;
+        }
 
-	/* --- let's read a normal file --- */
-	if (!input && !interactive && ia<ac) {
-		/* prepare arguments for program */
-		iaa = 0;
-		for (ir=ia+1; ir<ac; ir++) {
-			if (parse_args) {
-				Lscpy(&args[iaa], av[ir]);
-				if (++iaa >= MAXARGS) break;
-			} else {
-				Lcat(&args[0], av[ir]);
-				if (ir<ac-1) Lcat(&args[0]," ");
-			}
-		}
-        if(isTSO())
-            RxRun(av[ia],NULL,args,&tracestr,"TSO");
-        else
-            RxRun(av[ia],NULL,args,&tracestr,NULL);
+        /* --- let's read a normal file --- */
+        if (!input && !interactive && ia<ac) {
+            /* prepare arguments for program */
+            iaa = 0;
+            for (ir=ia+1; ir<ac; ir++) {
+                if (parse_args) {
+                    Lscpy(&args[iaa], av[ir]);
+                    if (++iaa >= MAXARGS) break;
+                } else {
+                    Lcat(&args[0], av[ir]);
+                    if (ir<ac-1) Lcat(&args[0]," ");
+                }
+            }
 
-	} else {
-		if (interactive)
-			Lcat(&file,
-				"signal on syntax;"
-				"signal on error;"
-				"signal on halt;"
-				"start:do forever;"
-				"call write ,\">>> \";"
-				" parse pull _;"
-				" result=@r;"
-				" interpret _;"
-				" @r=result;"
-				"end;"
-				"signal start;"
-				"syntax:;error: say \"+++ Error\" RC\":\" errortext(RC);"
-				"signal start;"
-				"halt:");
-		else
-		if (ia>=ac) {
-			Lread(STDIN,&file,LREADFILE);
-		} else {
-			/* Copy a small header */
-			if (loop_over_stdin)
-				Lcat(&file,"do forever;"
-					"linein=read();"
-					"if eof(0) then exit;");
-			for (;ia<ac; ia++) {
-				Lcat(&file,av[ia]);
-				if (ia<ac-1) Lcat(&file," ");
-			}
-			/* and a footer */
-			if (loop_over_stdin)
-				Lcat(&file,";end");
-		}
-		if(isTSO())
-		    RxRun(NULL,&file,args,&tracestr,"TSO");
-		else
-            RxRun(NULL,&file,args,&tracestr,NULL);
+            if(isTSO())
+                RxRun(av[ia],NULL,args,&tracestr,"TSO");
+            else
+                RxRun(av[ia],NULL,args,&tracestr,NULL);
+
+        } else {
+            if (interactive)
+                Lcat(&file,
+                     "signal on syntax;"
+                     "signal on error;"
+                     "signal on halt;"
+                     "start:do forever;"
+                     "call write ,\">>> \";"
+                     " parse pull _;"
+                     " result=@r;"
+                     " interpret _;"
+                     " @r=result;"
+                     "end;"
+                     "signal start;"
+                     "syntax:;error: say \"+++ Error\" RC\":\" errortext(RC);"
+                     "signal start;"
+                     "halt:");
+            else
+            if (ia>=ac) {
+                Lread(STDIN,&file,LREADFILE);
+            } else {
+                /* Copy a small header */
+                if (loop_over_stdin)
+                    Lcat(&file,"do forever;"
+                               "linein=read();"
+                               "if eof(0) then exit;");
+                for (;ia<ac; ia++) {
+                    Lcat(&file,av[ia]);
+                    if (ia<ac-1) Lcat(&file," ");
+                }
+                /* and a footer */
+                if (loop_over_stdin)
+                    Lcat(&file,";end");
+            }
+            if(isTSO())
+                RxRun(NULL,&file,args,&tracestr,"TSO");
+            else
+                RxRun(NULL,&file,args,&tracestr,NULL);
+        }
+    } else if (staeret == 1) { // Something was caught - the STAE has been cleaned up.
+        fprintf(STDERR, "\nBRX0003E - ABEND %d CAUGHT\n", 1234);
+        DumpHex((const unsigned char *)sdwa, 104);
+        goto TERMINATE;
+    } else { // can only be -1 = OS failure
+        fprintf(STDERR, "\nBRX0002E - ERROR IN INITIALIZATION OF THE BREXX/370 STAE ROUTINE\n");
     }
+
+TERMINATE:
 
 	/* --- Free everything --- */
 	RxFinalize();
@@ -175,3 +180,11 @@ main(int ac, char *av[])
 
 	return rxReturnCode;
 } /* main */
+
+void term() {
+#ifdef __DEBUG__
+    fprintf(STDOUT, "\nBRX0001I - BREXX/370 TERMINATION ROUTINE STARTED\n");
+#endif
+
+    setEnvBlock(0);
+}

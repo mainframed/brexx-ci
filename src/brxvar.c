@@ -153,9 +153,9 @@ void *_getEctEnvBk() {
     ascb = psa[137];
     asxb = ascb[27];
     lwa = asxb[5];
-
     ect = lwa[8];
-    ectenvbk = ect + 48;
+
+    ectenvbk = ect + 12;   // 12 * 4 = 48
 
     return ectenvbk;
 }

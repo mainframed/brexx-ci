@@ -288,6 +288,8 @@ void R_abend(int func)
     LASCIIZ(*ARG1);
     get_i (1,ucc);
 
+    _setjmp_canc();
+
     params = malloc(sizeof(RX_ABEND_PARAMS));
 
     params->ucc          = ucc;
@@ -1522,7 +1524,8 @@ _getEctEnvBk()
         lwa  = asxb[5];
         ect  = lwa[8];
 
-        ectenvbk = ect + 48;
+        // TODO use cast to BYTE and + 48
+        ectenvbk = ect + 12;   // 12 * 4 = 48
 
     } else {
         ectenvbk = NULL;

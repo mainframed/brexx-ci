@@ -1,7 +1,16 @@
 #ifdef __CROSS__
 #include <string.h>
+#include <setjmp.h>
 #include "rxmvsext.h"
 #include "rxtso.h"
+
+int _setjmp_stae (jmp_buf jbs, char * sdwa104) {
+    return 0;
+}
+
+int _setjmp_canc (void) {
+    return 0;
+}
 
 int rac_user_auth(char *userName, char *password)
 {
