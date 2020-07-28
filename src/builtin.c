@@ -630,24 +630,36 @@ R_port( )
 void __CDECL
 R_max( )
 {
-	int	i;
-	double	r;
+	int	i, curindx;
+	double	r, nr;
 
 	if (!ARGN)
 		Lerror(ERR_INCORRECT_CALL,0);
+    i = 0;
+    while ((i<ARGN) && (rxArg.a[i]==NULL)) i++;
+    if (i==MAXARGS) Lerror(ERR_INCORRECT_CALL,0);
 
-	i = 0;
-	while ((i<ARGN) && (rxArg.a[i]==NULL)) i++;
-	if (i==MAXARGS) Lerror(ERR_INCORRECT_CALL,0);
+    Lstrcpy(ARGR,rxArg.a[i]);
+    L2REAL(ARGR);
+    r = LREAL(*ARGR);
 
-	L2REAL((rxArg.a[i]));
-	r = LREAL(*(rxArg.a[i]));
-	for (i++; i<ARGN; i++)
-		if (rxArg.a[i] != NULL)  {
-			L2REAL((rxArg.a[i]));
-			r = MAX(r,LREAL(*(rxArg.a[i])));
-		}
-	Lrcpy(ARGR,r);
+    curindx=0;
+    for (i++; i<ARGN; i++)
+        if (rxArg.a[i] != NULL)  {
+            Lstrcpy(ARGR,rxArg.a[i]);
+            L2REAL(ARGR);
+            nr = LREAL(*ARGR);
+            if (nr>r) {
+                r=nr;
+                curindx=i;
+            }
+        }
+    if (Ldatatype(rxArg.a[curindx],'W')==1) {
+        L2INT(rxArg.a[curindx]);
+        Licpy(ARGR,LINT(*rxArg.a[curindx]));
+    }else {
+        Lrcpy(ARGR, r);
+    }
 } /* R_max */
 
 /* -------------------------------------------------------------- */
@@ -656,8 +668,8 @@ R_max( )
 void __CDECL
 R_min( )
 {
-	int	i;
-	double	r;
+	int	i, curindx;
+	double	r, nr;
 
 	if (!ARGN)
 		Lerror(ERR_INCORRECT_CALL,0);
@@ -666,14 +678,26 @@ R_min( )
 	while ((i<ARGN) && (rxArg.a[i]==NULL)) i++;
 	if (i==MAXARGS) Lerror(ERR_INCORRECT_CALL,0);
 
-	L2REAL((rxArg.a[i]));
-	r = LREAL(*(rxArg.a[i]));
+    Lstrcpy(ARGR,rxArg.a[i]);
+    L2REAL(ARGR);
+    r = LREAL(*ARGR);
+	curindx=0;
 	for (i++; i<ARGN; i++)
 		if (rxArg.a[i] != NULL)  {
-			L2REAL((rxArg.a[i]));
-			r = MIN(r,LREAL(*(rxArg.a[i])));
+            Lstrcpy(ARGR,rxArg.a[i]);
+            L2REAL(ARGR);
+            nr = LREAL(*ARGR);
+            if (nr<r) {
+               r=nr;
+               curindx=i;
+            }
 		}
-	Lrcpy(ARGR,r);
+    if (Ldatatype(rxArg.a[curindx],'W')==1) {
+        L2INT(rxArg.a[curindx]);
+        Licpy(ARGR,LINT(*rxArg.a[curindx]));
+    }else {
+        Lrcpy(ARGR, r);
+    }
 } /* R_min */
 
 /* -------------------------------------------------------------- */
