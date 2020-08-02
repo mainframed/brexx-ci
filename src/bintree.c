@@ -494,3 +494,69 @@ BinPrint(PBinLeaf leaf, PLstr filter)
         ptr = BinSuccessor(ptr);
     }
 } /* BinPrint */
+/* -------------------- BinPrintStem -------------------- */
+void __CDECL
+BinVarDumpV(PLstr result,PLstr stem,PBinLeaf leaf )
+{
+    PBinLeaf ptr;
+    int i = 0;
+
+    if (leaf == NULL) {
+        printf("Tree is empty");
+        return;
+    }
+
+    // Reach leftmost node
+    ptr = BinMin(leaf);
+    // One by one print successors
+    while (ptr != NULL)
+    {
+        if (ptr->value) {
+           Lcat(result, LSTR(*stem));
+           Lcat(result, LSTR(ptr->key));
+           Lcat(result, "='");
+           Lcat(result, LSTR(*(PLstr) ptr->value));
+           Lcat(result,"'\n");
+        }
+        ptr = BinSuccessor(ptr);
+    }
+} /* BinPrintStem */
+
+/* ------------------ BinPrint ---------------- */
+void __CDECL
+BinVarDump(PLstr result, PBinLeaf leaf, PLstr filter)
+{
+    PBinLeaf ptr;
+    int cmp;
+    int i = 0;
+
+    if (leaf == NULL) {
+    }
+    // Reach leftmost node
+    ptr = BinMin(leaf);
+
+    // One by one print successors
+    Lscpy(result, "");
+    while (ptr != NULL)
+    {
+        if (filter != NULL) {
+            if (Lstrbeg(&ptr->key, filter)==0) {
+                ptr = BinSuccessor(ptr);
+                continue;
+            }
+        }
+
+         if (ptr->value) {
+            Variable *var = (Variable *)ptr->value;
+            if (var->stem) {
+               BinVarDumpV(result,&ptr->key,var->stem->parent);
+            } else {
+               Lcat(result, LSTR(ptr->key));
+               Lcat(result, "='");
+               Lcat(result, LSTR(*(PLstr) ptr->value));
+               Lcat(result,"'\n");
+            }
+        }
+        ptr = BinSuccessor(ptr);
+    }
+} /* BinVarDump */

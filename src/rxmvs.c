@@ -249,6 +249,40 @@ void R_listIt(int func)
         BinPrint(tree.parent, ARG1);
     }
 }
+void R_vlist(int func)
+{
+    BinTree tree;
+    int	j;
+    if (ARGN > 1 ) {
+        Lstr lsFuncName,lsMaxArg;
+
+        LINITSTR(lsFuncName)
+        LINITSTR(lsMaxArg)
+
+        Lfx(&lsFuncName,5);
+        Lfx(&lsMaxArg, 4);
+
+        Lscpy(&lsFuncName, "VList");
+        Licpy(&lsMaxArg,1);
+
+        Lerror(ERR_INCORRECT_CALL,4,&lsFuncName, &lsMaxArg);
+    }
+
+    if (ARG1 != NULL && ARG1->pstr == NULL) {
+        printf("VLIST: invalid parameters, maybe enclose in quotes\n");
+        Lerror(ERR_INCORRECT_CALL,4,1);
+    }
+
+    tree = _proc[_rx_proc].scope[0];
+
+    if (ARG1 == NULL || LSTR(*ARG1)[0] == 0) {
+       BinVarDump(ARGR,tree.parent, NULL);
+    } else {
+        LASCIIZ(*ARG1) ;
+        Lupper(ARG1);
+        BinVarDump(ARGR, tree.parent, ARG1);
+    }
+}
 
 void R_wait(int func)
 {
@@ -1400,6 +1434,7 @@ void RxMvsRegFunctions()
     RxRegFunction("RHASH",      R_rhash,0);
     RxRegFunction("SYSDSN",     R_sysdsn,  0);
     RxRegFunction("SYSVAR",     R_sysvar,  0);
+    RxRegFunction("VLIST",      R_vlist,  0);
     RxRegFunction("VXGET",      R_vxget,   0);
     RxRegFunction("VXPUT",      R_vxput,   0);
     RxRegFunction("STEMCOPY",   R_stemcopy,0);
