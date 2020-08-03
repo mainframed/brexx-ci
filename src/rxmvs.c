@@ -253,7 +253,8 @@ void R_vlist(int func)
 {
     BinTree tree;
     int	j;
-    if (ARGN > 1 ) {
+    int mode=1;
+    if (ARGN > 2 ) {
         Lstr lsFuncName,lsMaxArg;
 
         LINITSTR(lsFuncName)
@@ -263,7 +264,7 @@ void R_vlist(int func)
         Lfx(&lsMaxArg, 4);
 
         Lscpy(&lsFuncName, "VList");
-        Licpy(&lsMaxArg,1);
+        Licpy(&lsMaxArg,2);
 
         Lerror(ERR_INCORRECT_CALL,4,&lsFuncName, &lsMaxArg);
     }
@@ -272,15 +273,21 @@ void R_vlist(int func)
         printf("VLIST: invalid parameters, maybe enclose in quotes\n");
         Lerror(ERR_INCORRECT_CALL,4,1);
     }
+    if (exist(2)) {
+        L2STR(ARG2);
+        Lupper(ARG2);
+        if (LSTR(*ARG2)[0] == 'V') mode = 1;
+        else if (LSTR(*ARG2)[0] == 'N') mode = 2;
+    }
 
     tree = _proc[_rx_proc].scope[0];
 
     if (ARG1 == NULL || LSTR(*ARG1)[0] == 0) {
-       BinVarDump(ARGR,tree.parent, NULL);
+       BinVarDump(ARGR,tree.parent, NULL,mode);
     } else {
-        LASCIIZ(*ARG1) ;
-        Lupper(ARG1);
-        BinVarDump(ARGR, tree.parent, ARG1);
+       LASCIIZ(*ARG1) ;
+       Lupper(ARG1);
+       BinVarDump(ARGR, tree.parent, ARG1,mode);
     }
 }
 

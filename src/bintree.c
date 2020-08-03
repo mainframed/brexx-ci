@@ -495,52 +495,132 @@ BinPrint(PBinLeaf leaf, PLstr filter)
     }
 } /* BinPrint */
 /* -------------------- BinPrintStem -------------------- */
+// -------------------------------------------------------------------------------------
+// Remove '.' from string
+// -------------------------------------------------------------------------------------
+int _RemoveDot(const PLstr to, const PLstr from) {
+    int slen,ki;
+    L2STR(from);
+    slen=LLEN(*from);
+    for (ki = 0 ; ki < slen; ki++) {
+        if (LSTR(*from)[ki] !='.') LSTR(*to)[ki] = LSTR(*from)[ki];
+           else LSTR(*to)[ki] =' ';
+    }
+    LTYPE(*to) = LSTRING_TY;
+    for (ki = slen-1 ; ki >=0; ki--) {
+        if (LSTR(*to)[ki] !=' ') break;
+    }
+    LLEN(*to) = ki+1;
+    return ki;
+}
+
 void __CDECL
-BinVarDumpV(PLstr result,PLstr stem,PBinLeaf leaf )
+BinVarDumpV(PLstr result,PLstr stem,PBinLeaf leaf ,PLstr filter2,PLstr filter3, PLstr filter4, PLstr filter5, int mode)
 {
     PBinLeaf ptr;
-    int i = 0;
+    Lstr stvalue, stkey, stkeytemp;
+    int i = 0, cont=0;
 
-    if (leaf == NULL) {
-        printf("Tree is empty");
-        return;
-    }
+    if (leaf == NULL) return;
+
+    LINITSTR(stkey);
+    LINITSTR(stkeytemp);
+    LINITSTR(stvalue);
+    Lfx(&stkeytemp, 128);
+
 
     // Reach leftmost node
     ptr = BinMin(leaf);
     // One by one print successors
     while (ptr != NULL)
     {
-        if (ptr->value) {
-           Lcat(result, LSTR(*stem));
-           Lcat(result, LSTR(ptr->key));
-           Lcat(result, "='");
-           Lcat(result, LSTR(*(PLstr) ptr->value));
-           Lcat(result,"'\n");
+        if (ptr->value==0) continue;
+        cont=0;
+        if (filter2->len >0 || filter3->len >0 || filter4->len >0 || filter5->len >0) {
+           _RemoveDot(&stkeytemp, &ptr->key);
+            LLEN(stkeytemp) = strlen(LSTR(stkeytemp));
         }
+        if (cont==0 && filter2->len>0 ) {
+           Lword(&stkey, &stkeytemp, 1);
+           if (_Lstrcmp(&stkey, filter2) != 0) cont = 1;
+        }
+        if (cont==0 && filter3->len>0 ) {
+           Lword(&stkey, &stkeytemp, 2);
+           if (_Lstrcmp(&stkey, filter3) != 0) cont = 1;
+        }
+        if (cont==0 && filter4->len>0 ) {
+           Lword(&stkey, &stkeytemp, 3);
+           if (_Lstrcmp(&stkey, filter4) != 0) cont = 1;
+        }
+        if (cont==0 && filter5->len>0 ) {
+           Lword(&stkey, &stkeytemp, 4);
+           if (_Lstrcmp(&stkey, filter5) != 0) cont = 1;
+        }
+        if (cont==1) {
+            ptr = BinSuccessor(ptr);
+            continue;
+        }
+        Lcat(result, LSTR(*stem));
+        Lcat(result, LSTR(ptr->key));
+
+        if (mode==1) {
+           Lstrcpy(&stvalue, (PLstr) ptr->value);
+           if (LTYPE(stvalue) != LSTRING_TY) {
+              L2str(&stvalue);
+           }
+           Lcat(result, "='");
+           Lcat(result, LSTR(stvalue));
+           Lcat(result, "'\n");
+        } else Lcat(result, "\n");
         ptr = BinSuccessor(ptr);
     }
+    LFREESTR(stvalue)
+    LFREESTR(stkey)
+    LFREESTR(stkeytemp)
 } /* BinPrintStem */
 
 /* ------------------ BinPrint ---------------- */
 void __CDECL
-BinVarDump(PLstr result, PBinLeaf leaf, PLstr filter)
+BinVarDump(PLstr result, PBinLeaf leaf, PLstr filter, int mode)
 {
     PBinLeaf ptr;
+    Lstr filter1,filter2,filter3, filter4, filter5,stkey;
+    LINITSTR(filter1);
+    LINITSTR(filter2);
+    LINITSTR(filter3);
+    LINITSTR(filter4);
+    LINITSTR(filter5);
+    Lfx(&stkey, 128);
     int cmp;
-    int i = 0;
+    int i = 0,j=0;
 
     if (leaf == NULL) {
+       return ;
     }
     // Reach leftmost node
     ptr = BinMin(leaf);
+
+    if (filter != NULL) {
+        _RemoveDot(filter, filter);
+        Lword(&filter1,filter,1);
+        Lword(&filter2,filter,2);
+        Lword(&filter3,filter,3);
+        Lword(&filter4,filter,4);
+        Lword(&filter5,filter,5);
+        if (LLEN(filter1)>0 && LSTR(filter1)[0]=='*') LLEN(filter1)=0;
+        if (LLEN(filter2)>0 && LSTR(filter2)[0]=='*') LLEN(filter2)=0;
+        if (LLEN(filter3)>0 && LSTR(filter3)[0]=='*') LLEN(filter3)=0;
+        if (LLEN(filter4)>0 && LSTR(filter4)[0]=='*') LLEN(filter4)=0;
+        if (LLEN(filter5)>0 && LSTR(filter5)[0]=='*') LLEN(filter5)=0;
+    }
 
     // One by one print successors
     Lscpy(result, "");
     while (ptr != NULL)
     {
-        if (filter != NULL) {
-            if (Lstrbeg(&ptr->key, filter)==0) {
+        if (filter != NULL && LLEN(filter1)>0) {
+            _RemoveDot(&stkey,&ptr->key);
+            if (Lstrcmp(&stkey, &filter1)!=0) {
                 ptr = BinSuccessor(ptr);
                 continue;
             }
@@ -549,14 +629,25 @@ BinVarDump(PLstr result, PBinLeaf leaf, PLstr filter)
          if (ptr->value) {
             Variable *var = (Variable *)ptr->value;
             if (var->stem) {
-               BinVarDumpV(result,&ptr->key,var->stem->parent);
+               BinVarDumpV(result,&ptr->key,var->stem->parent,&filter2,&filter3,&filter4,&filter5,mode);
             } else {
                Lcat(result, LSTR(ptr->key));
-               Lcat(result, "='");
-               Lcat(result, LSTR(*(PLstr) ptr->value));
-               Lcat(result,"'\n");
+               if (mode==1) {
+                   if (LTYPE(*(PLstr) ptr->value) != LSTRING_TY) {
+                       L2str((PLstr) ptr->value);
+                   }
+                   Lcat(result, "='");
+                   Lcat(result, LSTR(*(PLstr) ptr->value));
+                   Lcat(result, "'\n");
+               } else Lcat(result, "\n");
             }
         }
         ptr = BinSuccessor(ptr);
     }
+    LFREESTR(filter1);
+    LFREESTR(filter2);
+    LFREESTR(filter3);
+    LFREESTR(filter4);
+    LFREESTR(filter5);
+    LFREESTR(stkey);
 } /* BinVarDump */
