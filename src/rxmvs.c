@@ -290,6 +290,17 @@ void R_vlist(int func)
        BinVarDump(ARGR, tree.parent, ARG1,mode);
     }
 }
+void R_bldl(int func) {
+    int found=0;
+    if (ARGN != 1 || LLEN(*ARG1)==0)
+        Lerror(ERR_INCORRECT_CALL,0);
+    LASCIIZ(*ARG1) ;
+    Lupper(ARG1);
+    if (LLEN(*ARG1)>8) Lsubstr(ARG1,ARG1,1,8,' ');
+
+    if (findLoadModule((char *)LSTR(*ARG1))) found=1;
+    Licpy(ARGR,found);
+}
 
 void R_wait(int func)
 {
@@ -1444,6 +1455,7 @@ void RxMvsRegFunctions()
     RxRegFunction("VLIST",      R_vlist,  0);
     RxRegFunction("VXGET",      R_vxget,   0);
     RxRegFunction("VXPUT",      R_vxput,   0);
+    RxRegFunction("BLDL",      R_bldl,   0);
     RxRegFunction("STEMCOPY",   R_stemcopy,0);
     RxRegFunction("DIR",   R_dir, 0);
     RxRegFunction("CATCHIT",   R_catchIt,0);
