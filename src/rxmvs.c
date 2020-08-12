@@ -292,11 +292,9 @@ void R_vlist(int func)
 }
 void R_bldl(int func) {
     int found=0;
-    if (ARGN != 1 || LLEN(*ARG1)==0)
-        Lerror(ERR_INCORRECT_CALL,0);
+    if (ARGN != 1 || LLEN(*ARG1)==0) Lerror(ERR_INCORRECT_CALL,0);
     LASCIIZ(*ARG1) ;
     Lupper(ARG1);
-    if (LLEN(*ARG1)>8) Lsubstr(ARG1,ARG1,1,8,' ');
 
     if (findLoadModule((char *)LSTR(*ARG1))) found=1;
     Licpy(ARGR,found);
