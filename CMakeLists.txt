@@ -14,138 +14,7 @@ include_directories(cross)
 
 add_executable(test
         src/test.c
-        inc/bintree.h
-        inc/bmem.h
-        inc/compile.h
-        inc/config.h
-        inc/dqueue.h
-        inc/hostcmd.h
-        inc/interpre.h
-        inc/irx.h
-        inc/ldefs.h
-        inc/lerror.h
-        inc/lmvs.h
-        inc/lstring.h
-        inc/nextsymb.h
-        inc/os.h
-        inc/rexx.h
-        inc/rxdefs.h
-        inc/rxmvs.h
-        inc/rxmvsext.h
-        inc/stack.h
-        inc/trace.h
-        inc/util.h
-        inc/variable.h
-        inc/rxtso.h
-        lstring/abbrev.c
-        lstring/abs.c
-        lstring/add.c
-        lstring/atan2.c
-        lstring/b2x.c
-        lstring/bitand.c
-        lstring/bitor.c
-        lstring/bitxor.c
-        lstring/bool.c
-        lstring/c2d.c
-        lstring/c2x.c
-        lstring/center.c
-        lstring/ceil.c
-        lstring/changest.c
-        lstring/charin.c
-        lstring/charout.c
-        lstring/chars.c
-        lstring/compare.c
-        lstring/copies.c
-        lstring/countstr.c
-        lstring/d2c.c
-        lstring/d2x.c
-        lstring/datatype.c
-        lstring/date.c
-        lstring/dec.c
-        lstring/delstr.c
-        lstring/delword.c
-        lstring/div.c
-        lstring/equal.c
-        lstring/errortxt.c
-        lstring/expose.c
-        lstring/filter.c
-        lstring/floor.c
-        lstring/format.c
-        lstring/hashvalu.c
-        lstring/inc.c
-        lstring/index.c
-        lstring/insert.c
-        lstring/intdiv.c
-        lstring/justify.c
-        lstring/lastpos.c
-        lstring/linein.c
-        lstring/lineout.c
-        lstring/lines.c
-        lstring/lmath.c
-        lstring/lower.c
-        lstring/lstring.c
-        lstring/mod.c
-        lstring/mult.c
-        lstring/neg.c
-        lstring/overlay.c
-        lstring/pow.c
-        lstring/print.c
-        lstring/read.c
-        lstring/reradix.c
-        lstring/reverse.c
-        lstring/right.c
-        lstring/round.c
-        lstring/sign.c
-        lstring/soundex.c
-        lstring/space.c
-        lstring/stderr.c
-        lstring/strip.c
-        lstring/sub.c
-        lstring/substr.c
-        lstring/subword.c
-        lstring/time.c
-        lstring/translat.c
-        lstring/trunc.c
-        lstring/upper.c
-        lstring/verify.c
-        lstring/word.c
-        lstring/wordidx.c
-        lstring/wordlen.c
-        lstring/wordpos.c
-        lstring/words.c
-        lstring/write.c
-        lstring/x2b.c
-        lstring/x2c.c
-        lstring/x2d.c
-        lstring/xrange.c
-        fss/fss.h
-        fss/fss.c
-        src/address.c
-        src/bintree.c
-        src/bmem.c
-        src/brexx.c
-        src/builtin.c
-        src/compile.c
-        src/dqueue.c
-        src/error.c
-        src/expr.c
-        src/hostcmd.c
-        src/interpre.c
-        src/nextsymb.c
-        src/rexx.c
-        src/rexxfunc.c
-        src/rxconv.c
-        src/rxfiles.c
-        src/rxmath.c
-        src/rxmvs.c
-        src/rxstr.c
-        src/rxtso.c
-        src/rxword.c
-        src/stack.c
-        src/template.c
-        src/trace.c
-        src/util.c
-        src/variable.c lstring/d2p.c lstring/p2d.c)
+     )
 
 add_executable(brexx
         cross/jccdummy.h
@@ -175,8 +44,6 @@ add_executable(brexx
         inc/util.h
         inc/variable.h
         inc/rxtso.h
-        inc/netdata.h
-        inc/rxnetdat.h
         lstring/abbrev.c
         lstring/abs.c
         lstring/add.c
@@ -280,7 +147,6 @@ add_executable(brexx
         src/rxfiles.c
         src/rxmath.c
         src/rxmvs.c
-        src/rxnetdat.c
         src/rxstr.c
         src/rxrac.c
         src/rxtcp.c
@@ -291,7 +157,6 @@ add_executable(brexx
         src/trace.c
         src/util.c
         src/variable.c
-        src/netdata.c
         dynit/dynit.h
         dynit/dynit.c
         dynit/svc99.h
@@ -299,8 +164,8 @@ add_executable(brexx
         rac/rac.h
         rac/rac.c)
 
-add_executable(brxvar
-        src/brxvar.c printf/printf.c printf/printf.h)
+add_library(brxvar
+        src/brxvar.c src/bintree.c printf/printf.c printf/printf.h)
 
 if(UNIX AND NOT APPLE)
    target_link_libraries(brexx m)

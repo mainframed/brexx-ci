@@ -7,7 +7,6 @@
 #include "util.h"
 #include "rxtcp.h"
 #include "rxrac.h"
-#include "rxnetdat.h"
 #include "dynit.h"
 #ifdef __DEBUG__
 #include "bmem.h"
@@ -38,6 +37,80 @@ extern char* _style;
 extern void ** entry_R13;
 extern int __libc_tso_status;
 #endif
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+#define BYTE unsigned char
+typedef struct {
+    BYTE vlvl;     // version level
+    BYTE mlvl;     // modification level
+    BYTE res1;     // reserver
+    BYTE chgss;    // X   { SS }
+    BYTE credt[4]; // PL4 { signed packed
+    BYTE chgdt[4]; // PL4   julian date   }
+    BYTE chgtm[2]; // XL2 { HHMM }
+    short curr;    // number of current  records
+    short init;    // number of initial  records
+    short mod ;    // number of modified records
+    char uid[10];
+} USER_DATA, *P_USER_DATA;
+
+void julian2gregorian(int year, int day, char **date)
+{
+    static const int month_len[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+
+    int leap = (year % 4 == 0) && (year % 100 != 0 || year % 400 == 0);
+    int day_of_month = day;
+    int month;
+
+    for (month = 0; month < 12; month ++) {
+
+        int mlen = month_len[month];
+
+        if (leap && month == 1)
+            mlen ++;
+
+        if (mlen >= day_of_month)
+            break;
+
+        day_of_month -= mlen;
+
+    }
+
+    sprintf(*date, "%.2d-%.2d-%.2d", year, month+1, day_of_month);
+}
+
+int getYear(BYTE flag, BYTE yy) {
+    int year = 0;
+
+    char tmp[2];
+    bzero(tmp, 2);
+
+    sprintf(tmp, "%x", yy);
+    sscanf (tmp, "%d", &year);
+
+    /*
+    if (flag == 0x01) {
+        year = year + 2000;
+    } else {
+        year = year + 1900;
+    }
+    */
+
+    return year;
+}
+
+int getDay(BYTE byte1, BYTE byte2) {
+    int day = 0;
+
+    char tmp[3];
+    bzero(tmp, 3);
+
+    sprintf(tmp, "%.1x%.1x%.1x", (byte1 >> 4) & 0x0F, byte1 & 0x0F, (byte2 >> 4) & 0x0F );
+    sscanf(tmp, "%d", &day);
+
+    return day;
+}
+/* ------------------------------------------------------------------------------------------------------------------ */
 
 static int i;
 
@@ -662,32 +735,56 @@ void R_stemcopy(int func)
 
 /* --------------------------------------------------------------- */
 /*  DIR( file )                                                    */
+/*    Exploiting Partitioned Data Set Directory Fields             */
+/*      Part   I: http://www.naspa.net/magazine/1991/t9109019.txt  */
+/*      Part  II: http://www.naspa.net/magazine/1991/t9110014.txt  */
+/*      Part III: http://www.naspa.net/magazine/1991/t9111015.txt  */
+/*    Using the System Status Index                                */
+/*                http://www.naspa.net/magazine/1991/t9104004.txt  */
 /* --------------------------------------------------------------- */
 #define maxdirent 3000
 #define endmark "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
-#define SKIP_MASK ((int) 0x1F)
+#define UDL_MASK   ((int) 0x1F)
+#define NPTR_MASK  ((int) 0x60)
 #define ALIAS_MASK ((int) 0x80)
+
 void __CDECL
 R_dir( const int func )
 {
     int iErr;
 
     long   ii;
-    long   j;
+
     FILE * fh;
-    char   line [256];
-    char   tstr [9];
-    char * a;
-    char * name;
-    short  b;
+    
+    char   record[256];
+    char   memberName[8 + 1];
+    char   ttr[6 + 1];
+    char   version[5 + 1];
+    char   creationDate[8 + 1];
+    char   changeDate[8 + 1];
+    char   changeTime[8 + 1];
+    char   init[5 + 1];
+    char   curr[5 + 1];
+    char   mod[5 + 1];
+    char   uid[8 + 1];
+
+    unsigned char  *currentPosition;
+
+    short  bytes;
     short  count;
-    short  skip;
-    long   quit;
     int    info_byte;
+    short  numPointers;
+    short  userDataLength;
+    bool   isAlias;
+    long   quit;
     short  l;
     char sDSN[45];
-
+    char line[255];
+    char *sLine;
     int pdsecount = 0;
+
+    P_USER_DATA pUserData;
 
     if (ARGN != 1) {
         Lerror(ERR_INCORRECT_CALL,0);
@@ -706,58 +803,151 @@ R_dir( const int func )
 
     _style = "//DSN:";
 
-    // #1 get the correct dsn for the input file
+    // get the correct dsn for the input file
     iErr = getDatasetName(environment, (const char*)LSTR(*ARG1), sDSN);
 
+    // open the pds directory
     fh = fopen (sDSN, "rb,klen=0,lrecl=256,blksize=256,recfm=u,force");
 
     if (fh != NULL) {
-
-        fread(&l, 1, 2, fh); /* Skip U length */
+        // skip length field
+        fread(&l, 1, 2, fh);
 
         quit = 0;
 
-        while (fread(line, 1, 256, fh) == 256) {
-            a = &(line[2]);
-            b = ((short *) &(line[0]))[0];
+        while (fread(record, 1, 256, fh) == 256) {
+
+            currentPosition = (unsigned char *) &(record[2]);
+            bytes = ((short *) &(record[0]))[0];
 
             count = 2;
-            while (count < b) {
-                if (memcmp(a, endmark, 8) == 0) {
+            while (count < bytes) {
+
+                if (memcmp(currentPosition, endmark, 8) == 0) {
                     quit = 1;
                     break;
                 }
 
-                name = a;
-                a += 8;
+                bzero(line, 255);
+                sLine = line;
 
-//                ii = (((int *) a)[0]) & 0xFFFFFF00;
-                a += 3;
+                bzero(memberName, 9);
+                sprintf(memberName, "%.8s", currentPosition);
+                {
+                    // remove trailing blanks
+                    long   jj = 7;
+                    while (memberName[jj] == ' ') jj--;
+                    memberName[++jj] = 0;
+                }
+                sLine += sprintf(sLine, "%-8s", memberName);
+                currentPosition += 8;   // skip current member name
 
-                info_byte = (int) (*a);
-                a++;
+                bzero(ttr, 7);
+                sprintf(ttr, "%.2X%.2X%.2X", currentPosition[0], currentPosition[1], currentPosition[2]);
+                sLine += sprintf(sLine, "   %-6s", ttr);
+                currentPosition += 3;   // skip ttr
 
-                skip = (info_byte & SKIP_MASK) * 2;
+                info_byte = (int) (*currentPosition);
+                currentPosition += 1;   // skip info / stats byte
 
-                strncpy (tstr, name, 8);
+                isAlias        = (info_byte & ALIAS_MASK);
+                numPointers    = (info_byte & NPTR_MASK);
+                userDataLength = (info_byte & UDL_MASK) * 2;
 
-                j = 7;
-                while (tstr[j] == ' ') j--;
-                tstr[++j] = 0;
+                pUserData = (P_USER_DATA) currentPosition;
+
+                if ((((info_byte & 0x60) >> 5) == 0) && userDataLength > 0) {
+                    int year = 0;
+                    int day  = 0;
+                    char *datePtr;
+
+                    bzero(version, 6);
+                    sprintf(version, "%.2d.%.2d", pUserData->vlvl, pUserData->mlvl);
+                    sLine += sprintf(sLine, " %-5s", version);
+
+                    bzero(creationDate, 9);
+                    datePtr = (char *) &creationDate;
+                    year = getYear(pUserData->credt[0], pUserData->credt[1]);
+                    day  = getDay (pUserData->credt[2], pUserData->credt[3]);
+                    julian2gregorian(year, day, &datePtr);
+                    sLine += sprintf(sLine, " %-8s", creationDate);
+
+                    bzero(changeDate, 9);
+                    datePtr = (char *) &changeDate;
+                    year = getYear(pUserData->chgdt[0], pUserData->chgdt[1]);
+                    day  = getDay (pUserData->chgdt[2], pUserData->chgdt[3]);
+                    julian2gregorian(year, day, &datePtr);
+                    sLine += sprintf(sLine, " %-8s", changeDate);
+
+                    bzero(changeTime, 9);
+                    sprintf(changeTime, "%.2x:%.2x:%.2x", (int)pUserData->chgtm[0], (int)pUserData->chgtm[1], (int)pUserData->chgss);
+                    sLine += sprintf(sLine, " %-8s", changeTime);
+
+                    bzero(init, 6);
+                    sprintf(init, "%5d", pUserData->init);
+                    sLine += sprintf(sLine, " %-5s", init);
+
+                    bzero(curr, 6);
+                    sprintf(curr, "%5d", pUserData->curr);
+                    sLine += sprintf(sLine, " %-5s", curr);
+
+                    bzero(mod, 6);
+                    sprintf(mod, "%5d", pUserData->mod);
+                    sLine += sprintf(sLine, " %-5s", mod);
+
+                    bzero(uid, 9);
+                    sprintf(uid, "%-.8s", pUserData->uid);
+                    sLine += sprintf(sLine, " %-8s",  uid);
+                }
 
                 if (pdsecount == maxdirent) {
                     quit = 1;
                     break;
                 } else {
-                    char varName[16];
-                    bzero(varName, 16);
-                    sprintf(varName, "DIRENTRY.%d", ++pdsecount);
-                    setVariable(varName, tstr);
+                    char stemName[13]; // DIRENTRY (8) + . (1) + MAXDIRENTRY=3000 (4)
+                    char varName[32];
+
+                    bzero(stemName, 13);
+                    bzero(varName, 32);
+
+                    sprintf(stemName, "DIRENTRY.%d", ++pdsecount);
+
+                    sprintf(varName, "%s.NAME", stemName);
+                    setVariable(varName, memberName);
+
+                    sprintf(varName, "%s.TTR", stemName);
+                    setVariable(varName, ttr);
+
+                    if ((((info_byte & 0x60) >> 5) == 0) && userDataLength > 0) {
+                        sprintf(varName, "%s.CDATE", stemName);
+                        setVariable(varName, creationDate);
+
+                        sprintf(varName, "%s.UDATE", stemName);
+                        setVariable(varName, changeDate);
+
+                        sprintf(varName, "%s.UTIME", stemName);
+                        setVariable(varName, changeTime);
+
+                        sprintf(varName, "%s.INIT", stemName);
+                        setVariable(varName, init);
+
+                        sprintf(varName, "%s.SIZE", stemName);
+                        setVariable(varName, curr);
+
+                        sprintf(varName, "%s.MOD", stemName);
+                        setVariable(varName, mod);
+
+                        sprintf(varName, "%s.UID", stemName);
+                        setVariable(varName, uid);
+                    }
+
+                    sprintf(varName, "%s.LINE", stemName);
+                    setVariable(varName, line);
                 }
 
-                a += skip;
+                currentPosition += userDataLength;
 
-                count += (8 + 4 + skip);
+                count += (8 + 4 + userDataLength);
             }
 
             if (quit) break;
@@ -768,9 +958,7 @@ R_dir( const int func )
         fclose(fh);
 
         setIntegerVariable("DIRENTRY.0", pdsecount);
-
     }
-
 }
 
 // -------------------------------------------------------------------------------------
@@ -1428,7 +1616,6 @@ void RxMvsRegFunctions()
 {
     RxRacRegFunctions();
     RxTcpRegFunctions();
-    RxNetDataRegFunctions();
 
     /* MVS specific functions */
     RxRegFunction("ENCRYPT",    R_crypt,0);
