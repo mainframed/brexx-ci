@@ -565,7 +565,6 @@ BinVarDumpV(PLstr result,PLstr stem,PBinLeaf leaf ,PLstr filter2,PLstr filter3, 
         Lcat(result, LSTR(*stem));
         Lcat(result, LSTR(ptr->key));
 
-
         if (mode==1) {
            Lstrcpy(&stvalue, (PLstr) ptr->value);
 
