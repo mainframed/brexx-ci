@@ -565,11 +565,14 @@ BinVarDumpV(PLstr result,PLstr stem,PBinLeaf leaf ,PLstr filter2,PLstr filter3, 
         Lcat(result, LSTR(*stem));
         Lcat(result, LSTR(ptr->key));
 
+
         if (mode==1) {
            Lstrcpy(&stvalue, (PLstr) ptr->value);
+
            if (LTYPE(stvalue) != LSTRING_TY) {
               L2str(&stvalue);
            }
+           LSTR(stvalue)[LLEN(stvalue)]=NULL;
            Lcat(result, "='");
            Lcat(result, LSTR(stvalue));
            Lcat(result, "'\n");
