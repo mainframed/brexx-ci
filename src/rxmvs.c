@@ -372,6 +372,47 @@ void R_bldl(int func) {
     if (findLoadModule((char *)LSTR(*ARG1))) found=1;
     Licpy(ARGR,found);
 }
+void R_upper(int func) {
+    if (ARGN != 1) Lerror(ERR_INCORRECT_CALL,0);
+
+    if (LTYPE(*ARG1) != LSTRING_TY) {
+        L2str(ARG1);
+    };
+    LASCIIZ(*ARG1) ;
+    Lupper(ARG1);
+    Lstrcpy(ARGR,ARG1);
+}
+void R_lower(int func) {
+    if (ARGN != 1) Lerror(ERR_INCORRECT_CALL,0);
+
+    if (LTYPE(*ARG1) != LSTRING_TY) {
+        L2str(ARG1);
+    };
+    LASCIIZ(*ARG1) ;
+    Llower(ARG1);
+    Lstrcpy(ARGR,ARG1);
+}
+
+void R_lastword(int func) {
+    long	i=0, lwi=0, lwe=0;
+    if (ARGN != 1) Lerror(ERR_INCORRECT_CALL,0);
+    if (LLEN(*ARG1)==0) {
+        LZEROSTR(*ARGR);
+        return;
+    }
+    L2STR(ARG1);
+    LASCIIZ(*ARG1) ;
+
+    for (;;) {
+        LSKIPBLANKS(*ARG1,i);
+        if (i>=LLEN(*ARG1)) break;
+        lwi=i;
+        LSKIPWORD(*ARG1,i);
+        lwe=i;
+    }
+    if (lwi>0)  _Lsubstr(ARGR,ARG1,lwi+1,lwe-lwi);
+    else LZEROSTR(*ARGR);
+}
 
 void R_wait(int func)
 {
@@ -1660,6 +1701,9 @@ void RxMvsRegFunctions()
     RxRegFunction("RHASH",      R_rhash,        0);
     RxRegFunction("SYSDSN",     R_sysdsn,       0);
     RxRegFunction("SYSVAR",     R_sysvar,       0);
+    RxRegFunction("UPPER",      R_upper,  0);
+    RxRegFunction("LOWER",      R_lower,  0);
+    RxRegFunction("LASTWORD",   R_lastword,  0);
     RxRegFunction("VLIST",      R_vlist,        0);
     RxRegFunction("BLDL",       R_bldl,         0);
     RxRegFunction("STEMCOPY",   R_stemcopy,     0);
@@ -1669,7 +1713,7 @@ void RxMvsRegFunctions()
     RxRegFunction("DUMMY",      R_dummy,        0);
     RxRegFunction("VXGET",      R_vxget,        0);
     RxRegFunction("VXPUT",      R_vxput,        0);
-    RxRegFunction("CATCHIT",    R_catchIt,      ^0);
+    RxRegFunction("CATCHIT",    R_catchIt,      0);
 #endif
 }
 
