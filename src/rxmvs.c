@@ -759,6 +759,7 @@ R_dir( const int func )
     
     char   record[256];
     char   memberName[8 + 1];
+    char   aliasName[8 + 1];
     char   ttr[6 + 1];
     char   version[5 + 1];
     char   creationDate[8 + 1];
@@ -777,12 +778,14 @@ R_dir( const int func )
     short  numPointers;
     short  userDataLength;
     bool   isAlias;
+    int    loadModuleSize;
+
     long   quit;
     short  l;
-    char sDSN[45];
-    char line[255];
-    char *sLine;
-    int pdsecount = 0;
+    char   sDSN[45];
+    char   line[255];
+    char   *sLine;
+    int    pdsecount = 0;
 
     P_USER_DATA pUserData;
 
@@ -850,16 +853,16 @@ R_dir( const int func )
                 info_byte = (int) (*currentPosition);
                 currentPosition += 1;   // skip info / stats byte
 
-                isAlias        = (info_byte & ALIAS_MASK);
                 numPointers    = (info_byte & NPTR_MASK);
                 userDataLength = (info_byte & UDL_MASK) * 2;
 
-                pUserData = (P_USER_DATA) currentPosition;
-
-                if ((((info_byte & 0x60) >> 5) == 0) && userDataLength > 0) {
+                // no load lib
+                if ( numPointers == 0 && userDataLength > 0) {
                     int year = 0;
                     int day  = 0;
                     char *datePtr;
+
+                    pUserData = (P_USER_DATA) currentPosition;
 
                     bzero(version, 6);
                     sprintf(version, "%.2d.%.2d", pUserData->vlvl, pUserData->mlvl);
@@ -898,6 +901,26 @@ R_dir( const int func )
                     bzero(uid, 9);
                     sprintf(uid, "%-.8s", pUserData->uid);
                     sLine += sprintf(sLine, " %-8s",  uid);
+                } else {
+                    isAlias        = (info_byte & ALIAS_MASK);
+
+                    loadModuleSize = ((BYTE) *(currentPosition + 0xA)) << 16 |
+                                     ((BYTE) *(currentPosition + 0xB)) << 8  |
+                                     ((BYTE) *(currentPosition + 0xC));
+
+                    sLine += sprintf(sLine, " %.6x", loadModuleSize);
+
+                    if (isAlias) {
+                        bzero(aliasName, 9);
+                        sprintf(aliasName, "%.8s", currentPosition + 0x18);
+                        {
+                            // remove trailing blanks
+                            long   jj = 7;
+                            while (aliasName[jj] == ' ') jj--;
+                            aliasName[++jj] = 0;
+                        }
+                        sLine += sprintf(sLine, " %.8s", aliasName);
+                    }
                 }
 
                 if (pdsecount == maxdirent) {
@@ -1618,35 +1641,35 @@ void RxMvsRegFunctions()
     RxTcpRegFunctions();
 
     /* MVS specific functions */
-    RxRegFunction("ENCRYPT",    R_crypt,0);
-    RxRegFunction("DECRYPT",    R_decrypt,0);
-    RxRegFunction("FREE",       R_free, 0);
-    RxRegFunction("ALLOCATE",   R_allocate,0);
-    RxRegFunction("CREATE",     R_create,0);
-    RxRegFunction("EXISTS",     R_exists,0);
-    RxRegFunction("RENAME",     R_renamedsn,0);
-    RxRegFunction("REMOVE",     R_removedsn,0);
-    RxRegFunction("DUMPIT",     R_dumpIt,  0);
-    RxRegFunction("LISTIT",     R_listIt,  0);
-    RxRegFunction("WAIT",       R_wait,    0);
-    RxRegFunction("WTO",        R_wto ,    0);
-    RxRegFunction("ABEND",      R_abend ,  0);
-    RxRegFunction("USERID",     R_userid,  0);
-    RxRegFunction("LISTDSI",    R_listdsi, 0);
-    RxRegFunction("ROTATE",     R_rotate,0);
-    RxRegFunction("RHASH",      R_rhash,0);
-    RxRegFunction("SYSDSN",     R_sysdsn,  0);
-    RxRegFunction("SYSVAR",     R_sysvar,  0);
-    RxRegFunction("VLIST",      R_vlist,  0);
-    RxRegFunction("VXGET",      R_vxget,   0);
-    RxRegFunction("VXPUT",      R_vxput,   0);
-    RxRegFunction("BLDL",      R_bldl,   0);
-    RxRegFunction("STEMCOPY",   R_stemcopy,0);
-    RxRegFunction("DIR",   R_dir, 0);
-    RxRegFunction("CATCHIT",   R_catchIt,0);
+    RxRegFunction("ENCRYPT",    R_crypt,        0);
+    RxRegFunction("DECRYPT",    R_decrypt,      0);
+    RxRegFunction("FREE",       R_free,         0);
+    RxRegFunction("ALLOCATE",   R_allocate,     0);
+    RxRegFunction("CREATE",     R_create,       0);
+    RxRegFunction("EXISTS",     R_exists,       0);
+    RxRegFunction("RENAME",     R_renamedsn,    0);
+    RxRegFunction("REMOVE",     R_removedsn,    0);
+    RxRegFunction("DUMPIT",     R_dumpIt,       0);
+    RxRegFunction("LISTIT",     R_listIt,       0);
+    RxRegFunction("WAIT",       R_wait,         0);
+    RxRegFunction("WTO",        R_wto ,         0);
+    RxRegFunction("ABEND",      R_abend ,       0);
+    RxRegFunction("USERID",     R_userid,       0);
+    RxRegFunction("LISTDSI",    R_listdsi,      0);
+    RxRegFunction("ROTATE",     R_rotate,       0);
+    RxRegFunction("RHASH",      R_rhash,        0);
+    RxRegFunction("SYSDSN",     R_sysdsn,       0);
+    RxRegFunction("SYSVAR",     R_sysvar,       0);
+    RxRegFunction("VLIST",      R_vlist,        0);
+    RxRegFunction("BLDL",       R_bldl,         0);
+    RxRegFunction("STEMCOPY",   R_stemcopy,     0);
+    RxRegFunction("DIR",        R_dir,          0);
 #ifdef __DEBUG__
-    RxRegFunction("MAGIC",  R_magic, 0);
-    RxRegFunction("DUMMY",  R_dummy, 0);
+    RxRegFunction("MAGIC",      R_magic,        0);
+    RxRegFunction("DUMMY",      R_dummy,        0);
+    RxRegFunction("VXGET",      R_vxget,        0);
+    RxRegFunction("VXPUT",      R_vxput,        0);
+    RxRegFunction("CATCHIT",    R_catchIt,      ^0);
 #endif
 }
 
