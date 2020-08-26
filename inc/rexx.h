@@ -32,7 +32,7 @@
 #define VERSION         "V2R3M0"
 #define	VERSIONSTR	PACKAGE" "VERSION" ("__DATE__")"
 #define	AUTHOR		"Vasilis.Vlachoudis@cern.ch"
-#define MAINTAINER  "PeterJ, mgrossmann"
+#define MAINTAINER  "PeterJ, MikeG"
 #define	SCIENTIFIC	0
 #define ENGINEERING	1
 
