@@ -487,6 +487,7 @@ BinPrint(PBinLeaf leaf, PLstr filter)
                         printf("\"%f\" \n",LREAL(*(PLstr) ptr->value));
                         break;
                     case LSTRING_TY:
+                        LSTR(*(PLstr)ptr->value)[LLEN(*(PLstr)ptr->value)]=NULL;
                         printf("\"%s\" \n",LSTR (*(PLstr) ptr->value));
                         break;
                 }
