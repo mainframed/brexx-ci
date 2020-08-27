@@ -413,6 +413,108 @@ void R_lastword(int func) {
     if (lwi>0)  _Lsubstr(ARGR,ARG1,lwi+1,lwe-lwi);
     else LZEROSTR(*ARGR);
 }
+void R_join(int func) {
+    int mlen = 0, slen=0, i = 0;
+    Lstr joins;
+    if (ARGN != 2 || ARG1==NULL || ARG2==NULL) Lerror(ERR_INCORRECT_CALL, 0);
+    if (LLEN(*ARG1) <1) {
+       Lstrcpy(ARGR, ARG2);
+       return;
+    }
+    if (LLEN(*ARG2) <1) {
+        Lstrcpy(ARGR, ARG1);
+        return;
+    }
+        if (LLEN(*ARG1) > LLEN(*ARG2)) mlen = LLEN(*ARG1);
+    else mlen = LLEN(*ARG2);
+    slen=LLEN(*ARG2)-1;
+    if (mlen <= 0) {
+        LZEROSTR(*ARGR);
+        return;
+    }
+
+    LINITSTR(joins);
+    Lfx(&joins, mlen);
+    LLEN(joins)=mlen;
+
+    L2STR(ARG1);
+    LASCIIZ(*ARG1);
+    L2STR(ARG2);
+    LASCIIZ(*ARG2);
+
+    for (i = 0; i < mlen; i++) {
+        if (LSTR(*ARG2)[i] == ' '||i>slen) LSTR(joins)[i] = LSTR(*ARG1)[i];
+        else LSTR(joins)[i] = LSTR(*ARG2)[i];
+    }
+    Lstrcpy(ARGR, &joins);
+    LFREESTR(joins);
+}
+
+void R_split(int func) {
+    long i=0,j=0, n = 0, ctr=0;
+    Lstr Word, tabin;
+    char varName[255];
+
+    if (ARGN >3 || ARG1==NULL|| ARG2==NULL) Lerror(ERR_INCORRECT_CALL, 0);
+    LINITSTR(tabin);
+    Lfx(&tabin,32);
+    if (ARG3==NULL||LLEN(*ARG3)==0) {
+        LLEN(tabin)=1;
+        LSTR(tabin)[0]=' ';
+    } else Lstrcpy(&tabin,ARG3);
+    L2STR(ARG1);
+    LASCIIZ(*ARG1);
+    L2STR(ARG2);
+    LASCIIZ(*ARG2);
+    j=LLEN(*ARG2)-1;     // offset of last char
+    if (LSTR(*ARG2)[j]=='.') {
+       LLEN(*ARG2)=j;
+       LSTR(*ARG2)[j]=NULL;
+    }
+    Lupper(ARG2);
+    LINITSTR(Word);
+    Lfx(&Word,LLEN(*ARG1)+1);
+
+    bzero(varName, 255);
+// Loop over provided string
+    for (;;) {
+ //    SKIP to next Word, Drop all word delimiter
+          for (i = i; i < LLEN(*ARG1); i++) {
+              for (j = 0; j < LLEN(tabin); j++) {
+                  if (LSTR(*ARG1)[i] == LSTR(tabin)[j]) goto splitChar;  // split char found             }
+              }
+              break;
+              splitChar:
+              continue;
+          }
+        dropChar: ;
+        if (i>=LLEN(*ARG1)) break;
+//    SKIP to next Delimiter, scan word
+        for (n = i; n < LLEN(*ARG1); n++) {
+            for (j = 0; j < LLEN(tabin); j++) {
+                if (LSTR(*ARG1)[n] == LSTR(tabin)[j]) goto splitCharf;  // split char found             }
+            }
+            continue;
+            splitCharf:
+            break;
+        }
+ //    Move Word into STEM
+        ctr++;                    // Next word found, increase counter
+        _Lsubstr(&Word,ARG1,i+1,n-i);
+        LSTR(Word)[n-i]=NULL;     // set 0 for end of string
+        LLEN(Word)=n-i;
+        sprintf(varName, "%s.%i",LSTR(*ARG2) ,ctr);
+        setVariable(varName, LSTR(Word));  // set stem variable
+        i=n;                      // newly set string offset for next loop
+    }
+//  set stem.0 content for found words
+    sprintf(varName, "%s.0",LSTR(*ARG2));
+    sprintf(LSTR(Word), "%ld", ctr);
+    setVariable(varName, LSTR(Word));
+    LFREESTR(Word);
+    LFREESTR(tabin);
+    Licpy(ARGR, ctr);   // return number if found words
+}
 
 void R_wait(int func)
 {
@@ -1702,6 +1804,8 @@ void RxMvsRegFunctions()
     RxRegFunction("SYSDSN",     R_sysdsn,       0);
     RxRegFunction("SYSVAR",     R_sysvar,       0);
     RxRegFunction("UPPER",      R_upper,  0);
+    RxRegFunction("JOIN",      R_join,  0);
+    RxRegFunction("SPLIT",      R_split,  0);
     RxRegFunction("LOWER",      R_lower,  0);
     RxRegFunction("LASTWORD",   R_lastword,  0);
     RxRegFunction("VLIST",      R_vlist,        0);
@@ -1964,7 +2068,6 @@ setVariable(char *sName, char *sValue)
     Licpy(&lsScope,_rx_proc);
     Lscpy(&lsName, sName);
     Lscpy(&lsValue, sValue);
-
     RxPoolSet(&lsScope, &lsName, &lsValue);
 
     LFREESTR(lsScope)
