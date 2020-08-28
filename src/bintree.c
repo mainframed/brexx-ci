@@ -654,6 +654,7 @@ BinVarDump(PLstr result, PBinLeaf leaf, PLstr filter, int mode)
                        L2str((PLstr) ptr->value);
                    }
                    Lcat(result, "='");
+                   LSTR(*(PLstr)ptr->value)[LLEN(*(PLstr)ptr->value)]=NULL;
                    Lcat(result, LSTR(*(PLstr) ptr->value));
                    Lcat(result, "'\n");
                } else Lcat(result, "\n");
