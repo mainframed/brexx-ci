@@ -414,9 +414,9 @@ void R_lastword(int func) {
     else LZEROSTR(*ARGR);
 }
 void R_join(int func) {
-    int mlen = 0, slen=0, i = 0;
-    Lstr joins;
-    if (ARGN != 2 || ARG1==NULL || ARG2==NULL) Lerror(ERR_INCORRECT_CALL, 0);
+    int mlen = 0, slen=0, i = 0,j=0;
+    Lstr joins, tabin;
+    if (ARGN >3 || ARGN<2 || ARG1==NULL || ARG2==NULL) Lerror(ERR_INCORRECT_CALL, 0);
     if (LLEN(*ARG1) <1) {
        Lstrcpy(ARGR, ARG2);
        return;
@@ -425,12 +425,21 @@ void R_join(int func) {
         Lstrcpy(ARGR, ARG1);
         return;
     }
-        if (LLEN(*ARG1) > LLEN(*ARG2)) mlen = LLEN(*ARG1);
+    if (LLEN(*ARG1) > LLEN(*ARG2)) mlen = LLEN(*ARG1);
     else mlen = LLEN(*ARG2);
     slen=LLEN(*ARG2)-1;
     if (mlen <= 0) {
         LZEROSTR(*ARGR);
         return;
+    }
+    LINITSTR(tabin);
+    Lfx(&tabin,32);
+    if (ARG3==NULL||LLEN(*ARG3)==0) {
+        LLEN(tabin)=1;
+        LSTR(tabin)[0]=' ';
+    } else {
+        L2STR(ARG3);
+        Lstrcpy(&tabin,ARG3);
     }
 
     LINITSTR(joins);
@@ -443,11 +452,16 @@ void R_join(int func) {
     LASCIIZ(*ARG2);
 
     for (i = 0; i < mlen; i++) {
-        if (LSTR(*ARG2)[i] == ' '||i>slen) LSTR(joins)[i] = LSTR(*ARG1)[i];
-        else LSTR(joins)[i] = LSTR(*ARG2)[i];
+        for (j = 0; j < LLEN(tabin); j++) {
+            if (LSTR(*ARG2)[i] == LSTR(tabin)[j]) goto joinChar;  // split char found             }
+        }
+        LSTR(joins)[i] = LSTR(*ARG2)[i];
+        continue;
+        joinChar:   LSTR(joins)[i] = LSTR(*ARG1)[i];
     }
     Lstrcpy(ARGR, &joins);
     LFREESTR(joins);
+    LFREESTR(tabin);
 }
 
 void R_split(int func) {
@@ -461,7 +475,10 @@ void R_split(int func) {
     if (ARG3==NULL||LLEN(*ARG3)==0) {
         LLEN(tabin)=1;
         LSTR(tabin)[0]=' ';
-    } else Lstrcpy(&tabin,ARG3);
+    } else {
+        L2STR(ARG3);
+        Lstrcpy(&tabin,ARG3);
+    }
     L2STR(ARG1);
     LASCIIZ(*ARG1);
     L2STR(ARG2);
