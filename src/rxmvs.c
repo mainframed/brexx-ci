@@ -1407,14 +1407,14 @@ void R_renamedsn(int func)
 // * Test certain RENAME some scenarios
 // * ---------------------------------------------------------------------------------------
     if (LLEN(oldMember)==0 && LLEN(newMember)!=0 || LLEN(oldMember)!=0 && LLEN(newMember)==0) goto incomplete;
-    if (strcmp(sFileNameOld,sFileNameNew)==0 ){
+    if (Lstrcmp(&oldDSN,&newDSN)==0 ){
         if (LLEN(oldMember)==0 && LLEN(newMember)==0) goto STequal;
         if (LLEN(oldMember)>0 && LLEN(newMember)>0) {
             if (strcmp((const char *) LSTR(oldMember),(const char *) LSTR(newMember))==0) goto STequal;
             goto doRename;  // perform Member Rename
         }
     }
-    if (strcmp(sFileNameOld,sFileNameNew)!=0 ) {
+    if (Lstrcmp(&oldDSN,&newDSN)!=0 ) {
         if (LLEN(oldMember) > 0 && LLEN(newMember) > 0) goto invalren;
         else if (LLEN(oldMember) == 0 && LLEN(newMember) == 0) goto doRename;
     }
