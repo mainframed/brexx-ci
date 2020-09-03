@@ -141,6 +141,7 @@ void R_tcpwait(__unused int func) {
 
         } else {
             rc = -1; // NO SERVER SOCKET
+            Licpy(ARGR, rc);
         }
 
         if (rc == 0) {
@@ -229,9 +230,6 @@ void R_tcpwait(__unused int func) {
         }
     }
 
-    if (rc != 0) {
-        Licpy(ARGR, rc);
-    }
 }
 
 void R_tcpopen(__unused int func) {
