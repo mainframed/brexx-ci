@@ -216,6 +216,7 @@ int  call_rxstime (RX_STIME_PARAMS_PTR params);
 int  call_rxwto (RX_WTO_PARAMS_PTR params);
 int  call_rxwait (RX_WAIT_PARAMS_PTR params);
 unsigned int call_rxabend (RX_ABEND_PARAMS_PTR params);
+int cputime(char **time);
 #else
 extern int  call_rxinit(RX_INIT_PARAMS_PTR params);
 extern int  call_rxtso(RX_TSO_PARAMS_PTR params);

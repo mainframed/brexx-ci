@@ -21,6 +21,15 @@ int rac_user_auth(char *userName, char *password)
     return rc;
 }
 
+int cputime(char **time)
+{
+    int rc = 0;
+
+    strcpy(*time, "0000001234567890");
+
+    return rc;
+}
+
 /* dummy implementations for cross development */
 int call_rxinit(RX_INIT_PARAMS_PTR params)
 {

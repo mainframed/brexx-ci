@@ -1144,6 +1144,21 @@ R_dir( const int func )
     }
 }
 
+void __CDECL
+R_cputime( const int func )
+{
+    int rc = 0;
+
+    char time[16];
+    char *sTime = time;
+
+    bzero(time, 16);
+
+    rc = cputime(&sTime);
+
+    Licpy(ARGR, strtol(time, &sTime, 10));
+}
+
 // -------------------------------------------------------------------------------------
 // Encrypt/Decrypt  String Sub procedure
 // -------------------------------------------------------------------------------------
@@ -1820,15 +1835,16 @@ void RxMvsRegFunctions()
     RxRegFunction("RHASH",      R_rhash,        0);
     RxRegFunction("SYSDSN",     R_sysdsn,       0);
     RxRegFunction("SYSVAR",     R_sysvar,       0);
-    RxRegFunction("UPPER",      R_upper,  0);
-    RxRegFunction("JOIN",      R_join,  0);
-    RxRegFunction("SPLIT",      R_split,  0);
-    RxRegFunction("LOWER",      R_lower,  0);
-    RxRegFunction("LASTWORD",   R_lastword,  0);
+    RxRegFunction("UPPER",      R_upper,        0);
+    RxRegFunction("JOIN",       R_join,         0);
+    RxRegFunction("SPLIT",      R_split,        0);
+    RxRegFunction("LOWER",      R_lower,        0);
+    RxRegFunction("LASTWORD",   R_lastword,     0);
     RxRegFunction("VLIST",      R_vlist,        0);
     RxRegFunction("BLDL",       R_bldl,         0);
     RxRegFunction("STEMCOPY",   R_stemcopy,     0);
     RxRegFunction("DIR",        R_dir,          0);
+    RxRegFunction("CPUTIME",    R_cputime,      0);
 #ifdef __DEBUG__
     RxRegFunction("MAGIC",      R_magic,        0);
     RxRegFunction("DUMMY",      R_dummy,        0);
