@@ -29,7 +29,7 @@ RXINIT   MRXSTART A2PLIST=YES  START OF PROGRAM
          L     R4,ENVPTR       GET PTR TO ENVIRONMENT AREA
          GETMAIN R,LV=USRLEN   GET STORAFE FOR USER AREA
          LR    R5,R1           SAVE GETMAIN POINTER
-         USING ENV,R4
+         USING ENVCTX,R4
          USING USER,R5
          DROP  RB
 *
@@ -106,6 +106,10 @@ PREPARE  CSECT ,
          L     R4,ASCBASXB-ASCB(,R3) AND THEN TO THE ASXB
          ST    R4,USRPASXB     STORE ADDRESS IN THE USER AREA
 *
+         L     R3,ASXBLWA-ASXB(,R4) GET ADRESS OF THE LWA
+         L     R4,LWAPECT-LWA(,R3) POINT TO THE CURRENT ECT
+         ST    R4,USRPECT      STORE ADDRESS IN THE USER AREA
+ 
          L     R3,FLCCVT       POINT TO THE CURRENT CVT
          ST    R3,USRPCVT      STORE ADDRESS IN THE USER AREA
 *
@@ -138,7 +142,9 @@ PREPARE  CSECT ,
          USING USER,R5
 CHKISPF  CSECT ,
 *
-* --- ENTRY CODING
+* ---------------------------------------------------------------------
+* ENTRY CODING
+* ---------------------------------------------------------------------
          SAVE  (14,12),,CHKISPF  SAVE CALLER'S REGISTERS
          BALR  R12,R0          ESTABLISH ADDRESSABILITY
          USING *,R12           SET BASE REGISTER
@@ -180,13 +186,16 @@ CHKISPF  CSECT ,
              OI  UFLAGS2,UF2ISPF
            ENDIF
          ENDIF
-* --- EXIT CODING
+* ---------------------------------------------------------------------
+* EXIT CODING
+* ---------------------------------------------------------------------
          L     R13,4(,R13)     PICK UP CALLER'S SAVE AREA
          L     R14,12(,R13)    GET RETURN ADDRESS
          RETURN (0,12)
-* ---
+*
          LTORG
 ISPTPNAM DC    CL8'ISPQRY'
+*
          EJECT
 * =====================================================================
 * CHKTSO
@@ -204,7 +213,9 @@ ISPTPNAM DC    CL8'ISPQRY'
          USING USER,R5
 CHKTSO   CSECT ,
 *
-* --- ENTRY CODING
+* ---------------------------------------------------------------------
+* ENTRY CODING
+* ---------------------------------------------------------------------
          SAVE  (14,12),,CHKTSO SAVE CALLER'S REGISTERS
          BALR  R12,R0          ESTABLISH ADDRESSABILITY
          USING *,R12           SET BASE REGISTER
@@ -214,12 +225,11 @@ CHKTSO   CSECT ,
          ST    R11,8(R13)      STORE FORWARD POINTER
 *
          LR    R13,R11         GET SAVE AREA ADDRESS ..
-* ---
 * ---------------------------------------------------------------------
 * USING THE EXTRACT MACRO TO GET CONTROL BLOCKS FROM TCB
 * ---------------------------------------------------------------------
          EXTRACT UEXTADDR,FIELDS=(TIOT,TSO,PSB),MF=(E,ULEXTR)
-         LM    R1,R3,UEXTADDR    R1   R2  R3
+         LM    R1,R3,UEXTADDR     R1   R2  R3
          ST    R1,USRPTIOT     SAVE POINTER TO TIOT     3X INIT
 * --- TEST FOR FOREGROUND TSO
          IF (TM,0(R2),X'80',O) TEST HIGH-ORDER BIT
@@ -230,11 +240,13 @@ CHKTSO   CSECT ,
            ST  R3,USRPSCB
            OI  UFLAGS2,UF2TSOBG  MARK BACKGROUND TSO AS FOUND
          ENDIF
-* --- EXIT CODING
+* ---------------------------------------------------------------------
+* EXIT CODING
+* ---------------------------------------------------------------------
          L     R13,4(,R13)     PICK UP CALLER'S SAVE AREA
          L     R14,12(,R13)    GET RETURN ADDRESS
          RETURN (0,12)
-* ---
+*
          LTORG
 *
          EJECT
@@ -256,7 +268,9 @@ CHKTSO   CSECT ,
          USING USER,R5
 CHKEXEC  CSECT ,
 *
-* --- ENTRY CODING
+* ---------------------------------------------------------------------
+* ENTRY CODING
+* ---------------------------------------------------------------------
          SAVE  (14,12),,CHKEXEC  SAVE CALLER'S REGISTERS
          BALR  R12,R0          ESTABLISH ADDRESSABILITY
          USING *,R12           SET BASE REGISTER
@@ -266,7 +280,9 @@ CHKEXEC  CSECT ,
          ST    R11,8(R13)      STORE FORWARD POINTER
 *
          LR    R13,R11         GET SAVE AREA ADDRESS ..
-* ---
+* ---------------------------------------------------------------------
+* CHECK FOR EXEC / CLIST ENVIRONMENT
+* ---------------------------------------------------------------------
          IF (TM,UFLAGS2,UF2TSOFG,O),OR,                                *
                (TM,UFLAGS2,UF2TSOBG,O)
 *
@@ -276,17 +292,19 @@ CHKEXEC  CSECT ,
            L   R1,ECTIOWA-ECT(,R2)  AND THEN TO THE IOSRL
            L   R2,IOSTELM-IOSRL(,R1) AND THEN TO THE IOSTELM
            LA  R1,INSCODE-INSTACK(,R2) FINALLY TO THE STACK OPTIONS
-
+ 
            IF (TM,0(R1),INSEXEC,O) TEST STACK OPTIONS
              OI  UFLAGS2,UF2EXEC     MARKS AS EXEC
            ENDIF
 *
          ENDIF
-* --- EXIT CODING
+* ---------------------------------------------------------------------
+* EXIT CODING
+* ---------------------------------------------------------------------
          L     R13,4(,R13)     PICK UP CALLER'S SAVE AREA
          L     R14,12(,R13)    GET RETURN ADDRESS
          RETURN (0,12)
-* ---
+*
          LTORG
 *
          EJECT
@@ -306,7 +324,7 @@ CHKEXEC  CSECT ,
 *              R12   BASE REGISTER
 *
 * =====================================================================
-         USING ENV,R4
+         USING ENVCTX,R4
          USING USER,R5
 CHKALLOC CSECT ,
 *
@@ -347,24 +365,31 @@ CHKALLOC CSECT ,
 *
          DROP  R6              TIOT IS NOT LONGER NEEDED
 * ---------------------------------------------------------------------
-* HANDLE THE MISSING ALLOCATIONS
+* HANDLE THE MISSING ALLOCATIONS - STDIN / STDOUT / STDERR
 * ---------------------------------------------------------------------
          IF (TM,UFLAGS2,UF2TSOFG,O) ONLY FOR TSOFG
            IF (TM,UFLAGS1,UF1IN,NO)
-             CALL ALLOCATE,(=CL8'STDIN'),MF=(E,ULCALL2) ALLOC STDIN
+             CALL DYNATERM,(=CL8'STDIN'),MF=(E,ULCALL2) ALLOC STDIN
              OI  UFLAGS3,UF3IN MARK STDIN AS ALLOCATED
            ENDIF
-
+ 
            IF (TM,UFLAGS1,UF1OUT,NO)
-             CALL ALLOCATE,(=CL8'STDOUT'),MF=(E,ULCALL2) ALLOC STDOUT
+             CALL DYNATERM,(=CL8'STDOUT'),MF=(E,ULCALL2) ALLOC STDOUT
              OI  UFLAGS3,UF3OUT MARK STDOUT AS ALLOCATED
            ENDIF
-
+ 
            IF (TM,UFLAGS1,UF1ERR,NO)
-             CALL ALLOCATE,(=CL8'STDERR'),MF=(E,ULCALL2) ALLOC STDERR
+             CALL DYNATERM,(=CL8'STDERR'),MF=(E,ULCALL2) ALLOC STDERR
              OI  UFLAGS3,UF3ERR MARK STDERR AS ALLOCATED
            ENDIF
          ENDIF
+* ---------------------------------------------------------------------
+* ALLOCATE VIO DATASETS - TMPIN / TMPOUT
+* ---------------------------------------------------------------------
+*        CALL DYNAVIO,(=CL8'TMPIN'),MF=(E,ULCALL2)
+*        OI  UFLAGS3,UF3VIN  MARK TMPIN  AS ALLOCATED
+*        CALL DYNAVIO,(=CL8'TMPOUT'),MF=(E,ULCALL2)
+*        OI  UFLAGS3,UF3VOUT MARK TMPOUT AS ALLOCATED
 * ---------------------------------------------------------------------
 * EXIT CODING
 * ---------------------------------------------------------------------
@@ -391,7 +416,7 @@ CHKALLOC CSECT ,
 *              R12   BASE REGISTER
 *
 * =====================================================================
-         USING ENV,R4
+         USING ENVCTX,R4
          USING USER,R5
 UPDENV   CSECT ,
 *
@@ -412,6 +437,16 @@ UPDENV   CSECT ,
 * ---------------------------------------------------------------------
          L     R1,USRFLAGS
          ST    R1,ENVFLAGS
+* ---------------------------------------------------------------------
+* CREATE ECT POINTER FOR REXX ENVIRONMENT CONTEXT
+* ---------------------------------------------------------------------
+         IF (TM,UFLAGS2,UF2TSOFG,O),OR,                                *
+               (TM,UFLAGS2,UF2TSOBG,O)
+*
+           L     R6,USRPECT    SET REXX ENVIRONMENT CONTEXT
+           ST    R4,48(,R6)      IN THE ECTENVBK FIELD
+*
+         ENDIF
 * ---------------------------------------------------------------------
 * FILL TSO SYSVAR VALUES IN ENVIRONMENT AREA
 * ---------------------------------------------------------------------
@@ -491,9 +526,9 @@ ISPFNA   DC    CL10'NOT ACTIVE',X'00'
 *
          EJECT
 * =====================================================================
-* ALLOCATE
+* DYNATERM
 *
-*     PERFORM ALLOCATION FOR GIVE DD NAME
+*     PERFORM TERMINAL ALLOCATION FOR GIVE DD NAME
 *
 *     INPUT:
 *              R1    PARAMS
@@ -507,12 +542,12 @@ ISPFNA   DC    CL10'NOT ACTIVE',X'00'
 *
 * =====================================================================
          USING USER,R5
-ALLOCATE CSECT ,
+DYNATERM CSECT ,
 *
 * ---------------------------------------------------------------------
 * ENTRY CODING
 * ---------------------------------------------------------------------
-         SAVE  (14,12),,ALLOCATE SAVE CALLER'S REGISTERS
+         SAVE  (14,12),,DYNATERM SAVE CALLER'S REGISTERS
          BALR  R12,R0          ESTABLISH ADDRESSABILITY
          USING *,R12           SET BASE REGISTER
 *
@@ -605,62 +640,123 @@ MAPERMU  DC    AL2(DALPERMA),X'0000'            PERMANENT
 MASTATSU DC    AL2(DALSTATS),X'0001',X'0001'    STATUS
          EJECT
 * =====================================================================
+* DYNAVIO
+*
+*     PERFORM VIO ALLOCATION FOR GIVE DD NAME
+*
+*     INPUT:
+*              R1    PARAMS
+*              R5    USERAREA
+*
+*     OUTPUT:
+*
+*     REGISTER USAGE:
+*              R5    USERREA
+*              R12   BASE REGISTER
+*
+* =====================================================================
+         USING USER,R5
+DYNAVIO  CSECT ,
+*
+* ---------------------------------------------------------------------
+* ENTRY CODING
+* ---------------------------------------------------------------------
+         SAVE  (14,12),,DYNAVIO  SAVE CALLER'S REGISTERS
+         BALR  R12,R0          ESTABLISH ADDRESSABILITY
+         USING *,R12           SET BASE REGISTER
+*
+         LA    R11,USRSA2      GET SAVE AREA POINTER
+         ST    R13,4(R11)      STORE BACKWARD POINTER
+         ST    R11,8(R13)      STORE FORWARD POINTER
+*
+         LR    R13,R11         GET SAVE AREA ADDRESS ..
+* ---------------------------------------------------------------------
+* GET DD NAME FROM PARAMETERS
+* ---------------------------------------------------------------------
+         L     R10,0(,R1)
+         LA    R10,0(,R10)
+* ---------------------------------------------------------------------
+* PREPARE REQUEST BLOCK
+* ---------------------------------------------------------------------
+         XC    UARBP(UALEN),UARBP CLEAR
+*
+         LA    R9,UARBP
+         USING S99RBP,R9
+         LA    R4,S99RBPTR+L'S99RBPTR
+         USING S99RB,R4
+         ST    R4,S99RBPTR
+         OI    S99RBPTR,S99RBPND
+         DROP  R9
+* ---------------------------------------------------------------------
+* BUILD REQUEST BLOCK
+* ---------------------------------------------------------------------
+         MVI   S99RBLN,S99RBLEN
+         MVI   S99VERB,S99VRBAL
+         LA    R2,UATUPL
+         ST    R2,S99TXTPP
+         DROP  R4
+*
+         USING S99TUPL,R2
+* ---------------------------------------------------------------------
+* ADD DALDDNAM TEXT UNIT POINTER TO LIST
+* ---------------------------------------------------------------------
+         LA    R6,UADDNAMU
+         ST    R6,S99TUPTR
+* ---------------------------------------------------------------------
+* ADD DALTERM TEXT UNIT POINTER TO LIST
+* ---------------------------------------------------------------------
+         LA    R2,S99TUPL+L'S99TUPTR POINT TO NEXT ELEMENT
+         LA    R6,UATERMU
+         ST    R6,S99TUPTR
+* ---------------------------------------------------------------------
+* ADD DALPERMA TEXT UNIT POINTER TO LIST
+* ---------------------------------------------------------------------
+         LA    R2,S99TUPL+L'S99TUPTR POINT TO NEXT ELEMENT
+         LA    R6,UAPERMU
+         ST    R6,S99TUPTR
+* ---------------------------------------------------------------------
+* ADD DALSTATS TEXT UNIT POINTER TO LIST
+* ---------------------------------------------------------------------
+         LA    R2,S99TUPL+L'S99TUPTR POINT TO NEXT ELEMENT
+         LA    R6,UASTATSU
+         ST    R6,S99TUPTR
+* ---------------------------------------------------------------------
+* MARK LAST ENTRY IN TEXT UNIT POINTER LIST
+* ---------------------------------------------------------------------
+         OI    S99TUPTR,S99TUPLN
+* ---------------------------------------------------------------------
+* BUILD TEXT UNITS
+* ---------------------------------------------------------------------
+         MVC   UADDNAMU(UADDNAML),MBDDNAMU
+         MVC   UATERMU(UATERML),MBTERMU
+         MVC   UASTATSU(UASTATSL),MBSTATSU
+* ---------------------------------------------------------------------
+* FILL TEXT UNITS WITH VALUES
+* ---------------------------------------------------------------------
+         MVC   UADDNAM(L'UADDNAM),0(R10) DDNAME
+         MVI   UASTATS,X'08'             STATUS SHARE
+*
+         LA    R1,UARBP
+         DYNALLOC
+* ---------------------------------------------------------------------
+* EXIT CODING
+* ---------------------------------------------------------------------
+         L     R13,4(,R13)     PICK UP CALLER'S SAVE AREA
+         L     R14,12(,R13)    GET RETURN ADDRESS
+         RETURN (0,12)
+*
+         LTORG
+*
+MBDDNAMU DC    AL2(DALDDNAM),X'0001',X'0008'    DDNAME
+MBTERMU  DC    AL2(DALTERM),X'0000'             TERMINAL
+MBSTATSU DC    AL2(DALSTATS),X'0001',X'0001'    STATUS
+         EJECT
+* =====================================================================
 * PARAMETER AREA
 * =====================================================================
 PARAMS   DSECT
 ENVPTR   DS    A
 WORKPTR  DS    A
-* =====================================================================
-* EVIRONMENT AREA
-* =====================================================================
-ENV      DSECT
-* --- SYSVAR
-SYSPREF  DS    CL8
-SYSUID   DS    CL8
-SYSENV   DS    CL5
-SYSISPF  DS    CL11
-* --- FLAG FIELDS
-ENVFLAGS DS    0F
-* ALLOCATIONS FOUND
-EFLAGS1  DC    X'00'
-EF1B8    EQU   X'80' 1... ....  UNSED
-EF1B7    EQU   X'40' .1.. ....  UNSED
-EF1B6    EQU   X'20' ..1. ....  UNSED
-EF1B5    EQU   X'10' ...1 ....  UNSED
-EF1RXL   EQU   X'08' .... 1...  RXLIB  ALLOCATION FOUND
-EF1ERR   EQU   X'04' .... .1..  STDERR ALLOCATION FOUND
-EF1OUT   EQU   X'02' .... ..1.  STDOUT ALLOCATION FOUND
-EF1IN    EQU   X'01' .... ...1  STDIN  ALLOCATION FOUND
-* ENVIRONMENTS FOUND
-EFLAGS2  DC    X'00'
-EF2B8    EQU   X'80' 1... ....  UNSED
-EF2B7    EQU   X'40' .1.. ....  UNSED
-EF2B6    EQU   X'20' ..1. ....  UNSED
-EF2B5    EQU   X'10' ...1 ....  UNSED
-EF2ISPF  EQU   X'08' .... 1...  ISPF ENVIRONMENT FOUND
-EF2EXEC  EQU   X'04' .... .1..  EXEC ENVIRONMENT FOUND
-EF2TSOBG EQU   X'02' .... ..1.  TSO BACKGROUND ENVIRONMENT FOUND
-EF2TSOFG EQU   X'01' .... ...1  TSO FOREGROUND ENVIRONMENT FOUND
-* ALLOCATIONS MADE BY US
-EFLAGS3  DC    X'00'
-EF3B8    EQU   X'80' 1... ....  UNSED
-EF3B7    EQU   X'40' .1.. ....  UNSED
-EF3B6    EQU   X'20' ..1. ....  UNSED
-EF3B5    EQU   X'10' ...1 ....  UNSED
-EF3B4    EQU   X'08' .... 1...  UNSED
-EF3ERR   EQU   X'04' .... .1..  STDERR ALLOCATED
-EF3OUT   EQU   X'02' .... ..1.  STDOUT ALLOCATED
-EF3IN    EQU   X'01' .... ...1  STDIN  ALLOCATED
-* SPARE FLAGS
-EFLAGS4  DC    X'00'
-EF4B8    EQU   X'80' 1... ....  UNSED
-EF4B7    EQU   X'40' .1.. ....  UNSED
-EF4B6    EQU   X'20' ..1. ....  UNSED
-EF4B5    EQU   X'10' ...1 ....  UNSED
-EF4B4    EQU   X'08' .... 1...  UNSED
-EF4B3    EQU   X'04' .... .1..  UNSED
-EF4B2    EQU   X'02' .... ..1.  UNSED
-EF4B1    EQU   X'01' .... ...1  UNSED
 * =====================================================================
 * USER AREA DUMMY SECTION
 * =====================================================================
@@ -672,6 +768,7 @@ USRSA2   DS    18F             SAVE AREA DEPTH 2
 * --- ADDRESS FIELDS
 USRPASCB DS    F               PTR TO ASCB
 USRPASXB DS    F               PTR TO ASXB
+USRPECT  DS    F               PTR TO ECT
 USRPTCB  DS    F               PTR TO TCB
 USRPTIOT DS    F               PTR TO TIOT
 USRPCVT  DS    F               PTR TO CVT
@@ -716,8 +813,8 @@ UFLAGS3  DC    X'00'
 UF3B8    EQU   X'80' 1... ....  UNSED
 UF3B7    EQU   X'40' .1.. ....  UNSED
 UF3B6    EQU   X'20' ..1. ....  UNSED
-UF3B5    EQU   X'10' ...1 ....  UNSED
-UF3B4    EQU   X'08' .... 1...  UNSED
+UF3VOUT  EQU   X'10' ...1 ....  TMPOUT ALLOCATED
+UF3VIN   EQU   X'08' .... 1...  TMPIN  ALLOCATED
 UF3ERR   EQU   X'04' .... .1..  STDERR ALLOCATED
 UF3OUT   EQU   X'02' .... ..1.  STDOUT ALLOCATED
 UF3IN    EQU   X'01' .... ...1  STDIN  ALLOCATED
@@ -748,9 +845,13 @@ UASTATS  DS    X'08'           SHR
 UALEN    EQU *-UARBP
 USRLEN   EQU *-USER
          EJECT
-* ---------------------------------------------------------------------
+* =====================================================================
+* EVIRONMENT CONTEXT
+* =====================================================================
+         #ENVCTX                  BREXX ENVIRONMENT CONTEXT
+* =====================================================================
 * OTHER DUMMY SECTIONS
-* ---------------------------------------------------------------------
+* =====================================================================
          CVT      DSECT=YES       COMMON VECTOR TABLE
          IHAPSA   DSECT=YES       PREFIXED SAVE AREA
          IHAASCB  DSECT=YES       ADDRESS SPACE CONTOL BLOCK
@@ -759,6 +860,7 @@ USRLEN   EQU *-USER
          IKJEFLWA ,               LOGON WORK AREA
          IKJECT   ,               ENVIRONMENT CONTROL TABLE
          IKJPSCB  ,               PROTECTED STEP CONTROL BLOCK
+         IKJTCB   LIST=YES        TASK CONTROL BLOCK
          IKJUPT   ,               USER PROFILE TABLE
          IEFTIOT1 ,               TASK INPUT OUTPUT TABLE
          IEFZB4D0 ,               DYNALLOC PARAMETER LIST
