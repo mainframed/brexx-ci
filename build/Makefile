@@ -1,3 +1,5 @@
+TARGET    := brexx.objp
+
 JCCFOLDER  = ../../jcc
 OBJSCAN    = $(JCCFOLDER)/objscan
 PRELINK    = $(JCCFOLDER)/prelink
@@ -8,8 +10,8 @@ JCCOBJS    = $(JCCFOLDER)/objs
 JCCLIBLIST = $(JCCOBJS)/liblst.txt
 
 
-SRC_DIRS ?= ../src ../printf ../lstring ../rac ../dynit ../fss
-INC_DIRS ?= $(JCCINCS) ../inc ../printf ../rac ../dynit ../fss ../cross
+SRC_DIRS ?= ../src ../lstring ../rac ../dynit ../fss
+INC_DIRS ?= $(JCCINCS) ../inc ../rac ../dynit ../fss ../cross
 
 VPATH = $(SRC_DIRS)
 
@@ -30,7 +32,7 @@ all: $(TARGET)
 $(TARGET): link
 
 link: assemble
-        @echo '# tbd - calling the mvs link job'
+        @echo "# tbd - calling the mvs link job"
 
 assemble: transfer
         @echo "# tbd - calling the mvs assemble job"
@@ -40,12 +42,12 @@ transfer: local_prelink
 
 local_prelink: $(OBJS)
         @echo "# prelining JCC objects into brexx.objp"
-        @$(PRELINK) -s $(JCCOBJS) brexx.objp  $(OBJS)
+        @$(PRELINK) -s $(JCCOBJS) brexx.objp $(OBJS) > prelink.log 2>&1
 
 %.obj: %.c
         @echo "# compiling " $^
-        $(JCC) $<
-        @echo "# done"
+        @$(JCC) $< > jcc.log 2>&1
+
 
 .PHONY: clean
 
