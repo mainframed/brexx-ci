@@ -1,8 +1,18 @@
 #!/bin/bash
 
+# Dual mode: clean and Upload/Assemble/Link
+
+CLASS="A"
+
+
 if [ $1 = "clean" ]; then
+
+if [ $# = 2 ]; then
+    CLASS=$2
+fi
+
 cat << JCLCLEAN
-//BRCLEAN1 JOB CLASS=A,MSGCLASS=A,MSGLEVEL=(1,1),
+//BRCLEAN1 JOB CLASS=A,MSGCLASS=$CLASS,MSGLEVEL=(1,1),
 //         USER=HERC01,PASSWORD=CUL8TR
 //*********************************************************************
 //* DELETE PRIOR VERSIONS OF SOURCE AND OBJECT DATASETS               *
@@ -39,9 +49,12 @@ JCLCLEAN
 exit
 fi
 
+if [ $# = 4 ]; then
+    CLASS=$4
+fi
 
-cat <<'END_HEREDOC'
-//BRUPASLN JOB CLASS=A,MSGCLASS=A,MSGLEVEL=(1,1),
+cat <<END_HEREDOC
+//BRUPASLN JOB CLASS=A,MSGCLASS=$CLASS,MSGLEVEL=(1,1),
 //         USER=HERC01,PASSWORD=CUL8TR
 //*********************************************************************
 //* DELETE PRIOR VERSIONS OF SOURCE AND OBJECT DATASETS               *
