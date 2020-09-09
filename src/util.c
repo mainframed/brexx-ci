@@ -1,10 +1,11 @@
+#include "util.h"
+
 #include <stdio.h>
 #include <ctype.h>
 #include <errno.h>
 #include "lstring.h"
 #include "lerror.h"
 #include "rxmvsext.h"
-#include "util.h"
 
 int IsReturnCode(char * input) {
     int iRet = 0;
