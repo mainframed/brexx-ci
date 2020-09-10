@@ -102,7 +102,7 @@ endif
 
 local_prelink: $(OBJS)
 	@echo "# prelinking JCC objects into brexx.objp"
-	@$(PRELINK) -s $(JCCOBJS) brexx.objp $(OBJS) >> prelink.log 2>&1
+	@$(PRELINK) -s $(JCCOBJS) brexx.objp $(OBJS) obj/rxmvsext.obj >> prelink.log 2>&1
 	
 
 %.obj: %.c
