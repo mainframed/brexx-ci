@@ -1,6 +1,24 @@
-TARGET      := brexx.objp
+#
+# change the following variables to fit your needs
+#
 
 JCCFOLDER   := ../../jcc
+RDRPREP     := rdrprep
+TK4HOST     := localhost
+TK4PORT     := 3505
+TK4USER     := HERC01
+TK4PASS     := CUL8TR
+TK4PRINTER  := ~/DEV/tk4/prt/prt00e.txt
+# by default it will send to MSGCLASS A or H, set
+# CUSTOMCLASS below if you want to use a different class
+CUSTOMCLASS := 
+
+#
+#
+#
+
+TARGET      := brexx.objp
+
 OBJSCAN     := $(JCCFOLDER)/objscan
 PRELINK     := $(JCCFOLDER)/prelink
 #CC          := $(JCCFOLDER)/jcc
@@ -8,17 +26,8 @@ CC          := wine $(JCCFOLDER)/jcc.exe
 JCCINCS     := $(JCCFOLDER)/include
 JCCOBJS     := $(JCCFOLDER)/objs
 JCCLIBLIST  := $(JCCOBJS)/liblst.txt
-RDRPREP     := rdrprep
-TK4HOST     := localhost
-TK4PORT     := 3505
-TK4USER     := HERC01
-TK4PASS     := CUL8TR
-TK4PRINTER  := 
 NC          := nc
 SLEEP       := 20
-# by default it will send to MSGCLASS A or H, set
-# CUSTOMCLASS below if you want to use a different class
-CUSTOMCLASS := 
 
 ########################################
 
