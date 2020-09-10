@@ -1,18 +1,22 @@
 TARGET    := brexx.objp
 
-JCCFOLDER  = ../../jcc
-OBJSCAN    = $(JCCFOLDER)/objscan
-PRELINK    = $(JCCFOLDER)/prelink
-#CC         = $(JCCFOLDER)/jcc
-CC         = wine $(JCCFOLDER)/jcc.exe
-JCCINCS    = $(JCCFOLDER)/include
-JCCOBJS    = $(JCCFOLDER)/objs
-JCCLIBLIST = $(JCCOBJS)/liblst.txt
+JCCFOLDER   = ../../jcc
+OBJSCAN     = $(JCCFOLDER)/objscan
+PRELINK     = $(JCCFOLDER)/prelink
+#CC          = $(JCCFOLDER)/jcc
+CC          = wine $(JCCFOLDER)/jcc.exe
+JCCINCS     = $(JCCFOLDER)/include
+JCCOBJS     = $(JCCFOLDER)/objs
+JCCLIBLIST  = $(JCCOBJS)/liblst.txt
 RDRPREP    = rdrprep
-TK4HOST    = localhost
-TK4PORT    = 3505
-TK4PRINTER = ~/DEV/tk4/prt/prt00e.txt
-NC         = nc
+TK4HOST     = localhost
+TK4PORT     = 3505
+TK4PRINTER  = ~/DEV/tk4/prt/prt00e.txt
+NC          = nc
+SLEEP       = 20
+# by default it will send to MSGCLASS A or H, set
+# CUSTOMCLASS below if you want to use a different class
+CUSTOMCLASS = 
 
 ########################################
 
@@ -33,6 +37,16 @@ CC_FLAGS ?= $(INC_FLAGS) $(D_FLAGS) -o -fstk -list=list.out
 JCC ?= $(CC) $(CC_FLAGS)
 RM  := rm
 
+# Set the MSGCLASS to A if we have a local printer
+MSGCLASS = H
+ifneq ("$(wildcard $(TK4PRINTER))","")
+MSGCLASS = A
+endif
+
+ifeq ($(CUSTOMCLASS),)
+CUSTOMCLASS = $(MSGCLASS)
+endif
+
 .PHONY: clean all
 
 all: $(TARGET)
@@ -40,13 +54,14 @@ all: $(TARGET)
 $(TARGET): link
 
 link: local_prelink
-	@echo "# Generating JCL from $(ASM_DIRS) $(MAC_DIRS)"
-	@./assemble-link.sh $(ASM_DIRS) $(MAC_DIRS) brexx.objp > assemble-link.jcl
+	@echo "# Generating JCL from $(ASM_DIRS) $(MAC_DIRS) MSGCLASS=$(CUSTOMCLASS)"
+	@./assemble-link.sh $(ASM_DIRS) $(MAC_DIRS) brexx.objp $(CUSTOMCLASS) > assemble-link.jcl
 	@echo "# Converting to EBCDIC"
 	@$(RDRPREP) assemble-link.jcl
 	@echo "# Submiting to reader at $(TK4HOST):$(TK4PORT)"
 	@$(NC) -w1 $(TK4HOST) $(TK4PORT) < reader.jcl
-	@sleep 30
+ifeq ($(CUSTOMCLASS), A) 
+	@sleep $(SLEEP)
 	@echo "# Printing results $(TK4HOST):$(TK4PORT)"
 	@grep "BRUPASLN   BRDELETE" $(TK4PRINTER) |tail -1
 	@grep "BRUPASLN   BRCREATE" $(TK4PRINTER) |tail -1
@@ -81,7 +96,9 @@ link: local_prelink
 	@grep "BRUPASLN   LINKAUTH" $(TK4PRINTER) |tail -1
 	@grep "BRUPASLN   LINK" $(TK4PRINTER) |tail -1
 	@grep "BRUPASLN   ALIASES" $(TK4PRINTER) |tail -1
-
+else
+	@echo "# Job submitted, check output spool on $(TK4HOST) for results"
+endif
 
 local_prelink: $(OBJS)
 	@echo "# prelinking JCC objects into brexx.objp"
@@ -93,7 +110,7 @@ local_prelink: $(OBJS)
 	@$(JCC) $< >> jcc.log 2>&1
 
 clean:
-	@./assemble-link.sh clean > clean.jcl
+	@./assemble-link.sh clean $(CUSTOMCLASS) > clean.jcl
 	@$(RDRPREP) clean.jcl
 	@$(NC) -w1 $(TK4HOST) $(TK4PORT) < reader.jcl
 #	@sleep 5
