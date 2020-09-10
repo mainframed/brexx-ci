@@ -1,29 +1,31 @@
-TARGET    := brexx.objp
+TARGET      := brexx.objp
 
-JCCFOLDER   = ../../jcc
-OBJSCAN     = $(JCCFOLDER)/objscan
-PRELINK     = $(JCCFOLDER)/prelink
-#CC          = $(JCCFOLDER)/jcc
-CC          = wine $(JCCFOLDER)/jcc.exe
-JCCINCS     = $(JCCFOLDER)/include
-JCCOBJS     = $(JCCFOLDER)/objs
-JCCLIBLIST  = $(JCCOBJS)/liblst.txt
-RDRPREP    = rdrprep
-TK4HOST     = localhost
-TK4PORT     = 3505
-TK4PRINTER  = ~/DEV/tk4/prt/prt00e.txt
-NC          = nc
-SLEEP       = 20
+JCCFOLDER   := ../../jcc
+OBJSCAN     := $(JCCFOLDER)/objscan
+PRELINK     := $(JCCFOLDER)/prelink
+#CC          := $(JCCFOLDER)/jcc
+CC          := wine $(JCCFOLDER)/jcc.exe
+JCCINCS     := $(JCCFOLDER)/include
+JCCOBJS     := $(JCCFOLDER)/objs
+JCCLIBLIST  := $(JCCOBJS)/liblst.txt
+RDRPREP     := rdrprep
+TK4HOST     := localhost
+TK4PORT     := 3505
+TK4USER     := HERC01
+TK$PASS     := CUL8TR
+TK4PRINTER  := ~/DEV/tk4/prt/prt00e.txt
+NC          := nc
+SLEEP       := 20
 # by default it will send to MSGCLASS A or H, set
 # CUSTOMCLASS below if you want to use a different class
-CUSTOMCLASS = 
+CUSTOMCLASS := 
 
 ########################################
 
-SRC_DIRS ?= ../src ../lstring ../rac ../dynit ../fss
-INC_DIRS ?= $(JCCINCS) ../inc ../rac ../dynit ../fss ../cross
-ASM_DIRS ?= ../mvs/asm
-MAC_DIRS ?= ../mvs/maclib
+SRC_DIRS := ../src ../lstring ../rac ../dynit ../fss
+INC_DIRS := $(JCCINCS) ../inc ../rac ../dynit ../fss ../cross
+ASM_DIRS := ../mvs/asm
+MAC_DIRS := ../mvs/maclib
 VPATH = $(SRC_DIRS)
 
 SRCS := $(shell find $(SRC_DIRS) -name *.c )
@@ -31,10 +33,10 @@ INCS := $(shell find $(INC_DIRS) -type d)
 OBJS := $(addsuffix .obj, $(notdir $(basename $(SRCS))))
 
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
-D_FLAGS  ?= -D__MVS__
-CC_FLAGS ?= $(INC_FLAGS) $(D_FLAGS) -o -fstk -list=list.out
+D_FLAGS   := -D__MVS__
+CC_FLAGS  := $(INC_FLAGS) $(D_FLAGS) -o -fstk -list=list.out
 
-JCC ?= $(CC) $(CC_FLAGS)
+JCC := $(CC) $(CC_FLAGS)
 RM  := rm
 
 # Set the MSGCLASS to A if we have a local printer
@@ -53,7 +55,16 @@ all: $(TARGET)
 
 $(TARGET): link
 
-link: local_prelink
+link: prelink
+	@echo "# Generating link job using  USER=$(TK4USER) MSGCLASS=$(CUSTOMCLASS)"
+	@./link.sh brexx.objp $(TK4USER) $(TK4PASS) $(CUSTOMCLASS) > link.jcl
+	@echo "# Converting to EBCDIC"
+	@$(RDRPREP) link.jcl
+	@echo "# Submiting  link job to reader at $(TK4HOST):$(TK4PORT)"
+	@$(NC) -w1 $(TK4HOST) $(TK4PORT) < reader.jcl
+	# tbd : all these grep stuff
+	
+assemble: prelink
 	@echo "# Generating JCL from $(ASM_DIRS) $(MAC_DIRS) MSGCLASS=$(CUSTOMCLASS)"
 	@./assemble-link.sh $(ASM_DIRS) $(MAC_DIRS) brexx.objp $(CUSTOMCLASS) > assemble-link.jcl
 	@echo "# Converting to EBCDIC"
@@ -100,7 +111,7 @@ else
 	@echo "# Job submitted, check output spool on $(TK4HOST) for results"
 endif
 
-local_prelink: $(OBJS)
+prelink: $(OBJS)
 	@echo "# prelinking JCC objects into brexx.objp"
 	@$(PRELINK) -s $(JCCOBJS) brexx.objp $(OBJS) obj/rxmvsext.obj >> prelink.log 2>&1
 	
