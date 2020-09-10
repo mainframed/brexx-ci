@@ -1,84 +1,40 @@
 #!/bin/bash
 
-# Dual mode: clean and Upload/Assemble/Link
-
+USER="HERC01"
+PASS="CUL8TR"
 CLASS="A"
 
-
-if [ $1 = "clean" ]; then
-
 if [ $# = 2 ]; then
-    CLASS=$2
+    USER=$2
 fi
 
-cat << JCLCLEAN
-//BRCLEAN1 JOB CLASS=A,MSGCLASS=$CLASS,MSGLEVEL=(1,1),
-//         USER=HERC01,PASSWORD=CUL8TR
-//*********************************************************************
-//* DELETE PRIOR VERSIONS OF SOURCE AND OBJECT DATASETS               *
-//*********************************************************************
-//*
-//BRDELETE EXEC PGM=IDCAMS,REGION=1024K
-//SYSPRINT DD  SYSOUT=A
-//SYSIN    DD  *
-    DELETE BREXX.ASM NONVSAM SCRATCH PURGE
-    DELETE BREXX.LINKLIB NONVSAM SCRATCH PURGE
-    DELETE BREXX.MACLIB NONVSAM SCRATCH PURGE
-    DELETE BREXX.RXMVSEXT NONVSAM SCRATCH PURGE
-    DELETE BREXX.OBJ NONVSAM SCRATCH PURGE
- /* IF THERE WAS NO DATASET TO DELETE, RESET CC           */
- IF LASTCC = 8 THEN
-   DO
-       SET LASTCC = 0
-       SET MAXCC = 0
-   END
-/*
-//* ------------------------------------------------------------------
-//* Delete sys2.linklib members
-//* ------------------------------------------------------------------
-//BRDLINKL EXEC PGM=IKJEFT01,REGION=8192K
-//SYSTSPRT DD   SYSOUT=*
-//SYSTSIN  DD   *
-  DELETE 'SYS2.LINKLIB(BREXX)'
-  DELETE 'SYS2.LINKLIB(REXX)'
-  DELETE 'SYS2.LINKLIB(RX)'
-  COMPRESS 'SYS2.LINKLIB'
-/*
-JCLCLEAN
-exit
+if [ $# = 3 ]; then
+    USER=$2
+    PASS=$3    
 fi
 
 if [ $# = 4 ]; then
+    USER=$2
+    PASS=$3    
     CLASS=$4
 fi
 
-cat <<END_HEREDOC
-//BRUPASLN JOB CLASS=A,MSGCLASS=$CLASS,MSGLEVEL=(1,1),
-//         USER=HERC01,PASSWORD=CUL8TR
+cat <<END_JOBCARD
+//BRXLINK  JOB CLASS=A,MSGCLASS=$CLASS,MSGLEVEL=(1,1),
+//         USER=$USER,PASSWORD=$PASS
 //*********************************************************************
-//* DELETE PRIOR VERSIONS OF SOURCE AND OBJECT DATASETS               *
+//* BREXX V7R3M0 LINK JOB                                             *
 //*********************************************************************
 //*
-//BRDELETE EXEC PGM=IDCAMS,REGION=1024K
-//SYSPRINT DD  SYSOUT=A
-//SYSIN    DD  *
-    DELETE BREXX.RXMVSEXT NONVSAM SCRATCH PURGE
-    DELETE BREXX.OBJ NONVSAM SCRATCH PURGE
- /* IF THERE WAS NO DATASET TO DELETE, RESET CC           */
- IF LASTCC = 8 THEN
-   DO
-       SET LASTCC = 0
-       SET MAXCC = 0
-   END
-/*
+END_JOBCARD
 
-cat << JCLLINKOBJ
-//BRLNAUTH EXEC PGM=IEWL,
+cat << END_LINKSTEP
+//BRXLNK   EXEC PGM=IEWL,
 //         PARM='AC=1,NCAL,MAP,LIST,XREF,NORENT,SIZE=(999424,65536)'
 //SYSUT1   DD UNIT=SYSDA,SPACE=(CYL,(5,2))
 //SYSPRINT DD SYSOUT=*
 //SYSLIN   DD DATA,DLM=\$\$
-::E $3
+::E $1
 \$\$
 //SYSLMOD  DD DSN=SYS2.LINKLIB(BREXX),DISP=SHR
 //* -----------------------------------------------------------------
@@ -109,4 +65,4 @@ cat << JCLLINKOBJ
   RENAME 'SYS2.LINKLIB(RX2)' 'SYS2.LINKLIB(RX)'
 /*
 //
-JCLLINKOBJ
+END_LINKSTEP

@@ -12,8 +12,8 @@ RDRPREP     := rdrprep
 TK4HOST     := localhost
 TK4PORT     := 3505
 TK4USER     := HERC01
-TK$PASS     := CUL8TR
-TK4PRINTER  := ~/DEV/tk4/prt/prt00e.txt
+TK4PASS     := CUL8TR
+TK4PRINTER  := 
 NC          := nc
 SLEEP       := 20
 # by default it will send to MSGCLASS A or H, set
@@ -56,13 +56,13 @@ all: $(TARGET)
 $(TARGET): link
 
 link: prelink
-	@echo "# Generating link job using  USER=$(TK4USER) MSGCLASS=$(CUSTOMCLASS)"
+	@echo "# Generating link job using  USER=$(TK4USER) PASS=$(TK4PASS) MSGCLASS=$(CUSTOMCLASS)"
 	@./link.sh brexx.objp $(TK4USER) $(TK4PASS) $(CUSTOMCLASS) > link.jcl
 	@echo "# Converting to EBCDIC"
 	@$(RDRPREP) link.jcl
 	@echo "# Submiting  link job to reader at $(TK4HOST):$(TK4PORT)"
 	@$(NC) -w1 $(TK4HOST) $(TK4PORT) < reader.jcl
-	# tbd : all these grep stuff
+# tbd : all these grep stuff
 	
 assemble: prelink
 	@echo "# Generating JCL from $(ASM_DIRS) $(MAC_DIRS) MSGCLASS=$(CUSTOMCLASS)"
