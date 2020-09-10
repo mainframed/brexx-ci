@@ -71,6 +71,11 @@ link: prelink
 	@$(RDRPREP) link.jcl
 	@echo "# Submiting  link job to reader at $(TK4HOST):$(TK4PORT)"
 	@$(NC) -w1 $(TK4HOST) $(TK4PORT) < reader.jcl
+ifeq ($(CUSTOMCLASS), A) 
+	@./rc.sh ./link.jcl $(TK4PRINTER)
+else
+	@echo "# Job submitted, check output spool on $(TK4HOST) for results"
+endif
 # tbd : all these grep stuff
 	
 assemble: prelink
@@ -82,40 +87,8 @@ assemble: prelink
 	@$(NC) -w1 $(TK4HOST) $(TK4PORT) < reader.jcl
 ifeq ($(CUSTOMCLASS), A) 
 	@sleep $(SLEEP)
-	@echo "# Printing results $(TK4HOST):$(TK4PORT)"
-	@grep "BRUPASLN   BRDELETE" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   BRCREATE" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   BRUPASM" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   BRUPMACL" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   BRXSVC" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   IRXEXCOM" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   RACAUTH" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   RACCHECK" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   RACLOGIN" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   RXABEND" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   RXCPUTIM" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   RXIKJ441" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   RXINIT" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   RXNJE38" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   RXPTIME" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   RXSTIME" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   RXSVC" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   RXTERM" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   RXTSO" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   RXVSAM" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   RXVSMIO1" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   RXVSMIO2" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   RXWAIT" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   RXWTO" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   VSMIOSUB" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   BROBJSCN" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   COPYOBJS" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   COPYINDX" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   BRLNAUTH" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   BRLINK" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   LINKAUTH" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   LINK" $(TK4PRINTER) |tail -1
-	@grep "BRUPASLN   ALIASES" $(TK4PRINTER) |tail -1
+	@echo "# Job RC"
+	@./rc.sh ./assemble-link.jcl $(TK4PRINTER)
 else
 	@echo "# Job submitted, check output spool on $(TK4HOST) for results"
 endif
@@ -124,7 +97,6 @@ prelink: $(OBJS)
 	@echo "# prelinking JCC objects into brexx.objp"
 	@$(PRELINK) -s $(JCCOBJS) brexx.objp $(OBJS) obj/rxmvsext.obj >> prelink.log 2>&1
 	
-
 %.obj: %.c
 	@echo "# compiling " $<
 	@$(JCC) $< >> jcc.log 2>&1
@@ -133,9 +105,10 @@ clean:
 	@./clean.sh $(TK4USER) $(TK4PASS) $(CUSTOMCLASS) > clean.jcl
 	@$(RDRPREP) clean.jcl
 	@$(NC) -w1 $(TK4HOST) $(TK4PORT) < reader.jcl
-#	@sleep 5
-#	@grep "BRCLEAN1   BRDELETE" $(TK4PRINTER) |tail -1 
-#	@grep "BRCLEAN1   BRDLINKL" $(TK4PRINTER) |tail -1 
+ifeq ($(CUSTOMCLASS), A) 
+	@sleep $(SLEEP)
+	./rc.sh ./clean.jcl $(TK4PRINTER)
+endif
 	@$(RM) -f $(OBJS) brexx.objp jcc.log list.out prelink.log *.jcl
 
 
