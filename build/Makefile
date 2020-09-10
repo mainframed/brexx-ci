@@ -130,7 +130,7 @@ prelink: $(OBJS)
 	@$(JCC) $< >> jcc.log 2>&1
 
 clean:
-	@./assemble-link.sh clean $(CUSTOMCLASS) > clean.jcl
+	@./clean.sh $(TK4USER) $(TK4PASS) $(CUSTOMCLASS) > clean.jcl
 	@$(RDRPREP) clean.jcl
 	@$(NC) -w1 $(TK4HOST) $(TK4PORT) < reader.jcl
 #	@sleep 5
