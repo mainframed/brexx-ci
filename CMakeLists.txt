@@ -12,10 +12,6 @@ include_directories(dynit)
 include_directories(rac)
 include_directories(cross)
 
-add_executable(test
-        src/test.c
-     )
-
 add_executable(brexx
         cross/jccdummy.h
         cross/jccdummy.c
@@ -165,7 +161,7 @@ add_executable(brexx
         rac/rac.c)
 
 add_library(brxvar
-        src/brxvar.c src/bintree.c printf/printf.c printf/printf.h)
+        brxvar/brxvar.c src/bintree.c printf/printf.c printf/printf.h)
 
 if(UNIX AND NOT APPLE)
    target_link_libraries(brexx m)
