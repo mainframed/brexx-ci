@@ -20,7 +20,8 @@ CUSTOMCLASS :=
 TARGET      := brexx.objp
 
 OBJSCAN     := $(JCCFOLDER)/objscan
-PRELINK     := $(JCCFOLDER)/prelink
+PRELINK     := wine $(JCCFOLDER)/prelink.exe
+#PRELINK     := $(JCCFOLDER)/prelink
 #CC          := $(JCCFOLDER)/jcc
 CC          := wine $(JCCFOLDER)/jcc.exe
 JCCINCS     := $(JCCFOLDER)/include
@@ -106,7 +107,7 @@ clean:
 	@$(RDRPREP) clean.jcl
 	@$(NC) -w1 $(TK4HOST) $(TK4PORT) < reader.jcl
 ifeq ($(CUSTOMCLASS), A) 
-	@sleep $(SLEEP)
+	@sleep 3
 	./rc.sh ./clean.jcl $(TK4PRINTER)
 endif
 	@$(RM) -f $(OBJS) brexx.objp jcc.log list.out prelink.log *.jcl
