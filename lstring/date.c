@@ -125,8 +125,8 @@ Ldate( const PLstr datestr, char option )
 
 		case 'J':
 #ifndef WCE
-			sprintf(LSTR(*datestr),"%02d%03d",
-				tmdata->tm_year%100, tmdata->tm_yday+1);
+			sprintf(LSTR(*datestr),"%004d%03d",
+				tmdata->tm_year+1900, tmdata->tm_yday+1);
 #else
 			swprintf(buf,TEXT("%02d%03d"),
 				time.wYear%100, day_of_year(&time));
