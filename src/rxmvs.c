@@ -1478,6 +1478,7 @@ void R_renamedsn(int func)
     LFREESTR(newDSN);
     LFREESTR(newMember);
     Licpy(ARGR,renrc);
+    L2int(ARGR);
     _style = _style_old;
 }
 // -------------------------------------------------------------------------------------
